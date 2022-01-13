@@ -1,6 +1,2 @@
-import SessionAnalysis.utils
-import SessionAnalysis.neuron_tuning
-import SessionAnalysis.session_analysis
-import SessionAnalysis.timeseries
-import SessionAnalysis.session
-import SessionAnalysis.trial
+import LearnDirTunePurk.format_trials
+import LearnDirTunePurk.load_data
