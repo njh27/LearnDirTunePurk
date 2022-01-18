@@ -29,7 +29,7 @@ def name_trial_events(maestro_data):
     IN PLACE.
 
     NOTE THAT the post learning standard tuning block in Dandy is messed up
-    because it has the extra eents as used for the Stab tuning!!! So these
+    because it has the extra events as used for the Stab tuning!!! So these
     are explictily caught and renamed....
     """
 
