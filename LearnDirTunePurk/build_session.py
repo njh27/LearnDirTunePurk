@@ -30,6 +30,10 @@ def create_behavior_session(maestro_dir, session_name=None, check_existing=True,
     sess = sa.session.Session(trial_list, session_name=session_name)
     sess.add_trial_data(trial_list_bhv, data_type=None)
 
+    # Align target onset with monitor refresh rate and align
+    sess.shift_event_to_refresh('target_onset')
+    sess.align_trial_data('target_onset', alignment_offset=0)
+
     # Add hard coded blocks by trial names
     trial_names = ['d014fix', 'd0-14fix', 'd-1010fix', 'd1010fix', 'd140fix', 'd-10-10fix', 'd10-10fix', 'd-140fix', 'd00fix']
     block_names = ['fix_tune1', 'fix_tune2']
