@@ -134,3 +134,46 @@ def parse_learning_directions(sess):
     learn_vector = np.around(np.array([np.cos(np.deg2rad(learn_dir)), np.sin(np.deg2rad(learn_dir))]), 3)
     # Transformation of learning vector with rotation matrix and mirror if needed
     rotate_pursuit_mat = rotate_pursuit_mat @ np.array([[1., 0.], rotate_pursuit_mat @ learn_vector])
+
+
+def make_180(angle):
+    """ Helper function that, given an input angle in degrees, returns the same
+    angle on the interval [-179, 180]. """
+    # reduce the angle
+    angle = angle % 360
+    # force it to be the positive remainder, so that 0 <= angle < 360
+    angle = (angle + 360) % 360
+    # force into the minimum absolute value residue class, so that -180 < angle <= 180
+    if (angle > 180):
+        angle -= 360
+    return angle
+
+
+def get_rotation_matrix(pursuit_dir, learn_dir):
+    """ Returns the rotation matrix for transforming the pursuit_dir to angle
+    0 and learn_dir to angle 90 for 2D vectors of eye/target position.
+
+    pursuit_dir and learn_dir are assumed to be between 0 and 359 and orthogonal
+    to one another."""
+    if ( (pursuit_dir >= 360) or (pursuit_dir < 0) or
+         (learn_dir >= 360) or (learn_dir < 0) or
+         (np.abs(learn_dir - pursuit_dir) != 90) ):
+        raise RuntimeError("Pursuit direction and learning direction not valid. Pursuit dir = {0} and Learning dir = {1}.".format(pursuit_dir, learn_dir))
+
+    # Rotate clockwise for pursuit direction to be at angle 0
+    rot_angle_rad = np.deg2rad(0 - pursuit_dir)
+    # Rotation matrix so pursuit direction is at 0 degrees, rotating clockwise
+    rotate_pursuit_mat = np.array([[np.cos(rot_angle_rad), -1*np.sin(rot_angle_rad)],
+                                   [np.sin(rot_angle_rad), np.cos(rot_angle_rad)]])
+    # Round to nearest 5 decimals so that vectors stay on [0, 1], [1, 0], e.g.
+    rotate_pursuit_mat = np.around(rotate_pursuit_mat, 5)
+    mirror_xaxis = np.array([[1, 0], [0, -1]])
+    if make_180(learn_dir - pursuit_dir) == -90:
+        # Need to mirror about the x-axis
+        # Note: MUST be careful in re-using matrix variable names as @ operator
+        #       overwrites things in place, so this seems slightly long
+        rotation_matrix = mirror_xaxis @ rotate_pursuit_mat
+    else:
+        rotation_matrix = rotate_pursuit_mat
+
+    return rotation_matrix
