@@ -1,4 +1,5 @@
 import numpy as np
+import re
 from SessionAnalysis.session import Session
 
 
@@ -91,28 +92,28 @@ class LDPSession(Session):
         trial_types['anti_learning'] = np.zeros(len(self), dtype='bool')
         trial_types['instruction'] = np.zeros(len(self), dtype='bool')
         for ind, st in enumerate(self._session_trial_data):
-            if st['name'] == self.directions['pursuit']:
+            if st['name'] == str(self.directions['pursuit']):
                 trial_types['pursuit'][ind] = True
             elif st['name'] == str(self.directions['pursuit']) + "RandVP":
                 trial_types['pursuit'][ind] = True
             elif st['name'] == str(self.directions['pursuit']) + "Stab":
                 trial_types['pursuit'][ind] = True
 
-            elif st['name'] == self.directions['learning']:
+            elif st['name'] == str(self.directions['learning']):
                 trial_types['learning'][ind] = True
             elif st['name'] == str(self.directions['learning']) + "RandVP":
                 trial_types['learning'][ind] = True
             elif st['name'] == str(self.directions['learning']) + "Stab":
                 trial_types['learning'][ind] = True
 
-            elif st['name'] == self.directions['anti_pursuit']:
+            elif st['name'] == str(self.directions['anti_pursuit']):
                 trial_types['anti_pursuit'][ind] = True
             elif st['name'] == str(self.directions['anti_pursuit']) + "RandVP":
                 trial_types['anti_pursuit'][ind] = True
             elif st['name'] == str(self.directions['anti_pursuit']) + "Stab":
                 trial_types['anti_pursuit'][ind] = True
 
-            elif st['name'] == self.directions['anti_learning']:
+            elif st['name'] == str(self.directions['anti_learning']):
                 trial_types['anti_learning'][ind] = True
             elif st['name'] == str(self.directions['anti_learning']) + "RandVP":
                 trial_types['anti_learning'][ind] = True

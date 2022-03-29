@@ -97,12 +97,20 @@ def create_behavior_session(maestro_dir, session_name=None, check_existing=True,
     sess.add_blocks(trial_names, block_names, ignore_trial_names=ignore_trial_names,
                     max_consec_absent=10, block_min=20)
 
-    # Align target onset with monitor refresh rate and align
+    # Align all target related events with monitor refresh rate
     sess.shift_event_to_refresh('target_onset')
+    sess.shift_event_to_refresh('fixation_onset')
+    sess.shift_event_to_refresh('instruction_onset')
+    sess.shift_event_to_refresh('rand_fix_onset')
+    sess.shift_event_to_refresh('start_stabwin')
+    sess.shift_event_to_refresh('target_offset')
+    # Align trials on events
     sess.align_trial_data('target_onset', alignment_offset=0)
     sess.align_trial_data('fixation_onset', alignment_offset=0, trials='FixTunePre')
     sess.align_trial_data('fixation_onset', alignment_offset=0, trials='FixTunePost')
 
+    # Setup learning direction and trial type metadata for easier indexing later
     sess.assign_learning_directions()
+    sess.set_trial_types_indices()
 
     return sess
