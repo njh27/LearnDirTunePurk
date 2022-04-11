@@ -105,12 +105,19 @@ def create_behavior_session(maestro_dir, session_name=None, check_existing=True,
     sess.shift_event_to_refresh('start_stabwin')
     sess.shift_event_to_refresh('target_offset')
     # Align trials on events
-    sess.align_trial_data('target_onset', alignment_offset=0)
-    sess.align_trial_data('fixation_onset', alignment_offset=0, trials='FixTunePre')
-    sess.align_trial_data('fixation_onset', alignment_offset=0, trials='FixTunePost')
+    # First non-fixation only trials
+    blocks = []
+    for blk in sess.block_names():
+        if blk in ["FixTunePre", "FixTunePost"]:
+            continue
+        blocks.append(blk)
+    sess.align_trial_data('target_onset', alignment_offset=0, blocks=blocks)
+    # Then fixation only trials
+    blocks = ["FixTunePre", "FixTunePost"]
+    sess.align_trial_data('fixation_onset', alignment_offset=0, blocks=blocks)
 
     # Setup learning direction and trial type metadata for easier indexing later
     sess.assign_learning_directions()
-    sess.set_trial_types_indices()
+    sess.add_default_trial_sets()
 
     return sess

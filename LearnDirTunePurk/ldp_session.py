@@ -80,50 +80,49 @@ class LDPSession(Session):
         self._verify_block_order()
         return
 
-    def set_trial_types_indices(self):
-        """ Adds a "trial_types" dictionary to the session object which indicates
+    def add_default_trial_sets(self):
+        """ Adds boolean masks for all the expected trial types to the
+        trial_sets dictionary to the session object which indicates
         whether a trial falls into the classes given in "directions" or whether it
         is a learning trial. """
         instructexp = re.compile(str(self.directions['pursuit'])+"-..")
-        trial_types = {}
-        trial_types['pursuit'] = np.zeros(len(self), dtype='bool')
-        trial_types['learning'] = np.zeros(len(self), dtype='bool')
-        trial_types['anti_pursuit'] = np.zeros(len(self), dtype='bool')
-        trial_types['anti_learning'] = np.zeros(len(self), dtype='bool')
-        trial_types['instruction'] = np.zeros(len(self), dtype='bool')
+        self.trial_sets['pursuit'] = np.zeros(len(self), dtype='bool')
+        self.trial_sets['learning'] = np.zeros(len(self), dtype='bool')
+        self.trial_sets['anti_pursuit'] = np.zeros(len(self), dtype='bool')
+        self.trial_sets['anti_learning'] = np.zeros(len(self), dtype='bool')
+        self.trial_sets['instruction'] = np.zeros(len(self), dtype='bool')
         for ind, st in enumerate(self._session_trial_data):
             if st['name'] == str(self.directions['pursuit']):
-                trial_types['pursuit'][ind] = True
+                self.trial_sets['pursuit'][ind] = True
             elif st['name'] == str(self.directions['pursuit']) + "RandVP":
-                trial_types['pursuit'][ind] = True
+                self.trial_sets['pursuit'][ind] = True
             elif st['name'] == str(self.directions['pursuit']) + "Stab":
-                trial_types['pursuit'][ind] = True
+                self.trial_sets['pursuit'][ind] = True
 
             elif st['name'] == str(self.directions['learning']):
-                trial_types['learning'][ind] = True
+                self.trial_sets['learning'][ind] = True
             elif st['name'] == str(self.directions['learning']) + "RandVP":
-                trial_types['learning'][ind] = True
+                self.trial_sets['learning'][ind] = True
             elif st['name'] == str(self.directions['learning']) + "Stab":
-                trial_types['learning'][ind] = True
+                self.trial_sets['learning'][ind] = True
 
             elif st['name'] == str(self.directions['anti_pursuit']):
-                trial_types['anti_pursuit'][ind] = True
+                self.trial_sets['anti_pursuit'][ind] = True
             elif st['name'] == str(self.directions['anti_pursuit']) + "RandVP":
-                trial_types['anti_pursuit'][ind] = True
+                self.trial_sets['anti_pursuit'][ind] = True
             elif st['name'] == str(self.directions['anti_pursuit']) + "Stab":
-                trial_types['anti_pursuit'][ind] = True
+                self.trial_sets['anti_pursuit'][ind] = True
 
             elif st['name'] == str(self.directions['anti_learning']):
-                trial_types['anti_learning'][ind] = True
+                self.trial_sets['anti_learning'][ind] = True
             elif st['name'] == str(self.directions['anti_learning']) + "RandVP":
-                trial_types['anti_learning'][ind] = True
+                self.trial_sets['anti_learning'][ind] = True
             elif st['name'] == str(self.directions['anti_learning']) + "Stab":
-                trial_types['anti_learning'][ind] = True
+                self.trial_sets['anti_learning'][ind] = True
 
             elif bool(re.match(instructexp, st['name'])):
-                trial_types['instruction'][ind] = True
-        self.trial_types = trial_types
-        return
+                self.trial_sets['instruction'][ind] = True
+        return None
 
     def _set_rotation_matrix(self):
         """ Sets the rotation matrix for transforming the pursuit_dir to angle
