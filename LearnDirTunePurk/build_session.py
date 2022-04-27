@@ -104,6 +104,18 @@ def create_behavior_session(maestro_dir, session_name=None, check_existing=True,
     sess.shift_event_to_refresh('rand_fix_onset')
     sess.shift_event_to_refresh('start_stabwin')
     sess.shift_event_to_refresh('target_offset')
+
+    # Remove trials that were not long enough to start
+    # Find fixation tuning trials that lasted less than 800 ms
+    fix_trials_less_than_event = sess.find_trials_less_than_event("fixation_onset",
+                                                          blocks=["FixTunePre", "FixTunePost"],
+                                                          trial_sets=None,
+                                                          event_offset=800.)
+    # Find target trials that didn't make it to target motion onset
+    trials_less_than_event = sess.find_trials_less_than_event("target_onset", blocks=None, trial_sets=None)
+    # Delete these trials
+    sess.delete_trials(np.logical_or(fix_trials_less_than_event, trials_less_than_event))
+
     # Align trials on events
     # First non-fixation only trials
     blocks = []
@@ -119,5 +131,7 @@ def create_behavior_session(maestro_dir, session_name=None, check_existing=True,
     # Setup learning direction and trial type metadata for easier indexing later
     sess.assign_learning_directions()
     sess.add_default_trial_sets()
+
+    # Get all data during initial fixation for 
 
     return sess
