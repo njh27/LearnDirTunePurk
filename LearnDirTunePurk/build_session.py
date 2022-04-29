@@ -106,7 +106,7 @@ def create_behavior_session(maestro_dir, session_name=None, check_existing=True,
     sess.shift_event_to_refresh('target_offset')
 
     # Fixation trials will be found and aligned by this many ms after target onset
-    fixation_trial_t_offset = 1600.
+    fixation_trial_t_offset = 1200.
     # Remove trials that were not long enough to start
     # Find fixation tuning trials that lasted less than 800 ms
     fix_trials_less_than_event = sess.find_trials_less_than_event("fixation_onset",
