@@ -105,12 +105,16 @@ def create_behavior_session(maestro_dir, session_name=None, check_existing=True,
     sess.shift_event_to_refresh('start_stabwin')
     sess.shift_event_to_refresh('target_offset')
 
+    # Fixation trials will be found and aligned by this many ms after target onset
+    fixation_trial_t_offset = 1600.
     # Remove trials that were not long enough to start
     # Find fixation tuning trials that lasted less than 800 ms
     fix_trials_less_than_event = sess.find_trials_less_than_event("fixation_onset",
                                                           blocks=["FixTunePre", "FixTunePost"],
                                                           trial_sets=None,
-                                                          event_offset=800.)
+                                                          event_offset=fixation_trial_t_offset)
+    if np.count_nonzero(fix_trials_less_than_event) <= 5:
+        print("Session '{0}' fixation trials are shorter than offset (build_session line ~117).".format(session_name))
     # Find target trials that didn't make it to target motion onset
     trials_less_than_event = sess.find_trials_less_than_event("target_onset", blocks=None, trial_sets=None)
     # Delete these trials
@@ -126,12 +130,47 @@ def create_behavior_session(maestro_dir, session_name=None, check_existing=True,
     sess.align_trial_data('target_onset', alignment_offset=0, blocks=blocks)
     # Then fixation only trials
     blocks = ["FixTunePre", "FixTunePost"]
-    sess.align_trial_data('fixation_onset', alignment_offset=0, blocks=blocks)
+    sess.align_trial_data('fixation_onset', alignment_offset=fixation_trial_t_offset, blocks=blocks)
 
     # Setup learning direction and trial type metadata for easier indexing later
     sess.assign_learning_directions()
     sess.add_default_trial_sets()
 
-    # Get all data during initial fixation for 
+    # Get all eye data during initial fixation
+    time_window = [-400, 0]
+    blocks = None
+    trial_sets = None
+    series_fix_data = {}
+    series_names = ['horizontal_eye_position',
+                    'vertical_eye_position',
+                    'horizontal_eye_velocity',
+                    'vertical_eye_velocity']
+    for sn in series_names:
+        series_fix_data[sn] = sess.get_data_array(sn, time_window, blocks, trial_sets)
+
+    # Find fixation eye offset for each trial, adjust its data, then nan saccades
+    # for t_ind in range(0, len(sess)):
+    #     try:
+    #         offsets = sa.utils.eye_data_series.find_eye_offsets(
+    #                         series_fix_data['horizontal_eye_position'][t_ind, :],
+    #                         series_fix_data['vertical_eye_position'][t_ind, :],
+    #                         series_fix_data['horizontal_eye_velocity'][t_ind, :],
+    #                         series_fix_data['vertical_eye_velocity'][t_ind, :],
+    #                         epsilon_eye=0.1, max_iter=10,
+    #                         ind_cushion=20, acceleration_thresh=1, speed_thresh=30)
+    #         for sn in series_names:
+    #             if sn == "horizontal_eye_position":
+    #                 sess._trial_lists['eye'][t_ind].data[sn] -= offsets[0]
+    #             elif sn == "vertical_eye_position":
+    #                 sess._trial_lists['eye'][t_ind].data[sn] -= offsets[1]
+    #             elif sn == "horizontal_eye_velocity":
+    #                 sess._trial_lists['eye'][t_ind].data[sn] -= offsets[2]
+    #             elif sn == "vertical_eye_velocity":
+    #                 sess._trial_lists['eye'][t_ind].data[sn] -= offsets[3]
+    #             else:
+    #                 raise RuntimeError("Could not find data series name for offsets.")
+    #     except:
+    #         print(t_ind)
+    #         raise
 
     return sess
