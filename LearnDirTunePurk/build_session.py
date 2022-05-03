@@ -149,28 +149,42 @@ def create_behavior_session(maestro_dir, session_name=None, check_existing=True,
         series_fix_data[sn] = sess.get_data_array(sn, time_window, blocks, trial_sets)
 
     # Find fixation eye offset for each trial, adjust its data, then nan saccades
-    # for t_ind in range(0, len(sess)):
-    #     try:
-    #         offsets = sa.utils.eye_data_series.find_eye_offsets(
-    #                         series_fix_data['horizontal_eye_position'][t_ind, :],
-    #                         series_fix_data['vertical_eye_position'][t_ind, :],
-    #                         series_fix_data['horizontal_eye_velocity'][t_ind, :],
-    #                         series_fix_data['vertical_eye_velocity'][t_ind, :],
-    #                         epsilon_eye=0.1, max_iter=10,
-    #                         ind_cushion=20, acceleration_thresh=1, speed_thresh=30)
-    #         for sn in series_names:
-    #             if sn == "horizontal_eye_position":
-    #                 sess._trial_lists['eye'][t_ind].data[sn] -= offsets[0]
-    #             elif sn == "vertical_eye_position":
-    #                 sess._trial_lists['eye'][t_ind].data[sn] -= offsets[1]
-    #             elif sn == "horizontal_eye_velocity":
-    #                 sess._trial_lists['eye'][t_ind].data[sn] -= offsets[2]
-    #             elif sn == "vertical_eye_velocity":
-    #                 sess._trial_lists['eye'][t_ind].data[sn] -= offsets[3]
-    #             else:
-    #                 raise RuntimeError("Could not find data series name for offsets.")
-    #     except:
-    #         print(t_ind)
-    #         raise
+    for t_ind in range(0, len(sess)):
+        try:
+            # Adjust to target position at -100 ms
+            offsets = sa.utils.eye_data_series.find_eye_offsets(
+                            series_fix_data['horizontal_eye_position'][t_ind, :],
+                            series_fix_data['vertical_eye_position'][t_ind, :],
+                            series_fix_data['horizontal_eye_velocity'][t_ind, :],
+                            series_fix_data['vertical_eye_velocity'][t_ind, :],
+                            x_targ=sess[t_ind].get_data('xpos')[-100],
+                            y_targ=sess[t_ind].get_data('ypos')[-100],
+                            epsilon_eye=0.1, max_iter=10, return_saccades=False,
+                            ind_cushion=20, acceleration_thresh=1, speed_thresh=30)
+
+            for sn in series_names:
+                if sn == "horizontal_eye_position":
+                    sess._trial_lists['eye'][t_ind].data[sn] -= offsets[0]
+                elif sn == "vertical_eye_position":
+                    sess._trial_lists['eye'][t_ind].data[sn] -= offsets[1]
+                elif sn == "horizontal_eye_velocity":
+                    sess._trial_lists['eye'][t_ind].data[sn] -= offsets[2]
+                elif sn == "vertical_eye_velocity":
+                    sess._trial_lists['eye'][t_ind].data[sn] -= offsets[3]
+                else:
+                    raise RuntimeError("Could not find data series name for offsets.")
+
+            x_vel = sess._trial_lists['eye'][t_ind].data['horizontal_eye_velocity']
+            y_vel = sess._trial_lists['eye'][t_ind].data['vertical_eye_velocity']
+            saccade_windows, saccade_index = sa.utils.eye_data_series.find_saccade_windows(
+                    x_vel, y_vel, ind_cushion=20, acceleration_thresh=1, speed_thresh=30)
+            sess._trial_lists['eye'][t_ind].saccade_windows = saccade_windows
+            sess._trial_lists['eye'][t_ind].saccade_index = saccade_index
+            for sn in series_names:
+                # NaN all this eye data
+                sess._trial_lists['eye'][t_ind].data[sn][saccade_index] = np.nan
+        except:
+            print(t_ind)
+            raise
 
     return sess
