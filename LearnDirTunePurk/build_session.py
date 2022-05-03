@@ -8,19 +8,23 @@ import SessionAnalysis as sa
 
 
 def create_behavior_session(maestro_dir, session_name=None, check_existing=True,
-        save_data=True):
+        save_data=True, verbose=True):
     if session_name is None:
         session_name = maestro_dir.split("/")[-1]
     # Load all Maestro data
+    if verbose: print("Loading Maestro directory data.")
     maestro_data = load_maestro_directory(maestro_dir, check_existing=True, save_data=True)
     # Sets trial targets as objects so probably want to do this after loading and not saved
+    if verbose: print("Formatting target data and trials.")
     rm.format_trials.data_to_target(maestro_data)
 
     # Reformat the multi targets and names of trials into one and name events
+    if verbose: print("Renaming trials and events.")
     format_trials.rename_stab_probe_trials(maestro_data)
     format_trials.name_trial_events(maestro_data)
 
     # Create base list of ApparatusTrial trials from target0
+    if verbose: print("Converting data to trial objects.")
     trial_list = sa.utils.format_trial_dicts.maestro_to_apparatus_trial(
                         maestro_data, 0, 1, start_data=0, data_name="target0")
     # Create a second list of BehaviorTrial trials from eye data
@@ -29,6 +33,7 @@ def create_behavior_session(maestro_dir, session_name=None, check_existing=True,
 
     # Create base session from apparatus trials then add behavior
     # sess = sa.session.Session(trial_list, session_name=session_name)
+    if verbose: print("Generating session and adding blocks.")
     sess = LDPSession(trial_list, session_name=session_name)
     sess.add_trial_data(trial_list_bhv, data_type=None)
 
@@ -136,6 +141,7 @@ def create_behavior_session(maestro_dir, session_name=None, check_existing=True,
     sess.assign_learning_directions()
     sess.add_default_trial_sets()
 
+    if verbose: print("Adjusting fixation offsets and getting saccades.")
     # Get all eye data during initial fixation
     time_window = [-400, 0]
     blocks = None
