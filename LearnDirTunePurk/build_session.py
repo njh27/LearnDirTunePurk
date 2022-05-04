@@ -39,7 +39,7 @@ def create_behavior_session(maestro_dir, session_name=None, check_existing=True,
 
     # Add hard coded blocks by trial names
     trial_names = ['d014fix', 'd0-14fix', 'd-1010fix', 'd1010fix', 'd140fix', 'd-10-10fix', 'd10-10fix', 'd-140fix', 'd00fix']
-    block_names = ['FixTunePre', 'FixTunePost']
+    block_names = ['FixTunePre', 'FixTunePost', 'FixTuneWashout']
     sess.add_blocks(trial_names, block_names, block_min=9)
 
     trial_names = ['270RandVP', '90RandVP', '180RandVP', '0RandVP']
@@ -51,56 +51,56 @@ def create_behavior_session(maestro_dir, session_name=None, check_existing=True,
     sess.add_blocks(trial_names, block_names, block_min=8)
 
     trial_names = ['90Stab', '0Stab', '180Stab','270Stab']
-    block_names = ['StabPre', 'StabPost']
+    block_names = ['StabPre', 'StabPost', 'StabWashout']
     sess.add_blocks(trial_names, block_names, block_min=8)
 
     trial_names = ['0-upStab']
-    ignore_trial_names = ['90Stab', '0Stab', '180Stab','270Stab']
+    ignore_trial_names = ['90Stab', '0Stab', '180Stab','270Stab', '90', '0', '180','270']
     block_names = ['0Learn90']
-    sess.add_blocks(trial_names, block_names, ignore_trial_names=ignore_trial_names,
-                    max_consec_absent=10, block_min=20)
+    sess.add_blocks(trial_names, block_names, number_names=True, ignore_trial_names=ignore_trial_names,
+                    max_consec_absent=0, block_min=20)
 
     trial_names = ['0-dnStab']
-    ignore_trial_names = ['90Stab', '0Stab', '180Stab','270Stab']
+    ignore_trial_names = ['90Stab', '0Stab', '180Stab','270Stab', '90', '0', '180','270']
     block_names = ['0Learn270']
-    sess.add_blocks(trial_names, block_names, ignore_trial_names=ignore_trial_names,
-                    max_consec_absent=10, block_min=20)
+    sess.add_blocks(trial_names, block_names, number_names=True, ignore_trial_names=ignore_trial_names,
+                    max_consec_absent=0, block_min=20)
 
     trial_names = ['90-rtStab']
-    ignore_trial_names = ['90Stab', '0Stab', '180Stab','270Stab']
+    ignore_trial_names = ['90Stab', '0Stab', '180Stab','270Stab', '90', '0', '180','270']
     block_names = ['90Learn0']
-    sess.add_blocks(trial_names, block_names, ignore_trial_names=ignore_trial_names,
-                    max_consec_absent=10, block_min=20)
+    sess.add_blocks(trial_names, block_names, number_names=True, ignore_trial_names=ignore_trial_names,
+                    max_consec_absent=0, block_min=20)
 
     trial_names = ['90-ltStab']
-    ignore_trial_names = ['90Stab', '0Stab', '180Stab','270Stab']
+    ignore_trial_names = ['90Stab', '0Stab', '180Stab','270Stab', '90', '0', '180','270']
     block_names = ['90Learn180']
-    sess.add_blocks(trial_names, block_names, ignore_trial_names=ignore_trial_names,
-                    max_consec_absent=10, block_min=20)
+    sess.add_blocks(trial_names, block_names, number_names=True, ignore_trial_names=ignore_trial_names,
+                    max_consec_absent=0, block_min=20)
 
     trial_names = ['180-upStab']
-    ignore_trial_names = ['90Stab', '0Stab', '180Stab','270Stab']
+    ignore_trial_names = ['90Stab', '0Stab', '180Stab','270Stab', '90', '0', '180','270']
     block_names = ['180Learn90']
-    sess.add_blocks(trial_names, block_names, ignore_trial_names=ignore_trial_names,
-                    max_consec_absent=10, block_min=20)
+    sess.add_blocks(trial_names, block_names, number_names=True, ignore_trial_names=ignore_trial_names,
+                    max_consec_absent=0, block_min=20)
 
     trial_names = ['180-dnStab']
-    ignore_trial_names = ['90Stab', '0Stab', '180Stab','270Stab']
+    ignore_trial_names = ['90Stab', '0Stab', '180Stab','270Stab', '90', '0', '180','270']
     block_names = ['180Learn270']
-    sess.add_blocks(trial_names, block_names, ignore_trial_names=ignore_trial_names,
-                    max_consec_absent=10, block_min=20)
+    sess.add_blocks(trial_names, block_names, number_names=True, ignore_trial_names=ignore_trial_names,
+                    max_consec_absent=0, block_min=20)
 
     trial_names = ['270-rtStab']
-    ignore_trial_names = ['90Stab', '0Stab', '180Stab','270Stab']
+    ignore_trial_names = ['90Stab', '0Stab', '180Stab','270Stab', '90', '0', '180','270']
     block_names = ['270Learn0']
-    sess.add_blocks(trial_names, block_names, ignore_trial_names=ignore_trial_names,
-                    max_consec_absent=10, block_min=20)
+    sess.add_blocks(trial_names, block_names, number_names=True, ignore_trial_names=ignore_trial_names,
+                    max_consec_absent=0, block_min=20)
 
     trial_names = ['270-ltStab']
-    ignore_trial_names = ['90Stab', '0Stab', '180Stab','270Stab']
+    ignore_trial_names = ['90Stab', '0Stab', '180Stab','270Stab', '90', '0', '180','270']
     block_names = ['270Learn180']
-    sess.add_blocks(trial_names, block_names, ignore_trial_names=ignore_trial_names,
-                    max_consec_absent=10, block_min=20)
+    sess.add_blocks(trial_names, block_names, number_names=True, ignore_trial_names=ignore_trial_names,
+                    max_consec_absent=0, block_min=20)
 
     # Align all target related events with monitor refresh rate
     sess.shift_event_to_refresh('target_onset')
@@ -115,7 +115,7 @@ def create_behavior_session(maestro_dir, session_name=None, check_existing=True,
     # Remove trials that were not long enough to start
     # Find fixation tuning trials that lasted less than 800 ms
     fix_trials_less_than_event = sess.find_trials_less_than_event("fixation_onset",
-                                                          blocks=["FixTunePre", "FixTunePost"],
+                                                          blocks=["FixTunePre", "FixTunePost", "FixTuneWashout"],
                                                           trial_sets=None,
                                                           event_offset=fixation_trial_t_offset)
     if np.count_nonzero(fix_trials_less_than_event) <= 5:
@@ -129,18 +129,19 @@ def create_behavior_session(maestro_dir, session_name=None, check_existing=True,
     # First non-fixation only trials
     blocks = []
     for blk in sess.block_names():
-        if blk in ["FixTunePre", "FixTunePost"]:
+        if blk in ["FixTunePre", "FixTunePost", "FixTuneWashout"]:
             continue
         blocks.append(blk)
     sess.align_trial_data('target_onset', alignment_offset=0, blocks=blocks)
     # Then fixation only trials
-    blocks = ["FixTunePre", "FixTunePost"]
+    blocks = ["FixTunePre", "FixTunePost", "FixTuneWashout"]
     sess.align_trial_data('fixation_onset', alignment_offset=fixation_trial_t_offset, blocks=blocks)
 
     # Setup learning direction and trial type metadata for easier indexing later
+    if verbose: print("Choosing learning/pursuit directions and default trial sets.")
     sess.assign_learning_directions()
     sess.add_default_trial_sets()
-
+    return sess
     if verbose: print("Adjusting fixation offsets and getting saccades.")
     # Get all eye data during initial fixation
     time_window = [-400, 0]

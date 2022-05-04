@@ -65,17 +65,44 @@ class LDPSession(Session):
 
         # Set learning and washout block alias names
         learn_trial_name = str(self.directions['pursuit']) + "Learn" + str(self.directions['learning'])
+        max_learn_len = 0
+        new_blocks = {}
         # Now name the learning block and washout blocks accordingly
         for block in self.blocks.keys():
-            if block == learn_trial_name:
-                self.blocks['Learning'] = self.blocks[block]
-                break
+            # Choose learning block as longest block in learning direction
+            block_len = self.blocks[block][1] - self.blocks[block][0]
+            # Do split on num for default number counting of multiple blocks
+            if ( (block.split("_num")[0] == learn_trial_name) and (block_len > max_learn_len) ):
+                new_blocks['Learning'] = self.blocks[block]
+                max_learn_len = block_len
+        self.blocks.update(new_blocks)
+        new_blocks = {}
+
         washout_trial_name = str(self.directions['pursuit']) + "Learn" + str(self.directions['anti_learning'])
+        max_wash_len = 0
+        max_washpre_len = 0
         for block in self.blocks.keys():
-            if ( (block == washout_trial_name)
-                and (self.blocks[block][0] >= self.blocks['Learning'][1]) ):
-                self.blocks['Washout'] = self.blocks[block]
-                break
+            block_len = self.blocks[block][1] - self.blocks[block][0]
+            # Do split on num for default number counting of multiple blocks
+            if ( (block.split("_num")[0] == washout_trial_name) ):
+                if block_len > max_learn_len:
+                    # Washout block found longer than learning block?
+                    raise ValueError("Washout block is longer than learning block! This probably isn't working correctly!")
+
+                if ( (self.blocks[block][0] >= self.blocks['Learning'][1]) and
+                     (block_len > max_wash_len) ):
+                    # Follows the learning block and longest current, so is washout
+                    new_blocks['Washout'] = self.blocks[block]
+                    max_wash_len = block_len
+                elif ( (self.blocks[block][1] <= self.blocks['Learning'][0]) and
+                       (block_len > max_washpre_len) ):
+                    # Precedes the learning block so is washout pre
+                    new_blocks['WashoutPre'] = self.blocks[block]
+                    max_washpre_len = block_len
+                else:
+                    # Some washout direction not learning?
+                    pass
+        self.blocks.update(new_blocks)
         # Recheck block order
         self._verify_block_order()
         return
@@ -130,9 +157,12 @@ class LDPSession(Session):
         based on the directions assigned to self.directions, e.g. via
         "assign_learning_directions". """
         if ( (self.directions['pursuit'] >= 360) or (self.directions['pursuit'] < 0) or
-             (self.directions['learning'] >= 360) or (self.directions['learning'] < 0) or
-             (np.abs(self.directions['learning'] - self.directions['pursuit']) != 90) ):
+             (self.directions['learning'] >= 360) or (self.directions['learning'] < 0) ):
             raise RuntimeError("Pursuit direction and learning direction not valid. Pursuit dir = {0} and Learning dir = {1}.".format(self.directions['pursuit'], self.directions['learning']))
+
+        if ( (np.abs(self.directions['learning'] - self.directions['pursuit']) != 90) and
+             ( (360 - np.abs(self.directions['learning'] - self.directions['pursuit'])) != 90) ):
+             raise RuntimeError("Pursuit direction and learning direction not valid. Pursuit dir = {0} and Learning dir = {1}.".format(self.directions['pursuit'], self.directions['learning']))
 
         # Rotate clockwise for pursuit direction to be at angle 0
         rot_angle_rad = np.deg2rad(0 - self.directions['pursuit'])
@@ -162,6 +192,15 @@ class LDPSession(Session):
             elif block == "FixTunePost":
                 if self.blocks[block][0] < learn_stop:
                     raise RuntimeError("{0} block starts at trial {1} which is before the learning block ends at trial {2}.".format(block, self.blocks[block][0], learn_stop))
+            elif block == "FixTuneWashout":
+                try:
+                    wash_start, wash_stop = self.blocks['Washout']
+                except KeyError:
+                    raise RuntimeError("Fixation tuning washout block was found but no washout blocks are present!")
+                if self.blocks[block][0] < wash_stop:
+                    raise RuntimeError("{0} block starts at trial {1} which is before the washout block ends at trial {2}.".format(block, self.blocks[block][0], wash_stop))
+                if self.blocks[block][0] < learn_stop:
+                    raise RuntimeError("{0} block ends at trial {1} which is before the learning block ends at trial {2}.".format(block, self.blocks[block][1], learn_start))
             elif block == "RandVP":
                 if self.blocks[block][1] > learn_start:
                     raise RuntimeError("{0} block ends at trial {1} which is after the learning block begins at trial {2}.".format(block, self.blocks[block][1], learn_start))
@@ -171,10 +210,22 @@ class LDPSession(Session):
             elif block == "StabPost":
                 if self.blocks[block][0] < learn_stop:
                     raise RuntimeError("{0} block starts at trial {1} which is before the learning block ends at trial {2}.".format(block, self.blocks[block][0], learn_stop))
+            elif block == "StabWashout":
+                try:
+                    wash_start, wash_stop = self.blocks['Washout']
+                except KeyError:
+                    raise RuntimeError("Stabilized tuning washout block was found but no washout blocks are present!")
+                if self.blocks[block][0] < wash_stop:
+                    raise RuntimeError("{0} block starts at trial {1} which is before the washout block ends at trial {2}.".format(block, self.blocks[block][0], wash_stop))
+                if self.blocks[block][0] < learn_stop:
+                    raise RuntimeError("{0} block ends at trial {1} which is before the learning block ends at trial {2}.".format(block, self.blocks[block][1], learn_start))
             elif block == "TunePre":
                 if self.blocks[block][1] > learn_start:
                     raise RuntimeError("{0} block ends at trial {1} which is after the learning block begins at trial {2}.".format(block, self.blocks[block][1], learn_start))
             elif block == "TunePost":
                 if self.blocks[block][0] < learn_stop:
                     raise RuntimeError("{0} block starts at trial {1} which is before the learning block ends at trial {2}.".format(block, self.blocks[block][0], learn_stop))
+            else:
+                pass
+                # raise RuntimeError("Could not find verification order condition for block named {0}.".format(block))
         return
