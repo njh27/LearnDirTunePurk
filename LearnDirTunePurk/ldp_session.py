@@ -56,9 +56,9 @@ class LDPSession(Session):
         """
         Session.__init__(self, trial_data, session_name, data_type)
 
-    def assign_learning_directions(self):
+    def assign_learning_blocks(self):
         """ Adds a directions dictionary indicating the learning and pursuit directions
-        and a rotation matrix property. """
+        and a rotation matrix property. Finishes by verifying block order and span."""
         self.directions = parse_learning_directions(self)
         # New learning directions means new rotation matrix
         self._set_rotation_matrix()
@@ -105,6 +105,7 @@ class LDPSession(Session):
         self.blocks.update(new_blocks)
         # Recheck block order
         self._verify_block_order()
+        self._verify_block_continuity()
         return
 
     def add_default_trial_sets(self):
@@ -155,7 +156,7 @@ class LDPSession(Session):
         """ Sets the rotation matrix for transforming the pursuit_dir to angle
         0 and learn_dir to angle 90 for 2D vectors of eye/target position. Done
         based on the directions assigned to self.directions, e.g. via
-        "assign_learning_directions". """
+        "assign_learning_blocks". """
         if ( (self.directions['pursuit'] >= 360) or (self.directions['pursuit'] < 0) or
              (self.directions['learning'] >= 360) or (self.directions['learning'] < 0) ):
             raise RuntimeError("Pursuit direction and learning direction not valid. Pursuit dir = {0} and Learning dir = {1}.".format(self.directions['pursuit'], self.directions['learning']))
@@ -179,7 +180,23 @@ class LDPSession(Session):
             self.rotation_matrix  = mirror_xaxis @ rotate_pursuit_mat
         else:
             self.rotation_matrix  = rotate_pursuit_mat
-        return
+        return None
+
+    def _verify_block_continuity(self):
+        next_b_start = 0
+        while next_b_start < len(self):
+            found_match = False
+            for b_name in self.blocks.keys():
+                if b_name == '270Learn180_num01':
+                    continue
+                b_win = self.blocks[b_name]
+                if b_win[0] == next_b_start:
+                    found_match = True
+                    next_b_start = b_win[1]
+                    break
+            if not found_match:
+                raise ValueError("Blocks do not cover all trials present! Last starting block attempted at trial {0}.".format(next_b_start))
+        return None
 
     def _verify_block_order(self):
         """ Checks that the pre and post block names in fact come before/after the
@@ -228,4 +245,4 @@ class LDPSession(Session):
             else:
                 pass
                 # raise RuntimeError("Could not find verification order condition for block named {0}.".format(block))
-        return
+        return None

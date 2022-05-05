@@ -139,9 +139,9 @@ def create_behavior_session(maestro_dir, session_name=None, check_existing=True,
 
     # Setup learning direction and trial type metadata for easier indexing later
     if verbose: print("Choosing learning/pursuit directions and default trial sets.")
-    sess.assign_learning_directions()
+    sess.assign_learning_blocks()
     sess.add_default_trial_sets()
-    return sess
+    
     if verbose: print("Adjusting fixation offsets and getting saccades.")
     # Get all eye data during initial fixation
     time_window = [-400, 0]
