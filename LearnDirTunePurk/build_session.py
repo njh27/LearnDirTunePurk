@@ -7,13 +7,13 @@ import SessionAnalysis as sa
 
 
 
-def create_behavior_session(maestro_dir, session_name=None, check_existing=True,
-        save_data=True, verbose=True):
+def create_behavior_session(fname, maestro_dir, session_name=None, existing_dir=None,
+        save_dir=None, verbose=True):
     if session_name is None:
         session_name = maestro_dir.split("/")[-1]
     # Load all Maestro data
     if verbose: print("Loading Maestro directory data.")
-    maestro_data = load_maestro_directory(maestro_dir, check_existing=True, save_data=True)
+    maestro_data = load_maestro_directory(fname, maestro_dir, existing_dir=existing_dir, save_dir=save_dir)
     # Sets trial targets as objects so probably want to do this after loading and not saved
     if verbose: print("Formatting target data and trials.")
     rm.format_trials.data_to_target(maestro_data)
