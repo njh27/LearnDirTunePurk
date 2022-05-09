@@ -106,8 +106,11 @@ class LDPSession(Session):
         self.blocks.update(new_blocks)
         # Recheck block order
         self._verify_block_order()
-        self._verify_block_continuity()
-        return
+        is_blocks_continuous, trials_missing = self._verify_block_continuity()
+        if not is_blocks_continuous:
+            print("Missing trial numbers", trials_missing)
+        self._verify_block_overlap()
+        return None
 
     def add_default_trial_sets(self):
         """ Adds boolean masks for all the expected trial types to the
@@ -184,19 +187,57 @@ class LDPSession(Session):
         return None
 
     def _verify_block_continuity(self):
+        is_blocks_continuous = True
+        trials_missing = []
         next_b_start = 0
+        last_b_end = 0
         while next_b_start < len(self):
             found_match = False
             for b_name in self.blocks.keys():
-                if b_name == '270Learn180_num01':
-                    continue
                 b_win = self.blocks[b_name]
                 if b_win[0] == next_b_start:
                     found_match = True
+                    last_b_end = b_win[1]
                     next_b_start = b_win[1]
                     break
             if not found_match:
-                raise ValueError("Blocks do not cover all trials present! Last starting block attempted at trial {0}.".format(next_b_start))
+                is_blocks_continuous = False
+                # Need to find the next available block
+                closest_dist = np.inf
+                closest_next_b = None
+                for b_name in self.blocks.keys():
+                    b_win = self.blocks[b_name]
+                    if b_win[0] > next_b_start:
+                        if (b_win[0] - next_b_start) < closest_dist:
+                            closest_dist = b_win[0] - next_b_start
+                            closest_next_b = b_win[0]
+                if closest_next_b is None:
+                    # Can't find anymore succeeding blocks so break
+                    next_b_start = len(self)
+                    trials_missing.append(np.arange(last_b_end, len(self)))
+                else:
+                    next_b_start = closest_next_b
+                    trials_missing.append(np.arange(last_b_end, next_b_start))
+                # raise RuntimeError("Blocks do not cover all trials present! Last starting block attempted at trial {0}.".format(next_b_start))
+        return is_blocks_continuous, np.hstack(trials_missing)
+
+    def _verify_block_overlap(self):
+        for b_name in self.block_names():
+            curr_start = self.blocks[b_name][0]
+            curr_stop = self.blocks[b_name][1]
+            for b_name2 in self.block_names():
+                if ( (self.blocks[b_name2][0] < curr_stop) and
+                     (self.blocks[b_name2][1] > curr_stop) ):
+                    raise RuntimeError("The two blocks: '{0}' and '{1}' were found overlapping each other!".format(b_name, b_name2))
+                if ( (self.blocks[b_name2][0] < curr_start) and
+                     (self.blocks[b_name2][1] > curr_start) ):
+                    raise RuntimeError("The two blocks: '{0}' and '{1}' were found overlapping each other!".format(b_name, b_name2))
+                if self.blocks[b_name2][0] == curr_start:
+                    if self.blocks[b_name2][1] != curr_stop:
+                        raise RuntimeError("The two blocks: '{0}' and '{1}' were found overlapping each other!".format(b_name, b_name2))
+                if self.blocks[b_name2][1] == curr_stop:
+                    if self.blocks[b_name2][0] != curr_start:
+                        raise RuntimeError("The two blocks: '{0}' and '{1}' were found overlapping each other!".format(b_name, b_name2))
         return None
 
     def _verify_block_order(self):
