@@ -5,37 +5,6 @@ from SessionAnalysis.utils import eye_data_series
 
 
 
-def parse_learning_directions(sess):
-    """ Parse through the block/trial names established above to find the main
-    learning block and direction. This then allows us to determine the other
-    directions and unlearning with respect to this etc. """
-    n_max_learn = 0
-    b_max_learn = None
-    for block in sess.blocks.keys():
-        if "Learn" in block:
-            block_len = sess.blocks[block][1] - sess.blocks[block][0]
-            if block_len > n_max_learn:
-                n_max_learn = block_len
-                b_max_learn = block
-    if b_max_learn is None:
-        # We did NOT find a learning block
-        return
-    # We found a learning block so carry on
-    pursuit_dir, learn_dir = b_max_learn.split("Learn")
-    pursuit_dir = int(pursuit_dir)
-    learn_dir = int(learn_dir)
-    anti_pursuit_dir = (pursuit_dir + 180) % 360
-    anti_learn_dir = (learn_dir + 180) % 360
-
-    directions = {}
-    directions['pursuit'] = pursuit_dir
-    directions['learning'] = learn_dir
-    directions['anti_pursuit'] = anti_pursuit_dir
-    directions['anti_learning'] = anti_learn_dir
-
-    return directions
-
-
 def make_180(angle):
     """ Helper function that, given an input angle in degrees, returns the same
     angle on the interval [-179, 180]. """
@@ -57,59 +26,102 @@ class LDPSession(Session):
         """
         Session.__init__(self, trial_data, session_name, data_type)
 
-    def assign_learning_blocks(self):
-        """ Adds a directions dictionary indicating the learning and pursuit directions
-        and a rotation matrix property. Finishes by verifying block order and span."""
-        self.directions = parse_learning_directions(self)
-        # New learning directions means new rotation matrix
-        self._set_rotation_matrix()
-
-        # Set learning and washout block alias names
-        learn_trial_name = str(self.directions['pursuit']) + "Learn" + str(self.directions['learning'])
-        max_learn_len = 0
-        new_blocks = {}
-        # Now name the learning block and washout blocks accordingly
-        for block in self.blocks.keys():
-            # Choose learning block as longest block in learning direction
-            block_len = self.blocks[block][1] - self.blocks[block][0]
-            # Do split on num for default number counting of multiple blocks
-            if ( (block.split("_num")[0] == learn_trial_name) and (block_len > max_learn_len) ):
-                new_blocks['Learning'] = self.blocks[block]
-                max_learn_len = block_len
-        self.blocks.update(new_blocks)
-        new_blocks = {}
-
-        washout_trial_name = str(self.directions['pursuit']) + "Learn" + str(self.directions['anti_learning'])
-        max_wash_len = 0
-        max_washpre_len = 0
-        for block in self.blocks.keys():
-            block_len = self.blocks[block][1] - self.blocks[block][0]
-            # Do split on num for default number counting of multiple blocks
-            if ( (block.split("_num")[0] == washout_trial_name) ):
-                if block_len > max_learn_len:
-                    # Washout block found longer than learning block?
-                    raise ValueError("Washout block is longer than learning block! This probably isn't working correctly!")
-
-                if ( (self.blocks[block][0] >= self.blocks['Learning'][1]) and
-                     (block_len > max_wash_len) ):
-                    # Follows the learning block and longest current, so is washout
-                    new_blocks['Washout'] = self.blocks[block]
-                    max_wash_len = block_len
-                elif ( (self.blocks[block][1] <= self.blocks['Learning'][0]) and
-                       (block_len > max_washpre_len) ):
-                    # Precedes the learning block so is washout pre
-                    new_blocks['WashoutPre'] = self.blocks[block]
-                    max_washpre_len = block_len
-                else:
-                    # Some washout direction not learning?
-                    pass
-        self.blocks.update(new_blocks)
-        # Recheck block order
-        self._verify_block_order()
+    def verify_blocks(self):
         is_blocks_continuous, trials_missing = self._verify_block_continuity()
         if not is_blocks_continuous:
             print("Missing trial numbers", trials_missing)
         self._verify_block_overlap()
+        return None
+
+    def assign_block_names(self, learn_sn="Learn"):
+        self.set_learning_block(learn_sn)
+        self.parse_learning_directions(learn_sn)
+        self.set_washout_block()
+
+    def set_learning_block(self, search_name="Learn"):
+        """ Parse through the block names and find the longest learning block
+        to designate the "learning" direction and block.
+        """
+        n_max_learn = 0
+        b_max_learn = None
+        for block in self.blocks.keys():
+            if search_name in block:
+                block_len = self.blocks[block][1] - self.blocks[block][0]
+                if block_len > n_max_learn:
+                    n_max_learn = block_len
+                    b_max_learn = block
+        if b_max_learn is not None:
+            self.blocks['Learning'] = self.blocks[b_max_learn]
+            self.learning_trial_name = b_max_learn
+        else:
+            print("No learning block found!")
+            self.blocks['Learning'] = None
+        return None
+
+    def parse_learning_directions(self, search_name="Learn"):
+        """ Determine the tuning directions with respect to the learning block
+        direction. """
+        if self.blocks['Learning'] is None:
+            raise ValueError("Cannot parse learning directions with no learning block assigned!")
+        # We found a learning block so carry on
+        pursuit_dir, learn_dir = self.learning_trial_name.split(search_name)
+        pursuit_dir = int(pursuit_dir)
+        learn_dir = int(learn_dir)
+        anti_pursuit_dir = (pursuit_dir + 180) % 360
+        anti_learn_dir = (learn_dir + 180) % 360
+        self.directions = {}
+        self.directions['pursuit'] = pursuit_dir
+        self.directions['learning'] = learn_dir
+        self.directions['anti_pursuit'] = anti_pursuit_dir
+        self.directions['anti_learning'] = anti_learn_dir
+        # New learning directions means new rotation matrix
+        self._set_rotation_matrix()
+        return None
+
+    def set_washout_block(self, search_name=None):
+        """ Finds the first block in the anti-learning direction following the
+        learning block and sets it as the washout block. """
+        if self.blocks['Learning'] is None:
+            raise ValueError("Cannot parse washout block with no learning block assigned!")
+        washout_trial_name = str(self.directions['pursuit']) + "Learn" + str(self.directions['anti_learning'])
+        washout_block_start = np.inf
+        washout_block_name = None
+        for block in self.blocks.keys():
+            # Do split on num for default number counting of multiple blocks
+            if ( (block.split("_num")[0] == washout_trial_name) and
+                  (self.blocks[block][0] >= self.blocks['Learning'][1]) and
+                  (self.blocks[block][0] < washout_block_start) ):
+                # This is an anti-learning block that follows learning block
+                # the closest, so is washout block
+                washout_block_start = self.blocks[block][0]
+                washout_block_name = block
+        if washout_block_name is None:
+            # did not find a washout block
+            self.blocks['Washout'] = None
+        else:
+            self.blocks['Washout'] = self.blocks[washout_block_name]
+        return None
+
+    def set_fixation_tuning_blocks(self, search_name="FixTune"):
+        """ Finds the first block in the anti-learning direction following the
+        learning block and sets it as the washout block. """
+        washout_trial_name = str(self.directions['pursuit']) + "Learn" + str(self.directions['anti_learning'])
+        washout_block_start = np.inf
+        washout_block_name = None
+        for block in self.blocks.keys():
+            # Do split on num for default number counting of multiple blocks
+            if ( (block.split("_num")[0] == washout_trial_name) and
+                  (self.blocks[block][0] >= self.blocks['Learning'][1]) and
+                  (self.blocks[block][0] < washout_block_start) ):
+                # This is an anti-learning block that follows learning block
+                # the closest, so is washout block
+                washout_block_start = self.blocks[block][0]
+                washout_block_name = block
+        if washout_block_name is None:
+            # did not find a washout block
+            self.blocks['Washout'] = None
+        else:
+            self.blocks['Washout'] = self.blocks[washout_block_name]
         return None
 
     def add_default_trial_sets(self):

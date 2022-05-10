@@ -39,20 +39,20 @@ def create_behavior_session(fname, maestro_dir, session_name=None, existing_dir=
 
     # Add hard coded blocks by trial names
     trial_names = ['d014fix', 'd0-14fix', 'd-1010fix', 'd1010fix', 'd140fix', 'd-10-10fix', 'd10-10fix', 'd-140fix', 'd00fix']
-    block_names = ['FixTunePre', 'FixTunePost', 'FixTuneWashout']
-    sess.add_blocks(trial_names, block_names, block_min=9)
+    block_names = ['FixTune']
+    sess.add_blocks(trial_names, block_names, number_names=True, block_min=9)
 
     trial_names = ['270RandVP', '90RandVP', '180RandVP', '0RandVP']
     block_names = ['RandVP']
-    sess.add_blocks(trial_names, block_names, block_min=20, n_min_per_trial=5)
+    sess.add_blocks(trial_names, block_names, number_names=True, block_min=20, n_min_per_trial=5)
 
     trial_names = ['90', '0', '180','270']
-    block_names = ['TunePre', 'TunePost']
-    sess.add_blocks(trial_names, block_names, block_min=12, n_min_per_trial=3)
+    block_names = ['Tune']
+    sess.add_blocks(trial_names, block_names, number_names=True, block_min=12, n_min_per_trial=3)
 
     trial_names = ['90Stab', '0Stab', '180Stab','270Stab']
-    block_names = ['StabPre', 'StabPost', 'StabWashout']
-    sess.add_blocks(trial_names, block_names, block_min=12, n_min_per_trial=3)
+    block_names = ['StabTune']
+    sess.add_blocks(trial_names, block_names, number_names=True, block_min=12, n_min_per_trial=3)
 
     trial_names = ['0-upStab']
     ignore_trial_names = ['90Stab', '0Stab', '180Stab','270Stab', '90', '0', '180','270']
@@ -143,7 +143,8 @@ def create_behavior_session(fname, maestro_dir, session_name=None, existing_dir=
     # Setup learning direction and trial type metadata for easier indexing later
     if verbose: print("Choosing learning/pursuit directions and default trial sets.")
     return sess
-    sess.assign_learning_blocks()
+    sess.verify_blocks()
+    sess.assign_block_names()
     sess.add_default_trial_sets()
 
     if verbose: print("Adjusting fixation offsets and getting saccades.")
