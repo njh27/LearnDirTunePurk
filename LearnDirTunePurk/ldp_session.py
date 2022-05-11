@@ -29,14 +29,20 @@ class LDPSession(Session):
     def verify_blocks(self):
         is_blocks_continuous, trials_missing = self._verify_block_continuity()
         if not is_blocks_continuous:
-            print("Missing trial numbers", trials_missing)
+            print("These trial numbers are missing a block: ", trials_missing)
         self._verify_block_overlap()
         return None
 
-    def assign_block_names(self, learn_sn="Learn"):
-        self.set_learning_block(learn_sn)
-        self.parse_learning_directions(learn_sn)
+    def assign_block_names(self, learn_sn="Learn", fix_sn="FixTune",
+            stab_sn="StabTune", stand_sn="StandTune", randvp_sn="RandVP"):
+        self.set_learning_block(search_name=learn_sn)
+        self.parse_learning_directions(search_name=learn_sn)
         self.set_washout_block()
+        self.set_fixation_tuning_blocks(search_name=fix_sn)
+        self.set_stab_tuning_blocks(search_name=stab_sn)
+        self.set_stand_tuning_blocks(search_name=stand_sn)
+        self.set_randvp_tuning_blocks(search_name=randvp_sn)
+        return None
 
     def set_learning_block(self, search_name="Learn"):
         """ Parse through the block names and find the longest learning block
@@ -78,7 +84,7 @@ class LDPSession(Session):
         self._set_rotation_matrix()
         return None
 
-    def set_washout_block(self, search_name=None):
+    def set_washout_block(self):
         """ Finds the first block in the anti-learning direction following the
         learning block and sets it as the washout block. """
         if self.blocks['Learning'] is None:
@@ -102,26 +108,136 @@ class LDPSession(Session):
             self.blocks['Washout'] = self.blocks[washout_block_name]
         return None
 
-    def set_fixation_tuning_blocks(self, search_name="FixTune"):
-        """ Finds the first block in the anti-learning direction following the
-        learning block and sets it as the washout block. """
-        washout_trial_name = str(self.directions['pursuit']) + "Learn" + str(self.directions['anti_learning'])
-        washout_block_start = np.inf
-        washout_block_name = None
+    def set_fixation_tuning_blocks(self, search_name="FixTune",
+                                    min_trials_by_name=0):
+        """ Finds the fixation tuning blocks relative to learning/washout. """
+        if self.blocks['Learning'] is None:
+            raise ValueError("Cannot parse washout block with no learning block assigned!")
+        t_pre_start = -np.inf
+        t_post_start = np.inf
+        t_wash_start = np.inf
+        search_blocks = ["FixTunePre", "FixTunePost", "FixTuneWash"]
+        new_block_names = {x: None for x in search_blocks}
         for block in self.blocks.keys():
             # Do split on num for default number counting of multiple blocks
-            if ( (block.split("_num")[0] == washout_trial_name) and
-                  (self.blocks[block][0] >= self.blocks['Learning'][1]) and
-                  (self.blocks[block][0] < washout_block_start) ):
-                # This is an anti-learning block that follows learning block
-                # the closest, so is washout block
-                washout_block_start = self.blocks[block][0]
-                washout_block_name = block
-        if washout_block_name is None:
-            # did not find a washout block
-            self.blocks['Washout'] = None
-        else:
-            self.blocks['Washout'] = self.blocks[washout_block_name]
+            if search_name in block:
+                # Found a fixation trial, now find which one
+                if ( (self.blocks[block][1] <= self.blocks['Learning'][0]) and
+                     (self.blocks[block][0] >= t_pre_start) ):
+                    # Tuning precedes learning and is latest found so far
+                    new_block_names['FixTunePre'] = self.blocks[block]
+                    t_pre_start = self.blocks[block][0]
+                elif ( (self.blocks[block][0] >= self.blocks['Learning'][1]) and
+                       (self.blocks[block][0] <= t_post_start) ):
+                    # Tuning follows learning and is earliest found so far
+                    new_block_names['FixTunePost'] = self.blocks[block]
+                    t_post_start = self.blocks[block][0]
+                if self.blocks['Washout'] is not None:
+                    if ( (self.blocks[block][0] >= self.blocks['Washout'][1]) and
+                         (self.blocks[block][0] <= t_wash_start) ):
+                        # Tuning follows washout and is earliest found so far
+                        new_block_names['FixTuneWash'] = self.blocks[block]
+                        t_wash_start = self.blocks[block][0]
+        self.blocks.update(new_block_names)
+        return None
+
+    def set_stab_tuning_blocks(self, search_name="StabTune",
+                                    min_trials_by_name=0):
+        """ Finds the fixation tuning blocks relative to learning/washout. """
+        if self.blocks['Learning'] is None:
+            raise ValueError("Cannot parse washout block with no learning block assigned!")
+        t_pre_start = -np.inf
+        t_post_start = np.inf
+        t_wash_start = np.inf
+        search_blocks = ["StabTunePre", "StabTunePost", "StabTuneWash"]
+        new_block_names = {x: None for x in search_blocks}
+        for block in self.blocks.keys():
+            # Do split on num for default number counting of multiple blocks
+            if search_name in block:
+                # Found a fixation trial, now find which one
+                if ( (self.blocks[block][1] <= self.blocks['Learning'][0]) and
+                     (self.blocks[block][0] >= t_pre_start) ):
+                    # Tuning precedes learning and is latest found so far
+                    new_block_names['StabTunePre'] = self.blocks[block]
+                    t_pre_start = self.blocks[block][0]
+                elif ( (self.blocks[block][0] >= self.blocks['Learning'][1]) and
+                       (self.blocks[block][0] <= t_post_start) ):
+                    # Tuning follows learning and is earliest found so far
+                    new_block_names['StabTunePost'] = self.blocks[block]
+                    t_post_start = self.blocks[block][0]
+                if self.blocks['Washout'] is not None:
+                    if ( (self.blocks[block][0] >= self.blocks['Washout'][1]) and
+                         (self.blocks[block][0] <= t_wash_start) ):
+                        # Tuning follows washout and is earliest found so far
+                        new_block_names['StabTuneWash'] = self.blocks[block]
+                        t_wash_start = self.blocks[block][0]
+        self.blocks.update(new_block_names)
+        return None
+
+    def set_stand_tuning_blocks(self, search_name="StandTune",
+                                    min_trials_by_name=0):
+        """ Finds the fixation tuning blocks relative to learning/washout. """
+        if self.blocks['Learning'] is None:
+            raise ValueError("Cannot parse washout block with no learning block assigned!")
+        t_pre_start = -np.inf
+        t_post_start = np.inf
+        t_wash_start = np.inf
+        search_blocks = ["StandTunePre", "StandTunePost", "StandTuneWash"]
+        new_block_names = {x: None for x in search_blocks}
+        for block in self.blocks.keys():
+            # Do split on num for default number counting of multiple blocks
+            if search_name in block:
+                # Found a fixation trial, now find which one
+                if ( (self.blocks[block][1] <= self.blocks['Learning'][0]) and
+                     (self.blocks[block][0] >= t_pre_start) ):
+                    # Tuning precedes learning and is latest found so far
+                    new_block_names['StandTunePre'] = self.blocks[block]
+                    t_pre_start = self.blocks[block][0]
+                elif ( (self.blocks[block][0] >= self.blocks['Learning'][1]) and
+                       (self.blocks[block][0] <= t_post_start) ):
+                    # Tuning follows learning and is earliest found so far
+                    new_block_names['StandTunePost'] = self.blocks[block]
+                    t_post_start = self.blocks[block][0]
+                if self.blocks['Washout'] is not None:
+                    if ( (self.blocks[block][0] >= self.blocks['Washout'][1]) and
+                         (self.blocks[block][0] <= t_wash_start) ):
+                        # Tuning follows washout and is earliest found so far
+                        new_block_names['StandTuneWash'] = self.blocks[block]
+                        t_wash_start = self.blocks[block][0]
+        self.blocks.update(new_block_names)
+        return None
+
+    def set_randvp_tuning_blocks(self, search_name="RandVP",
+                                    min_trials_by_name=0):
+        """ Finds the fixation tuning blocks relative to learning/washout. """
+        if self.blocks['Learning'] is None:
+            raise ValueError("Cannot parse washout block with no learning block assigned!")
+        t_pre_start = -np.inf
+        t_post_start = np.inf
+        t_wash_start = np.inf
+        search_blocks = ["RandVPTunePre", "RandVPTunePost", "RandVPTuneWash"]
+        new_block_names = {x: None for x in search_blocks}
+        for block in self.blocks.keys():
+            # Do split on num for default number counting of multiple blocks
+            if search_name in block:
+                # Found a fixation trial, now find which one
+                if ( (self.blocks[block][1] <= self.blocks['Learning'][0]) and
+                     (self.blocks[block][0] >= t_pre_start) ):
+                    # Tuning precedes learning and is latest found so far
+                    new_block_names['RandVPTunePre'] = self.blocks[block]
+                    t_pre_start = self.blocks[block][0]
+                elif ( (self.blocks[block][0] >= self.blocks['Learning'][1]) and
+                       (self.blocks[block][0] <= t_post_start) ):
+                    # Tuning follows learning and is earliest found so far
+                    new_block_names['RandVPTunePost'] = self.blocks[block]
+                    t_post_start = self.blocks[block][0]
+                if self.blocks['Washout'] is not None:
+                    if ( (self.blocks[block][0] >= self.blocks['Washout'][1]) and
+                         (self.blocks[block][0] <= t_wash_start) ):
+                        # Tuning follows washout and is earliest found so far
+                        new_block_names['RandVPTuneWash'] = self.blocks[block]
+                        t_wash_start = self.blocks[block][0]
+        self.blocks.update(new_block_names)
         return None
 
     def add_default_trial_sets(self):
@@ -252,55 +368,6 @@ class LDPSession(Session):
                         raise RuntimeError("The two blocks: '{0}' and '{1}' were found overlapping each other!".format(b_name, b_name2))
         return None
 
-    def _verify_block_order(self):
-        """ Checks that the pre and post block names in fact come before/after the
-        selected learning block. """
-        learn_start, learn_stop = self.blocks['Learning']
-        for block in self.blocks.keys():
-            if block == "FixTunePre":
-                if self.blocks[block][1] > learn_start:
-                    raise RuntimeError("{0} block ends at trial {1} which is after the learning block begins at trial {2}.".format(block, self.blocks[block][1], learn_start))
-            elif block == "FixTunePost":
-                if self.blocks[block][0] < learn_stop:
-                    raise RuntimeError("{0} block starts at trial {1} which is before the learning block ends at trial {2}.".format(block, self.blocks[block][0], learn_stop))
-            elif block == "FixTuneWashout":
-                try:
-                    wash_start, wash_stop = self.blocks['Washout']
-                except KeyError:
-                    raise RuntimeError("Fixation tuning washout block was found but no washout blocks are present!")
-                if self.blocks[block][0] < wash_stop:
-                    raise RuntimeError("{0} block starts at trial {1} which is before the washout block ends at trial {2}.".format(block, self.blocks[block][0], wash_stop))
-                if self.blocks[block][0] < learn_stop:
-                    raise RuntimeError("{0} block ends at trial {1} which is before the learning block ends at trial {2}.".format(block, self.blocks[block][1], learn_start))
-            elif block == "RandVP":
-                if self.blocks[block][1] > learn_start:
-                    raise RuntimeError("{0} block ends at trial {1} which is after the learning block begins at trial {2}.".format(block, self.blocks[block][1], learn_start))
-            elif block == "StabPre":
-                if self.blocks[block][1] > learn_start:
-                    raise RuntimeError("{0} block ends at trial {1} which is after the learning block begins at trial {2}.".format(block, self.blocks[block][1], learn_start))
-            elif block == "StabPost":
-                if self.blocks[block][0] < learn_stop:
-                    raise RuntimeError("{0} block starts at trial {1} which is before the learning block ends at trial {2}.".format(block, self.blocks[block][0], learn_stop))
-            elif block == "StabWashout":
-                try:
-                    wash_start, wash_stop = self.blocks['Washout']
-                except KeyError:
-                    raise RuntimeError("Stabilized tuning washout block was found but no washout blocks are present!")
-                if self.blocks[block][0] < wash_stop:
-                    raise RuntimeError("{0} block starts at trial {1} which is before the washout block ends at trial {2}.".format(block, self.blocks[block][0], wash_stop))
-                if self.blocks[block][0] < learn_stop:
-                    raise RuntimeError("{0} block ends at trial {1} which is before the learning block ends at trial {2}.".format(block, self.blocks[block][1], learn_start))
-            elif block == "TunePre":
-                if self.blocks[block][1] > learn_start:
-                    raise RuntimeError("{0} block ends at trial {1} which is after the learning block begins at trial {2}.".format(block, self.blocks[block][1], learn_start))
-            elif block == "TunePost":
-                if self.blocks[block][0] < learn_stop:
-                    raise RuntimeError("{0} block starts at trial {1} which is before the learning block ends at trial {2}.".format(block, self.blocks[block][0], learn_stop))
-            else:
-                pass
-                # raise RuntimeError("Could not find verification order condition for block named {0}.".format(block))
-        return None
-
     def add_saccades(self, time_window, blocks=None, trial_sets=None):
         """ Adds saccade windows to session and by default nan's these out in
         the current 'eye' data. """
@@ -386,3 +453,13 @@ class LDPSession(Session):
                     # Numbe of learning trials has not changed
                     self.n_instructed[t_ind] = n_learns
         return None
+
+    def count_block_trial_names(self, block_name):
+        """ Counts the number of each trial type within block block_name.
+        """
+        for t_ind in range(self.blocks[block_name][0], self.blocks[block_name][1]):
+            try:
+                count_dict[self._trial_lists['__main'][t_ind].name] += 1
+            except KeyError:
+                count_dict[self._trial_lists['__main'][t_ind].name] = 1
+        return count_dict

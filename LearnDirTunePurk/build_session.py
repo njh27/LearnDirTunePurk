@@ -47,7 +47,7 @@ def create_behavior_session(fname, maestro_dir, session_name=None, existing_dir=
     sess.add_blocks(trial_names, block_names, number_names=True, block_min=20, n_min_per_trial=5)
 
     trial_names = ['90', '0', '180','270']
-    block_names = ['Tune']
+    block_names = ['StandTune']
     sess.add_blocks(trial_names, block_names, number_names=True, block_min=12, n_min_per_trial=3)
 
     trial_names = ['90Stab', '0Stab', '180Stab','270Stab']
@@ -115,9 +115,12 @@ def create_behavior_session(fname, maestro_dir, session_name=None, existing_dir=
     # Remove trials that were not long enough to start
     # Find fixation tuning trials that lasted less than 800 ms
     fixation_blocks = []
+    pursuit_blocks = []
     for b_name in sess.block_names():
         if "Fix" in b_name:
             fixation_blocks.append(b_name)
+        else:
+            pursuit_blocks.append(b_name)
     fix_trials_less_than_event = sess.find_trials_less_than_event("fixation_onset",
                                                           blocks=fixation_blocks,
                                                           trial_sets=None,
@@ -140,13 +143,14 @@ def create_behavior_session(fname, maestro_dir, session_name=None, existing_dir=
     # Then fixation only trials
     sess.align_trial_data('fixation_onset', alignment_offset=fixation_trial_t_offset, blocks=fixation_blocks)
 
+    self.count_block_trial_names()
+
     # Setup learning direction and trial type metadata for easier indexing later
     if verbose: print("Choosing learning/pursuit directions and default trial sets.")
-    return sess
     sess.verify_blocks()
     sess.assign_block_names()
     sess.add_default_trial_sets()
-
+    return sess
     if verbose: print("Adjusting fixation offsets and getting saccades.")
     sess.add_saccades(time_window=[-400, 0], blocks=None, trial_sets=None)
 
