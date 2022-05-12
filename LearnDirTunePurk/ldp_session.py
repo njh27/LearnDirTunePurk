@@ -545,13 +545,13 @@ class LDPSession(Session):
                             self.n_instructed[t_ind] = n_learns
                             n_learns += 1
                         else:
-                            # Numbe of learning trials has not changed
+                            # Number of learning trials has not changed
                             self.n_instructed[t_ind] = n_learns
                     else:
-                        # Numbe of learning trials has not changed
+                        # Number of learning trials has not changed
                         self.n_instructed[t_ind] = n_learns
                 else:
-                    # Numbe of learning trials has not changed
+                    # Number of learning trials has not changed
                     self.n_instructed[t_ind] = n_learns
         return None
 
@@ -567,4 +567,13 @@ class LDPSession(Session):
                 self.block_info[block_name][self._trial_lists['__main'][t_ind].name] += 1
             except KeyError:
                 self.block_info[block_name][self._trial_lists['__main'][t_ind].name] = 1
+        return None
+
+    def delete_trials(self, indices):
+        """ Calls parent delete function, then must update our block info
+        according to new blocks. """
+        super().delete_trials(indices)
+        if len(self.block_info) > 0:
+            for block in self.blocks_found:
+                self.count_block_trial_names(block)
         return None

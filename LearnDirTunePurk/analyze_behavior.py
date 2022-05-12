@@ -5,8 +5,10 @@ def get_position(ldp_sess):
     pass
 
 
-def bin_traces_by_trial(ldp_sess, x_data, y_data, t_inds):
-    """
+def bin_traces_by_trial(ldp_sess, x_data, y_data, bins=10, t_inds=None):
+    """ Assumes bins are ORDERED! or this may not work right.
+    x_data and y_data are assumed to be trials x timepoints matrices of data of
+    the same shape.
     """
     pass
 

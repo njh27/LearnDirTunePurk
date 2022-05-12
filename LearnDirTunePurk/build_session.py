@@ -38,9 +38,9 @@ def create_behavior_session(fname, maestro_dir, session_name=None, existing_dir=
     sess.add_trial_data(trial_list_bhv, data_type=None)
 
     # Add hard coded blocks by trial names
-    trial_names = ['d014fix', 'd0-14fix', 'd-1010fix', 'd1010fix', 'd140fix', 'd-10-10fix', 'd10-10fix', 'd-140fix', 'd00fix']
+    fix_trial_names = ['d014fix', 'd0-14fix', 'd-1010fix', 'd1010fix', 'd140fix', 'd-10-10fix', 'd10-10fix', 'd-140fix', 'd00fix']
     block_names = ['FixTune']
-    sess.add_blocks(trial_names, block_names, number_names=True, block_min=9)
+    sess.add_blocks(fix_trial_names, block_names, number_names=True, block_min=9)
 
     trial_names = ['270RandVP', '90RandVP', '180RandVP', '0RandVP']
     block_names = ['RandVP']
@@ -121,9 +121,11 @@ def create_behavior_session(fname, maestro_dir, session_name=None, existing_dir=
     # Fixation trials will be found and aligned by this many ms after fixation onset
     fixation_trial_t_offset = 1200.
     # Pursuit trials will be found and aligned by this many ms after target onset
-    fixation_trial_t_offset = 400.
+    pursuit_trial_min_motion = 400.
     # Remove trials that were not long enough to start
     # Find fixation tuning trials that lasted less than 800 ms
+    sess.add_trial_set("fixation_trials", trials=fix_trial_names, blocks=None)
+    sess.add_trial_set("pursuit_trials", trials=~sess.trial_sets['fixation_trials'], blocks=None)
     fixation_blocks = []
     pursuit_blocks = []
     for b_name in sess.block_names():
@@ -132,19 +134,21 @@ def create_behavior_session(fname, maestro_dir, session_name=None, existing_dir=
         else:
             pursuit_blocks.append(b_name)
     fix_trials_less_than_event = sess.find_trials_less_than_event("fixation_onset",
-                                                          blocks=fixation_blocks,
-                                                          trial_sets=None,
+                                                          blocks=None,
+                                                          trial_sets="fixation_trials",
                                                           event_offset=fixation_trial_t_offset)
     # Find target trials that didn't make it to target motion onset
     trials_less_than_event = sess.find_trials_less_than_event("target_onset",
-                                blocks=pursuit_blocks, trial_sets=None,
-                                event_offset=fixation_trial_t_offset)
+                                blocks=None, trial_sets="pursuit_trials",
+                                event_offset=pursuit_trial_min_motion)
     # Delete these too short trials
     sess.delete_trials(np.logical_or(fix_trials_less_than_event, trials_less_than_event))
 
     # Attempt to verify block order and detect trials outside of blocks
     if verbose: print("Checking block assignments.")
     orphan_trials = sess.verify_blocks()
+    # Setup learning direction and trial type metadata
+    if verbose: print("Choosing learning/pursuit directions and block names.")
     sess.assign_block_names()
     if len(orphan_trials) > 0:
         if verbose: print("Attempting to repair {0} orphan trials.".format(len(orphan_trials)))
@@ -152,34 +156,13 @@ def create_behavior_session(fname, maestro_dir, session_name=None, existing_dir=
         if verbose: print("Added {0} orphan trials to blocks.".format(n_orphans_assigned))
     orphan_trials = sess.verify_blocks()
     if verbose: print("New block assignments leave {0} orphan trials for deletion.".format(len(orphan_trials)))
-    # Setup learning direction and trial type metadata for easier indexing later
-    if verbose: print("Choosing learning/pursuit directions and default trial sets.")
-
-
-    return sess, orphan_trials
-
     sess.delete_trials(orphan_trials)
 
-
-
     # Align trials on events
-    # First non-fixation only trials
-    blocks = []
-    for blk in sess.block_names():
-        if blk in fixation_blocks:
-            continue
-        blocks.append(blk)
-    sess.align_trial_data('target_onset', alignment_offset=0, blocks=blocks)
-    # Then fixation only trials
+    if verbose: print("Aligning trials on events and assigning default trial sets.")
+    sess.align_trial_data('target_onset', alignment_offset=0, blocks=pursuit_blocks)
     sess.align_trial_data('fixation_onset', alignment_offset=fixation_trial_t_offset, blocks=fixation_blocks)
-
-    sess.count_block_trial_names()
-
-
     sess.add_default_trial_sets()
-
-
-    return sess
 
     if verbose: print("Adjusting fixation offsets and getting saccades.")
     sess.add_saccades(time_window=[-400, 0], blocks=None, trial_sets=None)
