@@ -25,16 +25,18 @@ class LDPSession(Session):
         """
         """
         Session.__init__(self, trial_data, session_name, data_type)
+        self.block_info = {}
+        self.block_name_to_learn_name = {}
+        self.verbose = True
 
     def verify_blocks(self):
-        is_blocks_continuous, trials_missing = self._verify_block_continuity()
-        if not is_blocks_continuous:
-            print("These trial numbers are missing a block: ", trials_missing)
+        is_blocks_continuous, orphan_trials = self._verify_block_continuity()
         self._verify_block_overlap()
-        return None
+        return orphan_trials
 
     def assign_block_names(self, learn_sn="Learn", fix_sn="FixTune",
             stab_sn="StabTune", stand_sn="StandTune", randvp_sn="RandVP"):
+        self.blocks_found = []
         self.set_learning_block(search_name=learn_sn)
         self.parse_learning_directions(search_name=learn_sn)
         self.set_washout_block()
@@ -42,6 +44,8 @@ class LDPSession(Session):
         self.set_stab_tuning_blocks(search_name=stab_sn)
         self.set_stand_tuning_blocks(search_name=stand_sn)
         self.set_randvp_tuning_blocks(search_name=randvp_sn)
+        for block in self.blocks_found:
+            self.count_block_trial_names(block)
         return None
 
     def set_learning_block(self, search_name="Learn"):
@@ -51,6 +55,8 @@ class LDPSession(Session):
         n_max_learn = 0
         b_max_learn = None
         for block in self.blocks.keys():
+            if self.blocks[block] is None:
+                continue
             if search_name in block:
                 block_len = self.blocks[block][1] - self.blocks[block][0]
                 if block_len > n_max_learn:
@@ -59,6 +65,7 @@ class LDPSession(Session):
         if b_max_learn is not None:
             self.blocks['Learning'] = self.blocks[b_max_learn]
             self.learning_trial_name = b_max_learn
+            self.blocks_found.append('Learning')
         else:
             print("No learning block found!")
             self.blocks['Learning'] = None
@@ -93,6 +100,8 @@ class LDPSession(Session):
         washout_block_start = np.inf
         washout_block_name = None
         for block in self.blocks.keys():
+            if self.blocks[block] is None:
+                continue
             # Do split on num for default number counting of multiple blocks
             if ( (block.split("_num")[0] == washout_trial_name) and
                   (self.blocks[block][0] >= self.blocks['Learning'][1]) and
@@ -106,6 +115,7 @@ class LDPSession(Session):
             self.blocks['Washout'] = None
         else:
             self.blocks['Washout'] = self.blocks[washout_block_name]
+            self.blocks_found.append('Washout')
         return None
 
     def set_fixation_tuning_blocks(self, search_name="FixTune",
@@ -119,6 +129,8 @@ class LDPSession(Session):
         search_blocks = ["FixTunePre", "FixTunePost", "FixTuneWash"]
         new_block_names = {x: None for x in search_blocks}
         for block in self.blocks.keys():
+            if self.blocks[block] is None:
+                continue
             # Do split on num for default number counting of multiple blocks
             if search_name in block:
                 # Found a fixation trial, now find which one
@@ -127,17 +139,20 @@ class LDPSession(Session):
                     # Tuning precedes learning and is latest found so far
                     new_block_names['FixTunePre'] = self.blocks[block]
                     t_pre_start = self.blocks[block][0]
+                    self.blocks_found.append('FixTunePre')
                 elif ( (self.blocks[block][0] >= self.blocks['Learning'][1]) and
                        (self.blocks[block][0] <= t_post_start) ):
                     # Tuning follows learning and is earliest found so far
                     new_block_names['FixTunePost'] = self.blocks[block]
                     t_post_start = self.blocks[block][0]
+                    self.blocks_found.append('FixTunePost')
                 if self.blocks['Washout'] is not None:
                     if ( (self.blocks[block][0] >= self.blocks['Washout'][1]) and
                          (self.blocks[block][0] <= t_wash_start) ):
                         # Tuning follows washout and is earliest found so far
                         new_block_names['FixTuneWash'] = self.blocks[block]
                         t_wash_start = self.blocks[block][0]
+                        self.blocks_found.append('FixTuneWash')
         self.blocks.update(new_block_names)
         return None
 
@@ -152,6 +167,8 @@ class LDPSession(Session):
         search_blocks = ["StabTunePre", "StabTunePost", "StabTuneWash"]
         new_block_names = {x: None for x in search_blocks}
         for block in self.blocks.keys():
+            if self.blocks[block] is None:
+                continue
             # Do split on num for default number counting of multiple blocks
             if search_name in block:
                 # Found a fixation trial, now find which one
@@ -160,17 +177,20 @@ class LDPSession(Session):
                     # Tuning precedes learning and is latest found so far
                     new_block_names['StabTunePre'] = self.blocks[block]
                     t_pre_start = self.blocks[block][0]
+                    self.blocks_found.append('StabTunePre')
                 elif ( (self.blocks[block][0] >= self.blocks['Learning'][1]) and
                        (self.blocks[block][0] <= t_post_start) ):
                     # Tuning follows learning and is earliest found so far
                     new_block_names['StabTunePost'] = self.blocks[block]
                     t_post_start = self.blocks[block][0]
+                    self.blocks_found.append('StabTunePost')
                 if self.blocks['Washout'] is not None:
                     if ( (self.blocks[block][0] >= self.blocks['Washout'][1]) and
                          (self.blocks[block][0] <= t_wash_start) ):
                         # Tuning follows washout and is earliest found so far
                         new_block_names['StabTuneWash'] = self.blocks[block]
                         t_wash_start = self.blocks[block][0]
+                        self.blocks_found.append('StabTuneWash')
         self.blocks.update(new_block_names)
         return None
 
@@ -185,6 +205,8 @@ class LDPSession(Session):
         search_blocks = ["StandTunePre", "StandTunePost", "StandTuneWash"]
         new_block_names = {x: None for x in search_blocks}
         for block in self.blocks.keys():
+            if self.blocks[block] is None:
+                continue
             # Do split on num for default number counting of multiple blocks
             if search_name in block:
                 # Found a fixation trial, now find which one
@@ -193,17 +215,20 @@ class LDPSession(Session):
                     # Tuning precedes learning and is latest found so far
                     new_block_names['StandTunePre'] = self.blocks[block]
                     t_pre_start = self.blocks[block][0]
+                    self.blocks_found.append('StandTunePre')
                 elif ( (self.blocks[block][0] >= self.blocks['Learning'][1]) and
                        (self.blocks[block][0] <= t_post_start) ):
                     # Tuning follows learning and is earliest found so far
                     new_block_names['StandTunePost'] = self.blocks[block]
                     t_post_start = self.blocks[block][0]
+                    self.blocks_found.append('StandTunePost')
                 if self.blocks['Washout'] is not None:
                     if ( (self.blocks[block][0] >= self.blocks['Washout'][1]) and
                          (self.blocks[block][0] <= t_wash_start) ):
                         # Tuning follows washout and is earliest found so far
                         new_block_names['StandTuneWash'] = self.blocks[block]
                         t_wash_start = self.blocks[block][0]
+                        self.blocks_found.append('StandTuneWash')
         self.blocks.update(new_block_names)
         return None
 
@@ -218,6 +243,8 @@ class LDPSession(Session):
         search_blocks = ["RandVPTunePre", "RandVPTunePost", "RandVPTuneWash"]
         new_block_names = {x: None for x in search_blocks}
         for block in self.blocks.keys():
+            if self.blocks[block] is None:
+                continue
             # Do split on num for default number counting of multiple blocks
             if search_name in block:
                 # Found a fixation trial, now find which one
@@ -226,17 +253,20 @@ class LDPSession(Session):
                     # Tuning precedes learning and is latest found so far
                     new_block_names['RandVPTunePre'] = self.blocks[block]
                     t_pre_start = self.blocks[block][0]
+                    self.blocks_found.append('RandVPTunePre')
                 elif ( (self.blocks[block][0] >= self.blocks['Learning'][1]) and
                        (self.blocks[block][0] <= t_post_start) ):
                     # Tuning follows learning and is earliest found so far
                     new_block_names['RandVPTunePost'] = self.blocks[block]
                     t_post_start = self.blocks[block][0]
+                    self.blocks_found.append('RandVPTunePost')
                 if self.blocks['Washout'] is not None:
                     if ( (self.blocks[block][0] >= self.blocks['Washout'][1]) and
                          (self.blocks[block][0] <= t_wash_start) ):
                         # Tuning follows washout and is earliest found so far
                         new_block_names['RandVPTuneWash'] = self.blocks[block]
                         t_wash_start = self.blocks[block][0]
+                        self.blocks_found.append('RandVPTuneWash')
         self.blocks.update(new_block_names)
         return None
 
@@ -316,12 +346,14 @@ class LDPSession(Session):
 
     def _verify_block_continuity(self):
         is_blocks_continuous = True
-        trials_missing = []
+        orphan_trials = []
         next_b_start = 0
         last_b_end = 0
         while next_b_start < len(self):
             found_match = False
             for b_name in self.blocks.keys():
+                if self.blocks[b_name] is None:
+                    continue
                 b_win = self.blocks[b_name]
                 if b_win[0] == next_b_start:
                     found_match = True
@@ -334,6 +366,8 @@ class LDPSession(Session):
                 closest_dist = np.inf
                 closest_next_b = None
                 for b_name in self.blocks.keys():
+                    if self.blocks[b_name] is None:
+                        continue
                     b_win = self.blocks[b_name]
                     if b_win[0] > next_b_start:
                         if (b_win[0] - next_b_start) < closest_dist:
@@ -342,18 +376,24 @@ class LDPSession(Session):
                 if closest_next_b is None:
                     # Can't find anymore succeeding blocks so break
                     next_b_start = len(self)
-                    trials_missing.append(np.arange(last_b_end, len(self)))
+                    orphan_trials.append(np.arange(last_b_end, len(self)))
                 else:
                     next_b_start = closest_next_b
-                    trials_missing.append(np.arange(last_b_end, next_b_start))
+                    orphan_trials.append(np.arange(last_b_end, next_b_start))
                 # raise RuntimeError("Blocks do not cover all trials present! Last starting block attempted at trial {0}.".format(next_b_start))
-        return is_blocks_continuous, np.hstack(trials_missing)
+        if len(orphan_trials) > 0:
+            orphan_trials = np.unique(np.hstack(orphan_trials))
+        return is_blocks_continuous, orphan_trials
 
     def _verify_block_overlap(self):
         for b_name in self.block_names():
+            if self.blocks[b_name] is None:
+                continue
             curr_start = self.blocks[b_name][0]
             curr_stop = self.blocks[b_name][1]
             for b_name2 in self.block_names():
+                if self.blocks[b_name2] is None:
+                    continue
                 if ( (self.blocks[b_name2][0] < curr_stop) and
                      (self.blocks[b_name2][1] > curr_stop) ):
                     raise RuntimeError("The two blocks: '{0}' and '{1}' were found overlapping each other!".format(b_name, b_name2))
@@ -367,6 +407,67 @@ class LDPSession(Session):
                     if self.blocks[b_name2][0] != curr_start:
                         raise RuntimeError("The two blocks: '{0}' and '{1}' were found overlapping each other!".format(b_name, b_name2))
         return None
+
+    def assign_orphan_trials(self, orphan_trials):
+        ot_ind = 0
+        found_match = False
+        n_orphans_assigned = 0
+        while ot_ind < len(orphan_trials):
+            for block in self.blocks_found:
+                if orphan_trials[ot_ind] < self.blocks['Learning'][0]:
+                    # Missing before learning block
+                    if orphan_trials[ot_ind] == self.blocks[block][1]:
+                        # Prefer to add to end of immediately preceding block
+                        if self[orphan_trials[ot_ind]].name in self.block_info[block]:
+                            self.blocks[block][1] += 1
+                            ot_ind += 1
+                            n_orphans_assigned += 1
+                            found_match = True
+                            while ot_ind < len(orphan_trials):
+                                tm_diff = orphan_trials[ot_ind] - orphan_trials[ot_ind - 1]
+                                if tm_diff != 1:
+                                    break
+                                self.blocks[block][1] += 1
+                                ot_ind += 1
+                                n_orphans_assigned += 1
+                            break # for loop over 'block'
+                elif orphan_trials[ot_ind] >= self.blocks['Learning'][1]:
+                    # Missing after learning block
+                    if orphan_trials[ot_ind] == self.blocks[block][1]:
+                        # Prefer to add to end of immediately preceding block?
+                        if self[orphan_trials[ot_ind]].name in self.block_info[block]:
+                            self.blocks[block][1] += 1
+                            ot_ind += 1
+                            n_orphans_assigned += 1
+                            found_match = True
+                            while ot_ind < len(orphan_trials):
+                                tm_diff = orphan_trials[ot_ind] - orphan_trials[ot_ind - 1]
+                                if tm_diff != 1:
+                                    break
+                                self.blocks[block][1] += 1
+                                ot_ind += 1
+                                n_orphans_assigned += 1
+                            break # for loop over 'block'
+                else:
+                    # Missing without a learning block present...
+                    if orphan_trials[ot_ind] == self.blocks[block][1]:
+                        # Prefer to add to end of immediately preceding block?
+                        if self[orphan_trials[ot_ind]].name in self.block_info[block]:
+                            self.blocks[block][1] += 1
+                            ot_ind += 1
+                            n_orphans_assigned += 1
+                            found_match = True
+                            while ot_ind < len(orphan_trials):
+                                tm_diff = orphan_trials[ot_ind] - orphan_trials[ot_ind - 1]
+                                if tm_diff != 1:
+                                    break
+                                self.blocks[block][1] += 1
+                                ot_ind += 1
+                                n_orphans_assigned += 1
+                            break # for loop over 'block'
+            if not found_match:
+                ot_ind += 1
+        return n_orphans_assigned
 
     def add_saccades(self, time_window, blocks=None, trial_sets=None):
         """ Adds saccade windows to session and by default nan's these out in
@@ -426,7 +527,7 @@ class LDPSession(Session):
         that successfully reached the instruction event. """
         self.is_instructed = np.zeros(len(self), dtype='bool')
         self.n_instructed = np.zeros(len(self), dtype=np.int32)
-        for block in self.blocks.keys():
+        for block in self.blocks_found:
             if "Learn" not in block:
                 # Only care about learning blocks
                 continue
@@ -457,9 +558,13 @@ class LDPSession(Session):
     def count_block_trial_names(self, block_name):
         """ Counts the number of each trial type within block block_name.
         """
+        if self.blocks[block_name] is None:
+            return None
+        else:
+            self.block_info[block_name] = {}
         for t_ind in range(self.blocks[block_name][0], self.blocks[block_name][1]):
             try:
-                count_dict[self._trial_lists['__main'][t_ind].name] += 1
+                self.block_info[block_name][self._trial_lists['__main'][t_ind].name] += 1
             except KeyError:
-                count_dict[self._trial_lists['__main'][t_ind].name] = 1
-        return count_dict
+                self.block_info[block_name][self._trial_lists['__main'][t_ind].name] = 1
+        return None

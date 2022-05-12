@@ -57,48 +57,56 @@ def create_behavior_session(fname, maestro_dir, session_name=None, existing_dir=
     trial_names = ['0-upStab']
     ignore_trial_names = ['90Stab', '0Stab', '180Stab','270Stab', '90', '0', '180','270']
     block_names = ['0Learn90']
+    sess.block_name_to_learn_name['0Learn90'] = '0-upStab'
     sess.add_blocks(trial_names, block_names, number_names=True, ignore_trial_names=ignore_trial_names,
                     max_consec_absent=0, block_min=20, n_min_per_trial=20)
 
     trial_names = ['0-dnStab']
     ignore_trial_names = ['90Stab', '0Stab', '180Stab','270Stab', '90', '0', '180','270']
     block_names = ['0Learn270']
+    sess.block_name_to_learn_name['0Learn270'] = '0-dnStab'
     sess.add_blocks(trial_names, block_names, number_names=True, ignore_trial_names=ignore_trial_names,
                     max_consec_absent=0, block_min=20, n_min_per_trial=20)
 
     trial_names = ['90-rtStab']
     ignore_trial_names = ['90Stab', '0Stab', '180Stab','270Stab', '90', '0', '180','270']
     block_names = ['90Learn0']
+    sess.block_name_to_learn_name['90Learn0'] = '90-rtStab'
     sess.add_blocks(trial_names, block_names, number_names=True, ignore_trial_names=ignore_trial_names,
                     max_consec_absent=0, block_min=20, n_min_per_trial=20)
 
     trial_names = ['90-ltStab']
     ignore_trial_names = ['90Stab', '0Stab', '180Stab','270Stab', '90', '0', '180','270']
     block_names = ['90Learn180']
+    sess.block_name_to_learn_name['90Learn180'] = '90-ltStab'
     sess.add_blocks(trial_names, block_names, number_names=True, ignore_trial_names=ignore_trial_names,
                     max_consec_absent=0, block_min=20, n_min_per_trial=20)
 
     trial_names = ['180-upStab']
     ignore_trial_names = ['90Stab', '0Stab', '180Stab','270Stab', '90', '0', '180','270']
     block_names = ['180Learn90']
+    sess.block_name_to_learn_name['180Learn90'] = '180-upStab'
     sess.add_blocks(trial_names, block_names, number_names=True, ignore_trial_names=ignore_trial_names,
                     max_consec_absent=0, block_min=20, n_min_per_trial=20)
 
     trial_names = ['180-dnStab']
     ignore_trial_names = ['90Stab', '0Stab', '180Stab','270Stab', '90', '0', '180','270']
     block_names = ['180Learn270']
+    sess.block_name_to_learn_name['180Learn270'] = '180-dnStab'
     sess.add_blocks(trial_names, block_names, number_names=True, ignore_trial_names=ignore_trial_names,
                     max_consec_absent=0, block_min=20, n_min_per_trial=20)
 
     trial_names = ['270-rtStab']
     ignore_trial_names = ['90Stab', '0Stab', '180Stab','270Stab', '90', '0', '180','270']
     block_names = ['270Learn0']
+    sess.block_name_to_learn_name['270Learn0'] = '270-rtStab'
     sess.add_blocks(trial_names, block_names, number_names=True, ignore_trial_names=ignore_trial_names,
                     max_consec_absent=0, block_min=20, n_min_per_trial=20)
 
     trial_names = ['270-ltStab']
     ignore_trial_names = ['90Stab', '0Stab', '180Stab','270Stab', '90', '0', '180','270']
     block_names = ['270Learn180']
+    sess.block_name_to_learn_name['270Learn180'] = '270-ltStab'
     sess.add_blocks(trial_names, block_names, number_names=True, ignore_trial_names=ignore_trial_names,
                     max_consec_absent=0, block_min=20, n_min_per_trial=20)
 
@@ -110,8 +118,10 @@ def create_behavior_session(fname, maestro_dir, session_name=None, existing_dir=
     sess.shift_event_to_refresh('start_stabwin')
     sess.shift_event_to_refresh('target_offset')
 
-    # Fixation trials will be found and aligned by this many ms after target onset
+    # Fixation trials will be found and aligned by this many ms after fixation onset
     fixation_trial_t_offset = 1200.
+    # Pursuit trials will be found and aligned by this many ms after target onset
+    fixation_trial_t_offset = 400.
     # Remove trials that were not long enough to start
     # Find fixation tuning trials that lasted less than 800 ms
     fixation_blocks = []
@@ -125,12 +135,32 @@ def create_behavior_session(fname, maestro_dir, session_name=None, existing_dir=
                                                           blocks=fixation_blocks,
                                                           trial_sets=None,
                                                           event_offset=fixation_trial_t_offset)
-    if np.count_nonzero(fix_trials_less_than_event) <= 5:
-        print("Session '{0}' fixation trials are shorter than offset (build_session line ~117).".format(session_name))
     # Find target trials that didn't make it to target motion onset
-    trials_less_than_event = sess.find_trials_less_than_event("target_onset", blocks=None, trial_sets=None)
-    # Delete these trials
+    trials_less_than_event = sess.find_trials_less_than_event("target_onset",
+                                blocks=pursuit_blocks, trial_sets=None,
+                                event_offset=fixation_trial_t_offset)
+    # Delete these too short trials
     sess.delete_trials(np.logical_or(fix_trials_less_than_event, trials_less_than_event))
+
+    # Attempt to verify block order and detect trials outside of blocks
+    if verbose: print("Checking block assignments.")
+    orphan_trials = sess.verify_blocks()
+    sess.assign_block_names()
+    if len(orphan_trials) > 0:
+        if verbose: print("Attempting to repair {0} orphan trials.".format(len(orphan_trials)))
+        n_orphans_assigned = sess.assign_orphan_trials(orphan_trials)
+        if verbose: print("Added {0} orphan trials to blocks.".format(n_orphans_assigned))
+    orphan_trials = sess.verify_blocks()
+    if verbose: print("New block assignments leave {0} orphan trials for deletion.".format(len(orphan_trials)))
+    # Setup learning direction and trial type metadata for easier indexing later
+    if verbose: print("Choosing learning/pursuit directions and default trial sets.")
+
+
+    return sess, orphan_trials
+
+    sess.delete_trials(orphan_trials)
+
+
 
     # Align trials on events
     # First non-fixation only trials
@@ -143,14 +173,14 @@ def create_behavior_session(fname, maestro_dir, session_name=None, existing_dir=
     # Then fixation only trials
     sess.align_trial_data('fixation_onset', alignment_offset=fixation_trial_t_offset, blocks=fixation_blocks)
 
-    self.count_block_trial_names()
+    sess.count_block_trial_names()
 
-    # Setup learning direction and trial type metadata for easier indexing later
-    if verbose: print("Choosing learning/pursuit directions and default trial sets.")
-    sess.verify_blocks()
-    sess.assign_block_names()
+
     sess.add_default_trial_sets()
+
+
     return sess
+
     if verbose: print("Adjusting fixation offsets and getting saccades.")
     sess.add_saccades(time_window=[-400, 0], blocks=None, trial_sets=None)
 

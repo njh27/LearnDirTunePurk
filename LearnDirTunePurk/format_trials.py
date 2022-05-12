@@ -10,16 +10,19 @@ def rename_stab_probe_trials(maestro_data):
     learn_names = ['Right-Up', 'Right-Dn',
                    'Up-Rt', 'Up-Lt',
                    'Left-Up', 'Left-Dn',
-                   'Down-Rt', 'Down-Lt']
+                   'Down-Rt', 'Down-Lt',
+                   'Dn-Rt', 'Dn-Lt']
+    learn_names = [x.lower() for x in learn_names]
     found_learn = False
     for t in maestro_data:
         if t['header']['name'] in ["0", "90", "180", "270"]:
-            if t['header']['set_name'] in learn_names:
+            if t['header']['set_name'].lower() in learn_names:
                 found_learn = True
+            if t['header']['UsedStab']:
                 t['header']['name'] = t['header']['name'] + "Stab"
 
     if not found_learn:
-        print("Could not find tuning trials within the learning set names provided")
+        raise ValueError("Could not find tuning trials within the learning set names provided")
 
     return None
 
