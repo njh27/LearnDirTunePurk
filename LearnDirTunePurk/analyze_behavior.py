@@ -5,12 +5,49 @@ def get_position(ldp_sess):
     pass
 
 
-def bin_traces_by_trial(ldp_sess, x_data, y_data, bins=10, t_inds=None):
-    """ Assumes bins are ORDERED! or this may not work right.
-    x_data and y_data are assumed to be trials x timepoints matrices of data of
-    the same shape.
-    """
-    pass
+def bin_by_trial(t_inds, edges, inc_last_edge=True):
+    """ Bins the trial indices (or any numbers) in t_inds within the edges
+    specified by the intervals in 'edges'. If edges is a scalor, equally
+    spaced 'edges' number of bins are created. Output is a list for each
+    bin specified by edges, containing a list of the indices of t_inds that
+    fall within the bin. """
+    t_args = np.argsort(t_inds)
+    if len(edges) == 1:
+        edges = np.linspace(t_inds[0], t_inds[-1]+.001, edges)
+    # Initialize each output bin
+    bin_out = [[] for x in range(0, len(edges)-1)]
+    curr_bin_out = []
+    curr_bin = 0
+    curr_t_arg = 0
+    while (curr_bin < (len(bin_out))):
+        if t_inds[t_args[curr_t_arg]] < edges[curr_bin]:
+            # This t_ind is below specified bin range so skip
+            curr_t_arg += 1
+        elif ( (t_inds[t_args[curr_t_arg]] >= edges[curr_bin]) and
+               (t_inds[t_args[curr_t_arg]] < edges[curr_bin+1]) ):
+            # This t_ind falls within the current bin
+            curr_bin_out.append(t_args[curr_t_arg])
+            curr_t_arg += 1
+        elif t_inds[t_args[curr_t_arg]] >= edges[curr_bin+1]:
+            if ( ((curr_bin+1) == len(edges)) and inc_last_edge):
+                # This t_ind is on the final bin edge and include last edge is on
+                curr_bin_out.append(t_args[curr_t_arg])
+                curr_t_arg += 1
+            else:
+                # This t_ind is beyond current bin edge so save and increment bin
+                bin_out[curr_bin] = curr_bin_out
+                curr_bin_out = []
+                curr_bin += 1
+        else:
+            # Shouldn't be possible, but just in case
+            raise RuntimeError("Can't figure out how to handle t_ind {0} in edges {1}.".format(t_inds[t_args[curr_t_arg]], edges[curr_bin:curr_bin+1]))
+        if curr_t_arg >= len(t_args):
+            # We are done with all t_inds so save and exit
+            bin_out[curr_bin] = curr_bin_out
+            break
+            
+    return bin_out
+
 
 def get_xy_traces(ldp_sess, series_name, time_window, blocks=None,
                  trial_sets=None, return_inds=False, rotate=False):
