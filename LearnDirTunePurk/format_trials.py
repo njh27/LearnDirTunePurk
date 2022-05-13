@@ -14,21 +14,28 @@ def rename_stab_probe_trials(maestro_data):
                    'Dn-Rt', 'Dn-Lt']
     learn_names = [x.lower() for x in learn_names]
     found_learn = False
+    no_set_name = False
     for t in maestro_data:
         if t['header']['name'] in ["0", "90", "180", "270"]:
-            if t['header']['set_name'].lower() in learn_names:
-                found_learn = True
+            try:
+                # This is only available in Maestro version >= 4.0
+                if t['header']['set_name'].lower() in learn_names:
+                    found_learn = True
+            except KeyError:
+                no_set_name = True
             if t['header']['UsedStab']:
                 t['header']['name'] = t['header']['name'] + "Stab"
 
-    if not found_learn:
+    if no_set_name:
+        print("File does not have set name")
+    elif not found_learn:
         raise ValueError("Could not find tuning trials within the learning set names provided")
 
     return None
 
 
 def name_trial_events(maestro_data):
-    """Assigns the event names to even times dictionary for each trial
+    """Assigns the event names to event times dictionary for each trial
     IN PLACE.
 
     NOTE THAT the post learning standard tuning block in Dandy is messed up
@@ -100,7 +107,7 @@ def name_trial_events(maestro_data):
             after_learing = True
         else:
             raise ValueError("T name '{0}' not found!".format(t_name))
-
+    
     format_maestro_events(maestro_data, event_names_by_trial,
             missing_event=None, convert_to_ms=True)
 

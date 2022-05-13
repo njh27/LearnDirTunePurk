@@ -27,6 +27,7 @@ def create_behavior_session(fname, maestro_dir, session_name=None, existing_dir=
     if verbose: print("Converting data to trial objects.")
     trial_list = sa.utils.format_trial_dicts.maestro_to_apparatus_trial(
                         maestro_data, 0, 1, start_data=0, data_name="target0")
+
     # Create a second list of BehaviorTrial trials from eye data
     trial_list_bhv = sa.utils.format_trial_dicts.maestro_to_behavior_trial(
                         maestro_data, 1, start_data=0, data_name="eye")
@@ -110,6 +111,7 @@ def create_behavior_session(fname, maestro_dir, session_name=None, existing_dir=
     sess.add_blocks(trial_names, block_names, number_names=True, ignore_trial_names=ignore_trial_names,
                     max_consec_absent=0, block_min=20, n_min_per_trial=20)
 
+    return sess
     # Align all target related events with monitor refresh rate
     sess.shift_event_to_refresh('target_onset')
     sess.shift_event_to_refresh('fixation_onset')
@@ -118,6 +120,7 @@ def create_behavior_session(fname, maestro_dir, session_name=None, existing_dir=
     sess.shift_event_to_refresh('start_stabwin')
     sess.shift_event_to_refresh('target_offset')
 
+    if verbose: print("Searching for incomplete trials.")
     # Fixation trials will be found and aligned by this many ms after fixation onset
     fixation_trial_t_offset = 1200.
     # Pursuit trials will be found and aligned by this many ms after target onset
@@ -142,6 +145,7 @@ def create_behavior_session(fname, maestro_dir, session_name=None, existing_dir=
                                 blocks=None, trial_sets="pursuit_trials",
                                 event_offset=pursuit_trial_min_motion)
     # Delete these too short trials
+    return sess
     sess.delete_trials(np.logical_or(fix_trials_less_than_event, trials_less_than_event))
 
     # Attempt to verify block order and detect trials outside of blocks
@@ -169,5 +173,7 @@ def create_behavior_session(fname, maestro_dir, session_name=None, existing_dir=
 
     # Compute the indices for counting by number of preceding learning trials
     sess.get_n_instructed_trials(100)
+
+    print("Founding learning block trial as:", sess.learning_trial_name, "and corresponding directions:", sess.directions)
 
     return sess
