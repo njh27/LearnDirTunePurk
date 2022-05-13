@@ -45,7 +45,7 @@ def bin_by_trial(t_inds, edges, inc_last_edge=True):
             # We are done with all t_inds so save and exit
             bin_out[curr_bin] = curr_bin_out
             break
-            
+
     return bin_out
 
 
@@ -105,6 +105,14 @@ def get_xy_traces(ldp_sess, series_name, time_window, blocks=None,
         t_inds_out.append(t)
 
     if return_inds:
-        return np.vstack(data_out_x), np.vstack(data_out_y), np.hstack(t_inds_out)
+        if len(data_out_x) > 0:
+            # We found data to concatenate
+            return np.vstack(data_out_x), np.vstack(data_out_y), np.hstack(t_inds_out)
+        else:
+            return np.zeros((0, time_window[1]-time_window[0])), np.zeros((0, time_window[1]-time_window[0])), np.array([], dtype=np.int32)
     else:
-        return np.vstack(data_out_x), np.vstack(data_out_y)
+        if len(data_out_x) > 0:
+            # We found data to concatenate
+            return np.vstack(data_out_x), np.vstack(data_out_y)
+        else:
+            return np.zeros((0, time_window[1]-time_window[0])), np.zeros((0, time_window[1]-time_window[0]))

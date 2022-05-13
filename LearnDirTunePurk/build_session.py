@@ -111,7 +111,6 @@ def create_behavior_session(fname, maestro_dir, session_name=None, existing_dir=
     sess.add_blocks(trial_names, block_names, number_names=True, ignore_trial_names=ignore_trial_names,
                     max_consec_absent=0, block_min=20, n_min_per_trial=20)
 
-    return sess
     # Align all target related events with monitor refresh rate
     sess.shift_event_to_refresh('target_onset')
     sess.shift_event_to_refresh('fixation_onset')
@@ -145,7 +144,6 @@ def create_behavior_session(fname, maestro_dir, session_name=None, existing_dir=
                                 blocks=None, trial_sets="pursuit_trials",
                                 event_offset=pursuit_trial_min_motion)
     # Delete these too short trials
-    return sess
     sess.delete_trials(np.logical_or(fix_trials_less_than_event, trials_less_than_event))
 
     # Attempt to verify block order and detect trials outside of blocks
@@ -158,6 +156,7 @@ def create_behavior_session(fname, maestro_dir, session_name=None, existing_dir=
         if verbose: print("Attempting to repair {0} orphan trials.".format(len(orphan_trials)))
         n_orphans_assigned = sess.assign_orphan_trials(orphan_trials)
         if verbose: print("Added {0} orphan trials to blocks.".format(n_orphans_assigned))
+
     orphan_trials = sess.verify_blocks()
     if verbose: print("New block assignments leave {0} orphan trials for deletion.".format(len(orphan_trials)))
     sess.delete_trials(orphan_trials)
