@@ -57,7 +57,7 @@ def load_maestro_directory(fname, maestro_dir, existing_dir=None, save_dir=None,
 
 
 def maestro_to_pickle_batch(maestro_dir, existing_dir=None, save_dir=None,
-    combine_targs=True, compress_data=True, save_name=None, recompute_all=False):
+    combine_targs=True, compress_data=True, recompute_all=False):
 
     if not os.path.isdir(maestro_dir):
         raise RuntimeError('Directory name {:s} is not valid'.format(maestro_dir))
@@ -89,9 +89,8 @@ def maestro_to_pickle_batch(maestro_dir, existing_dir=None, save_dir=None,
         if compress_data:
             rm.target.compress_target_data(maestro_data)
 
-        if save_name is None:
-            # Make default save name
-            save_name = maestro_file + "_maestro.pickle"
+        # Make default save name
+        save_name = maestro_file + "_maestro.pickle"
 
         if save_dir is not None:
             save_dir = save_dir.split(maestro_file)[0]

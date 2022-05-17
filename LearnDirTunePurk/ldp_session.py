@@ -1,7 +1,9 @@
 import numpy as np
 import re
+import warnings
 from SessionAnalysis.session import Session
 from SessionAnalysis.utils import eye_data_series
+from LearnDirTunePurk import analyze_behavior as ab
 
 
 
@@ -567,6 +569,44 @@ class LDPSession(Session):
                 self.block_info[block_name][self._trial_lists['__main'][t_ind].name] += 1
             except KeyError:
                 self.block_info[block_name][self._trial_lists['__main'][t_ind].name] = 1
+        return None
+
+    def set_baseline_averages(self, time_window, rotate=True):
+        """ Adds the position and velocity trials as baseline from the
+        info provided over the default 4 axes in trial_sets. """
+        # Hard coded default sets and axes
+        self.four_dir_trial_sets = ["learning", "anti_learning", "pursuit", "anti_pursuit"]
+        self.trial_set_base_axis = {'learning': 0,
+                                   'anti_learning': 0,
+                                   'pursuit': 1,
+                                   'anti_pursuit': 1,
+                                   'instruction': 1
+                                    }
+
+        # Setup dictionary for storing tuning data
+        tuning_blocks = ["StandTune", "StabTunePre"]
+        data_types = ["eye position", "eye velocity"]
+        self.baseline_tuning = {}
+        for block in tuning_blocks:
+            # Check if block is present
+            try:
+                _ = self.blocks[block]
+            except KeyError:
+                continue
+            self.baseline_tuning[block] = {}
+            for data_t in data_types:
+                self.baseline_tuning[block][data_t] = {}
+                for curr_set in self.four_dir_trial_sets:
+                    x, y = ab.get_xy_traces(self, data_t, time_window, blocks=block,
+                                                            trial_sets=curr_set, return_inds=False, rotate=rotate)
+                    if x.shape[0] == 0:
+                        # Found no matching data
+                        continue
+                    self.baseline_tuning[block][data_t][curr_set] = np.zeros((2, x.shape[1]))
+                    with warnings.catch_warnings():
+                        warnings.filterwarnings("ignore", category=RuntimeWarning, message="Mean of empty slice.")
+                        self.baseline_tuning[block][data_t][curr_set][0, :] = np.nanmean(x, axis=0)
+                        self.baseline_tuning[block][data_t][curr_set][1, :] = np.nanmean(y, axis=0)
         return None
 
     def delete_trials(self, indices):

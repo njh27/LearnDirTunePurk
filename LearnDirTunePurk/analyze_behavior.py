@@ -1,8 +1,49 @@
 import numpy as np
+import warnings
 
 
-def get_position(ldp_sess):
-    pass
+
+def get_mean_xy_traces(ldp_sess, series_name, time_window, blocks=None,
+                        trial_sets=None, rotate=False):
+    """ Calls get_xy_traces below and takes the mean over rows of the output. """
+
+    x, y = get_xy_traces(ldp_sess, series_name, time_window, blocks=blocks,
+                     trial_sets=trial_sets, return_inds=False, rotate=rotate)
+    if x.shape[0] == 0:
+        # Found no matching data
+        return x, y
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", category=RuntimeWarning, message="Mean of empty slice.")
+        x = np.nanmean(x, axis=0)
+        y = np.nanmean(y, axis=0)
+
+    return x, y
+
+
+def get_binned_mean_xy_traces(ldp_sess, edges, series_name, time_window,
+                              blocks=None, trial_sets=None, rotate=False):
+    """ Calls get_xy_traces and then bin_by_trial. Returns the mean of each bin
+    corresponding to 'edges'. """
+    x, y, t = get_xy_traces(ldp_sess, series_name, time_window, blocks=blocks,
+                     trial_sets=trial_sets, return_inds=True, rotate=rotate)
+    bin_inds = bin_by_trial(ldp_sess.n_instructed[t], edges, inc_last_edge=True)
+    x_binned_traces = []
+    y_binned_traces = []
+    for inds in bin_inds:
+        if len(inds) == 0:
+            x_binned_traces.append([])
+            y_binned_traces.append([])
+        elif len(inds) == 1:
+            x_binned_traces.append(x[inds[0], :])
+            y_binned_traces.append(y[inds[0], :])
+        else:
+            numpy_inds = np.array(inds)
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore", category=RuntimeWarning, message="Mean of empty slice.")
+                x_binned_traces.append(np.nanmean(x[numpy_inds, :], axis=0))
+                y_binned_traces.append(np.nanmean(y[numpy_inds, :], axis=0))
+
+    return x_binned_traces, y_binned_traces
 
 
 def bin_by_trial(t_inds, edges, inc_last_edge=True):
