@@ -124,6 +124,7 @@ def create_behavior_session(fname, maestro_dir, session_name=None, existing_dir=
     fixation_trial_t_offset = 1200.
     # Pursuit trials will be found and aligned by this many ms after target onset
     pursuit_trial_min_motion = 400.
+    pursuit_trial_t_offset = 0.
     # Remove trials that were not long enough to start
     # Find fixation tuning trials that lasted less than 800 ms
     sess.add_trial_set("fixation_trials", trials=fix_trial_names, blocks=None)
@@ -140,9 +141,12 @@ def create_behavior_session(fname, maestro_dir, session_name=None, existing_dir=
                                                           trial_sets="fixation_trials",
                                                           event_offset=fixation_trial_t_offset)
     # Find target trials that didn't make it to target motion onset
-    trials_less_than_event = sess.find_trials_less_than_event("target_onset",
+    # trials_less_than_event = sess.find_trials_less_than_event("target_onset",
+    #                             blocks=None, trial_sets="pursuit_trials",
+    #                             event_offset=pursuit_trial_min_motion)
+    trials_less_than_event = sess.find_trials_less_than_event("target_offset",
                                 blocks=None, trial_sets="pursuit_trials",
-                                event_offset=pursuit_trial_min_motion)
+                                event_offset=pursuit_trial_t_offset)
     # Delete these too short trials
     sess.delete_trials(np.logical_or(fix_trials_less_than_event, trials_less_than_event))
 
