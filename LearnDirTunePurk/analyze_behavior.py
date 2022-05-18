@@ -3,6 +3,36 @@ import warnings
 
 
 
+def subtract_baseline_tuning(ldp_sess, base_block, base_set, base_data, x, y):
+    """ Subtracts the baseline data on the orthogonal axis relative to the
+    4 axes defined by ldp_sess.trial_set_base_axis.
+    Relatively simple function but cleans up other code since this is clumsy.
+    Data are subtracted from x and y IN PLACE!"""
+    if (len(x) == 0) or (len(y) == 0):
+        return x, y
+    if ldp_sess.trial_set_base_axis[base_set] == 0:
+        x = x - ldp_sess.baseline_tuning[base_block][base_data][base_set][0, :]
+    elif ldp_sess.trial_set_base_axis[base_set] == 1:
+        y = y - ldp_sess.baseline_tuning[base_block][base_data][base_set][1, :]
+    else:
+        raise ValueError("Could not match baseline for subtraction for block '{0}', set '{1}', and data '{2}'.".format(base_block, base_set, base_data))
+
+    return x, y
+
+def subtract_baseline_tuning_binned(ldp_sess, base_block, base_set, base_data, x, y):
+    """ Subtracts the baseline data on the orthogonal axis relative to the
+    4 axes defined by ldp_sess.trial_set_base_axis.
+    Relatively simple function but cleans up other code since this is clumsy.
+    Data are subtracted from x and y IN PLACE!"""
+    if len(x) != len(y):
+        raise ValueError("x and y data must have the same number of bins (length).")
+    for bin_ind in range(0, len(x)):
+        x[bin_ind], y[bin_ind] = subtract_baseline_tuning(ldp_sess, base_block,
+                                    base_set, base_data, x[bin_ind], y[bin_ind])
+
+    return x, y
+
+
 def get_mean_xy_traces(ldp_sess, series_name, time_window, blocks=None,
                         trial_sets=None, rotate=False):
     """ Calls get_xy_traces below and takes the mean over rows of the output. """
@@ -13,7 +43,7 @@ def get_mean_xy_traces(ldp_sess, series_name, time_window, blocks=None,
         # Found no matching data
         return x, y
     with warnings.catch_warnings():
-        warnings.filterwarnings("ignore", category=RuntimeWarning, message="Mean of empty slice.")
+        warnings.filterwarnings("ignore", category=RuntimeWarning, message="Mean of empty slice")
         x = np.nanmean(x, axis=0)
         y = np.nanmean(y, axis=0)
 
@@ -39,7 +69,7 @@ def get_binned_mean_xy_traces(ldp_sess, edges, series_name, time_window,
         else:
             numpy_inds = np.array(inds)
             with warnings.catch_warnings():
-                warnings.filterwarnings("ignore", category=RuntimeWarning, message="Mean of empty slice.")
+                warnings.filterwarnings("ignore", category=RuntimeWarning, message="Mean of empty slice")
                 x_binned_traces.append(np.nanmean(x[numpy_inds, :], axis=0))
                 y_binned_traces.append(np.nanmean(y[numpy_inds, :], axis=0))
 

@@ -2,3 +2,4 @@ import LearnDirTunePurk.format_trials
 import LearnDirTunePurk.load_data
 import LearnDirTunePurk.build_session
 import LearnDirTunePurk.analyze_behavior
+import LearnDirTunePurk.make_plots

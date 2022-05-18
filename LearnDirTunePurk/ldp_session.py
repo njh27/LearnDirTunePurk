@@ -604,9 +604,11 @@ class LDPSession(Session):
                         continue
                     self.baseline_tuning[block][data_t][curr_set] = np.zeros((2, x.shape[1]))
                     with warnings.catch_warnings():
-                        warnings.filterwarnings("ignore", category=RuntimeWarning, message="Mean of empty slice.")
+                        warnings.filterwarnings("ignore", category=RuntimeWarning, message="Mean of empty slice")
                         self.baseline_tuning[block][data_t][curr_set][0, :] = np.nanmean(x, axis=0)
                         self.baseline_tuning[block][data_t][curr_set][1, :] = np.nanmean(y, axis=0)
+                # Add the instructed set baseline to be same as pursuit!
+                self.baseline_tuning[block][data_t]['instruction'] = self.baseline_tuning[block][data_t]['pursuit']
         return None
 
     def delete_trials(self, indices):
