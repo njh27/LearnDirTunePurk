@@ -46,6 +46,27 @@ def get_binned_mean_xy_traces(ldp_sess, edges, series_name, time_window,
     return x_binned_traces, y_binned_traces
 
 
+def get_binned_xy_traces(ldp_sess, edges, series_name, time_window,
+                              blocks=None, trial_sets=None, rotate=False):
+    """ Calls get_xy_traces and then bin_by_trial. Returns the mean of each bin
+    corresponding to 'edges'. """
+    x, y, t = get_xy_traces(ldp_sess, series_name, time_window, blocks=blocks,
+                     trial_sets=trial_sets, return_inds=True, rotate=rotate)
+    bin_inds = bin_by_trial(ldp_sess.n_instructed[t], edges, inc_last_edge=True)
+    x_binned_traces = []
+    y_binned_traces = []
+    for inds in bin_inds:
+        if len(inds) == 0:
+            x_binned_traces.append([])
+            y_binned_traces.append([])
+        else:
+            numpy_inds = np.array(inds)
+            x_binned_traces.append(x[numpy_inds, :])
+            y_binned_traces.append(y[numpy_inds, :])
+
+    return x_binned_traces, y_binned_traces
+
+
 def bin_by_trial(t_inds, edges, inc_last_edge=True):
     """ Bins the trial indices (or any numbers) in t_inds within the edges
     specified by the intervals in 'edges'. If edges is a scalor, equally
