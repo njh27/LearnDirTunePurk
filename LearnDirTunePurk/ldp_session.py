@@ -609,6 +609,8 @@ class LDPSession(Session):
                         self.baseline_tuning[block][data_t][curr_set][1, :] = np.nanmean(y, axis=0)
                 # Add the instructed set baseline to be same as pursuit!
                 self.baseline_tuning[block][data_t]['instruction'] = self.baseline_tuning[block][data_t]['pursuit']
+        # Save the time window used for future reference
+        self.baseline_time_window = time_window
         return None
 
     def delete_trials(self, indices):
