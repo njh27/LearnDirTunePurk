@@ -5,6 +5,69 @@ import LearnDirTunePurk.analyze_behavior as ab
 
 
 
+def show_all_eye_plots(ldp_sess, base_block="StabTunePre", exp_bins=False):
+    base_t_ax = baseline_tuning_2D(ldp_sess, base_block, "eye position", colors='k')
+
+    t_max = 700
+    step_size = 20
+    bin_edges = np.arange(-1, t_max+step_size, step_size)
+    if exp_bins:
+        bin_edges = np.hstack((0, 2*np.exp(np.arange(1, np.log(t_max/2)+1, 1))))
+    learn_ax = plot_instruction_position_xy(ldp_sess, bin_edges, time_window=None, base_block=base_block)
+
+    t_max = 700
+    step_size = 100
+    bin_edges = np.arange(-1, t_max+step_size, step_size)
+    if exp_bins:
+        bin_edges = np.hstack((0, 2*np.exp(np.arange(1, np.log(t_max/2)+1, 1))))
+    learn_ax = plot_tuning_probe_position_xy(ldp_sess, bin_edges, time_window=None,
+                                      base_block=base_block, colors='k',
+                                      saturation=None)
+
+    post_tune_ax = plot_post_tuning_position_xy(ldp_sess, time_window=None, base_block=base_block)
+
+    base_t_ax = baseline_tuning_2D(ldp_sess, base_block, "eye velocity", colors='k')
+
+    p_col = {'pursuit': 'g', 'anti_pursuit': 'r', 'learning': 'g', 'anti_learning': 'r'}
+    base_learn_ax, base_pursuit_ax = baseline_tuning(ldp_sess, base_block, "eye velocity", colors=p_col)
+
+    t_max = 700
+    step_size = 20
+    bin_edges = np.arange(-1, t_max+step_size, step_size)
+    if exp_bins:
+        bin_edges = np.hstack((0, 2*np.exp(np.arange(1, np.log(t_max/2)+1, 1))))
+    inst_learn_ax, instr_pursuit_ax = plot_instruction_velocity_traces(ldp_sess, bin_edges, time_window=None,
+                                                                                      base_block=base_block)
+
+    t_max = 700
+    step_size = 100
+    bin_edges = np.arange(-1, t_max+step_size, step_size)
+    if exp_bins:
+        bin_edges = np.hstack((0, 2*np.exp(np.arange(1, np.log(t_max/2)+1, 1))))
+    learn_learn_ax, learn_pursuit_ax = plot_tuning_probe_velocity_traces(ldp_sess, bin_edges, time_window=None,
+                                                                                        base_block=base_block)
+
+    post_learn_ax, post_pursuit_ax = plot_post_tuning_velocity_traces(ldp_sess, time_window=None, base_block=base_block)
+
+    if ldp_sess.blocks['Washout'] is not None:
+        t_max = ldp_sess.blocks['Washout'][1]
+        step_size = 10
+        bin_edges = np.arange(ldp_sess.blocks['Washout'][0], t_max+step_size, step_size)
+        if exp_bins:
+            bin_edges = np.hstack((0, 2*np.exp(np.arange(1, np.log(t_max/2)+1, 1))))
+        learn_ax = plot_washout_position_xy(ldp_sess, bin_edges, time_window=None, base_block=base_block)
+
+        t_max = ldp_sess.blocks['Washout'][1]
+        step_size = 10
+        bin_edges = np.arange(ldp_sess.blocks['Washout'][0], t_max+step_size, step_size)
+        if exp_bins:
+            bin_edges = np.hstack((0, 2*np.exp(np.arange(1, np.log(t_max/2)+1, 1))))
+        inst_learn_ax, instr_pursuit_ax = plot_washout_velocity_traces(ldp_sess, bin_edges, time_window=None,
+                                                                                  base_block=base_block)
+
+    return None
+
+
 def plot_instruction_position_xy(ldp_sess, bin_edges, time_window=None,
                                  base_block="StabTunePre"):
 
@@ -58,6 +121,9 @@ def plot_tuning_probe_position_xy(ldp_sess, bin_edges, time_window=None,
     learn_ax.axvline(0, color='b')
     learn_ax.axhline(0, color='b')
 
+    save_name = "/Users/nathanhall/onedrive - duke university/sync/LearnDirTunePurk/Data/Maestro/" + ldp_sess.session_name + ".pdf"
+    plt.savefig(save_name)
+
     return learn_ax
 
 
@@ -74,6 +140,8 @@ def plot_post_tuning_position_xy(ldp_sess, time_window=None, base_block="StabTun
     fig = plt.figure()
     post_tune_ax = plt.axes()
     for block in blocks:
+        if ldp_sess.blocks[block] is None:
+            continue
         for curr_set in ldp_sess.four_dir_trial_sets:
             x, y = ab.get_mean_xy_traces(ldp_sess, "eye position", time_window,
                         blocks=block, trial_sets=curr_set, rotate=True)
@@ -125,8 +193,10 @@ def plot_instruction_velocity_traces(ldp_sess, bin_edges, time_window=None,
 
     inst_learn_ax.axvline(0, color='b')
     inst_learn_ax.axhline(0, color='b')
+    inst_learn_ax.axvline(250, color='r')
     instr_pursuit_ax.axvline(0, color='b')
     instr_pursuit_ax.axhline(0, color='b')
+    instr_pursuit_ax.axvline(250, color='r')
 
     return inst_learn_ax, instr_pursuit_ax
 
@@ -172,8 +242,10 @@ def plot_tuning_probe_velocity_traces(ldp_sess, bin_edges, time_window=None,
 
     learn_pursuit_ax.axvline(0, color='b')
     learn_pursuit_ax.axhline(0, color='b')
+    learn_pursuit_ax.axvline(250, color='r')
     learn_learn_ax.axvline(0, color='b')
     learn_learn_ax.axhline(0, color='b')
+    learn_learn_ax.axvline(250, color='r')
 
     return learn_learn_ax, learn_pursuit_ax
 
@@ -196,6 +268,8 @@ def plot_post_tuning_velocity_traces(ldp_sess, time_window=None, base_block="Sta
     time = np.arange(time_window[0], time_window[1])
 
     for block in blocks:
+        if ldp_sess.blocks[block] is None:
+            continue
         for curr_set in ldp_sess.four_dir_trial_sets:
             x, y = ab.get_mean_xy_traces(ldp_sess, "eye velocity", time_window,
                                 blocks=block, trial_sets=curr_set, rotate=True)
@@ -222,8 +296,10 @@ def plot_post_tuning_velocity_traces(ldp_sess, time_window=None, base_block="Sta
 
     post_pursuit_ax.axvline(0, color='k')
     post_pursuit_ax.axhline(0, color='k')
+    post_pursuit_ax.axvline(250, color='r')
     post_learn_ax.axvline(0, color='k')
     post_learn_ax.axhline(0, color='k')
+    post_learn_ax.axvline(250, color='r')
 
     return post_learn_ax, post_pursuit_ax
 
@@ -287,8 +363,10 @@ def plot_washout_velocity_traces(ldp_sess, bin_edges, time_window=None,
 
     inst_learn_ax.axvline(0, color='b')
     inst_learn_ax.axhline(0, color='b')
+    inst_learn_ax.axvline(250, color='r')
     instr_pursuit_ax.axvline(0, color='b')
     instr_pursuit_ax.axhline(0, color='b')
+    instr_pursuit_ax.axvline(250, color='r')
 
     return inst_learn_ax, instr_pursuit_ax
 
