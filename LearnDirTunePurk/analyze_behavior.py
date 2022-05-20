@@ -52,7 +52,8 @@ def get_mean_xy_traces(ldp_sess, series_name, time_window, blocks=None,
 
 def get_binned_mean_xy_traces(ldp_sess, edges, series_name, time_window,
                               blocks=None, trial_sets=None, rotate=False,
-                              bin_by_instructed=False):
+                              bin_by_instructed=False,
+                              return_t_inds=False):
     """ Calls get_xy_traces and then bin_by_trial. Returns the mean of each bin
     corresponding to 'edges'. """
     x, y, t = get_xy_traces(ldp_sess, series_name, time_window, blocks=blocks,
@@ -62,21 +63,28 @@ def get_binned_mean_xy_traces(ldp_sess, edges, series_name, time_window,
     bin_inds = bin_by_trial(t, edges, inc_last_edge=True)
     x_binned_traces = []
     y_binned_traces = []
+    t_binned_inds = []
     for inds in bin_inds:
         if len(inds) == 0:
             x_binned_traces.append([])
             y_binned_traces.append([])
+            t_binned_inds.append([])
         elif len(inds) == 1:
             x_binned_traces.append(x[inds[0], :])
             y_binned_traces.append(y[inds[0], :])
+            t_binned_inds.append(np.array([t[inds[0]]]))
         else:
             numpy_inds = np.array(inds)
             with warnings.catch_warnings():
                 warnings.filterwarnings("ignore", category=RuntimeWarning, message="Mean of empty slice")
                 x_binned_traces.append(np.nanmean(x[numpy_inds, :], axis=0))
                 y_binned_traces.append(np.nanmean(y[numpy_inds, :], axis=0))
+            t_binned_inds.append(t[numpy_inds])
 
-    return x_binned_traces, y_binned_traces
+    if return_t_inds:
+        return x_binned_traces, y_binned_traces, t_binned_inds
+    else:
+        return x_binned_traces, y_binned_traces
 
 
 def get_binned_xy_traces(ldp_sess, edges, series_name, time_window,
@@ -111,7 +119,7 @@ def bin_by_trial(t_inds, edges, inc_last_edge=True):
     fall within the bin. """
     t_args = np.argsort(t_inds)
     if len(edges) == 1:
-        edges = np.linspace(t_inds[0], t_inds[-1]+.001, edges)
+        edges = np.linspace(np.amin(t_inds), np.amax(t_inds)+.001, edges)
     # Initialize each output bin
     bin_out = [[] for x in range(0, len(edges)-1)]
     curr_bin_out = []

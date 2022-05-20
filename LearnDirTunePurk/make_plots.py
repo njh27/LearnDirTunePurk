@@ -8,15 +8,18 @@ import LearnDirTunePurk.analyze_behavior as ab
 def show_all_eye_plots(ldp_sess, base_block="StabTunePre", exp_bins=False):
     base_t_ax = baseline_tuning_2D(ldp_sess, base_block, "eye position", colors='k')
 
+    learn_step_size = 10
+    probe_step_size = 100
+
     t_max = 700
-    step_size = 20
+    step_size = learn_step_size
     bin_edges = np.arange(-1, t_max+step_size, step_size)
     if exp_bins:
         bin_edges = np.hstack((0, 2*np.exp(np.arange(1, np.log(t_max/2)+1, 1))))
     learn_ax = plot_instruction_position_xy(ldp_sess, bin_edges, time_window=None, base_block=base_block)
 
     t_max = 700
-    step_size = 100
+    step_size = probe_step_size
     bin_edges = np.arange(-1, t_max+step_size, step_size)
     if exp_bins:
         bin_edges = np.hstack((0, 2*np.exp(np.arange(1, np.log(t_max/2)+1, 1))))
@@ -32,7 +35,7 @@ def show_all_eye_plots(ldp_sess, base_block="StabTunePre", exp_bins=False):
     base_learn_ax, base_pursuit_ax = baseline_tuning(ldp_sess, base_block, "eye velocity", colors=p_col)
 
     t_max = 700
-    step_size = 20
+    step_size = learn_step_size
     bin_edges = np.arange(-1, t_max+step_size, step_size)
     if exp_bins:
         bin_edges = np.hstack((0, 2*np.exp(np.arange(1, np.log(t_max/2)+1, 1))))
@@ -40,7 +43,7 @@ def show_all_eye_plots(ldp_sess, base_block="StabTunePre", exp_bins=False):
                                                                                       base_block=base_block)
 
     t_max = 700
-    step_size = 100
+    step_size = probe_step_size
     bin_edges = np.arange(-1, t_max+step_size, step_size)
     if exp_bins:
         bin_edges = np.hstack((0, 2*np.exp(np.arange(1, np.log(t_max/2)+1, 1))))
@@ -51,14 +54,14 @@ def show_all_eye_plots(ldp_sess, base_block="StabTunePre", exp_bins=False):
 
     if ldp_sess.blocks['Washout'] is not None:
         t_max = ldp_sess.blocks['Washout'][1]
-        step_size = 10
+        step_size = learn_step_size
         bin_edges = np.arange(ldp_sess.blocks['Washout'][0], t_max+step_size, step_size)
         if exp_bins:
             bin_edges = np.hstack((0, 2*np.exp(np.arange(1, np.log(t_max/2)+1, 1))))
         learn_ax = plot_washout_position_xy(ldp_sess, bin_edges, time_window=None, base_block=base_block)
 
         t_max = ldp_sess.blocks['Washout'][1]
-        step_size = 10
+        step_size = learn_step_size
         bin_edges = np.arange(ldp_sess.blocks['Washout'][0], t_max+step_size, step_size)
         if exp_bins:
             bin_edges = np.hstack((0, 2*np.exp(np.arange(1, np.log(t_max/2)+1, 1))))
@@ -121,8 +124,8 @@ def plot_tuning_probe_position_xy(ldp_sess, bin_edges, time_window=None,
     learn_ax.axvline(0, color='b')
     learn_ax.axhline(0, color='b')
 
-    save_name = "/Users/nathanhall/onedrive - duke university/sync/LearnDirTunePurk/Data/Maestro/" + ldp_sess.session_name + ".pdf"
-    plt.savefig(save_name)
+    # save_name = "/Users/nathanhall/onedrive - duke university/sync/LearnDirTunePurk/Data/Maestro/" + ldp_sess.session_name + ".pdf"
+    # plt.savefig(save_name)
 
     return learn_ax
 
@@ -156,6 +159,9 @@ def plot_post_tuning_position_xy(ldp_sess, time_window=None, base_block="StabTun
     post_tune_ax.set_title("Direction tuning after learning")
     post_tune_ax.axvline(0, color='k')
     post_tune_ax.axhline(0, color='k')
+
+    # save_name = "/Users/nate/onedrive - duke university/sync/LearnDirTunePurk/Data/Maestro/" + ldp_sess.session_name + ".pdf"
+    # plt.savefig(save_name)
 
     return post_tune_ax
 
@@ -468,7 +474,7 @@ def binned_mean_traces_2D(bin_x_data, bin_y_data, ax=None, color='k',
     darkness = saturation[0]
     dark_step = (saturation[1] - saturation[0]) / len(bin_x_data)
     for x_trace, y_trace in zip(bin_x_data, bin_y_data):
-        ax.scatter(x_trace, y_trace, color=(darkness * color))
+        ax.plot(x_trace, y_trace, color=(darkness * color))
         darkness += dark_step
 
     return ax
