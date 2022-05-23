@@ -481,7 +481,7 @@ def binned_mean_traces_2D(bin_x_data, bin_y_data, ax=None, color='k',
 
 
 def binned_mean_traces(bin_data, t_vals=None, ax=None, color='k',
-                       saturation=None):
+                       saturation=None, return_last_line=False):
     """
     """
     if ax is None:
@@ -501,12 +501,15 @@ def binned_mean_traces(bin_data, t_vals=None, ax=None, color='k',
             darkness += dark_step
             continue
         if t_vals is None:
-            ax.plot(data_trace, color=(darkness * color))
+            last_line = ax.plot(data_trace, color=(darkness * color))
         else:
-            ax.plot(t_vals, data_trace, color=(darkness * color))
+            last_line = ax.plot(t_vals, data_trace, color=(darkness * color))
         darkness += dark_step
 
-    return ax
+    if return_last_line:
+        return ax, last_line[-1]
+    else:
+        return ax
 
 
 def mean_traces_2D(x, y, time_window, blocks,
@@ -519,21 +522,6 @@ def mean_traces_2D(x, y, time_window, blocks,
     if plot_ax is None:
         plt.figure()
         plot_ax = plt.axes()
-
-
-
-
-
-def scatter_2D(sess, data_name, time_window):
-    pass
-
-
-def single_traces():
-    pass
-
-
-def binned_traces():
-    pass
 
 
 def parse_colors(dict_names, colors):
