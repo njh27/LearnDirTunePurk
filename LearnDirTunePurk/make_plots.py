@@ -81,7 +81,7 @@ def plot_instruction_position_xy(ldp_sess, bin_edges, time_window=None,
     bin_x_data, bin_y_data = ab.get_binned_mean_xy_traces(
                 ldp_sess, bin_edges, "eye position", time_window,
                 blocks="Learning", trial_sets="instruction", rotate=True,
-                bin_by_instructed=True)
+                bin_basis="instructed")
     bin_x_data, bin_y_data = ab.subtract_baseline_tuning_binned(
                                 ldp_sess, base_block, "instruction", "eye position",
                                 bin_x_data, bin_y_data)
@@ -111,7 +111,7 @@ def plot_tuning_probe_position_xy(ldp_sess, bin_edges, time_window=None,
         bin_x_data[curr_set], bin_y_data[curr_set] = ab.get_binned_mean_xy_traces(
                                 ldp_sess, bin_edges, "eye position", time_window,
                                 blocks="Learning", trial_sets=curr_set,
-                                rotate=True, bin_by_instructed=True)
+                                rotate=True, bin_basis="instructed")
         bin_x_data[curr_set], bin_y_data[curr_set] = ab.subtract_baseline_tuning_binned(
                                 ldp_sess, base_block, curr_set, "eye position",
                                 bin_x_data[curr_set], bin_y_data[curr_set])
@@ -180,7 +180,7 @@ def plot_instruction_velocity_traces(ldp_sess, bin_edges, time_window=None,
     bin_x_data, bin_y_data = ab.get_binned_mean_xy_traces(ldp_sess, bin_edges,
                                 "eye velocity", time_window, blocks="Learning",
                                 trial_sets="instruction", rotate=True,
-                                bin_by_instructed=True)
+                                bin_basis=True)
     bin_x_data, bin_y_data = ab.subtract_baseline_tuning_binned(ldp_sess,
                                 base_block, "instruction", "eye velocity",
                                 bin_x_data, bin_y_data)
@@ -225,7 +225,7 @@ def plot_tuning_probe_velocity_traces(ldp_sess, bin_edges, time_window=None,
         bin_x_data[curr_set], bin_y_data[curr_set] = ab.get_binned_mean_xy_traces(
                                 ldp_sess, bin_edges, "eye velocity", time_window,
                                 blocks="Learning", trial_sets=curr_set,
-                                rotate=True, bin_by_instructed=True)
+                                rotate=True, bin_basis="instructed")
         bin_x_data[curr_set], bin_y_data[curr_set] = ab.subtract_baseline_tuning_binned(
                                 ldp_sess, base_block, curr_set, "eye velocity",
                                 bin_x_data[curr_set], bin_y_data[curr_set])
@@ -320,7 +320,7 @@ def plot_washout_position_xy(ldp_sess, bin_edges, time_window=None,
     bin_x_data, bin_y_data = ab.get_binned_mean_xy_traces(
                 ldp_sess, bin_edges, "eye position", time_window,
                 blocks="Washout", trial_sets="instruction", rotate=True,
-                bin_by_instructed=False)
+                bin_basis=False)
     bin_x_data, bin_y_data = ab.subtract_baseline_tuning_binned(
                                 ldp_sess, base_block, "instruction", "eye position",
                                 bin_x_data, bin_y_data)
@@ -329,7 +329,7 @@ def plot_washout_position_xy(ldp_sess, bin_edges, time_window=None,
 
     learn_ax.set_ylabel("Learning axis eye position (deg)")
     learn_ax.set_xlabel("Pursuit axis eye position (deg)")
-    learn_ax.set_title("Instruction trials")
+    learn_ax.set_title("Washout instruction trials")
     learn_ax.axvline(0, color='b')
     learn_ax.axhline(0, color='b')
 
@@ -350,7 +350,7 @@ def plot_washout_velocity_traces(ldp_sess, bin_edges, time_window=None,
     bin_x_data, bin_y_data = ab.get_binned_mean_xy_traces(ldp_sess, bin_edges,
                                 "eye velocity", time_window, blocks="Washout",
                                 trial_sets="instruction", rotate=True,
-                                bin_by_instructed=False)
+                                bin_basis="order")
     bin_x_data, bin_y_data = ab.subtract_baseline_tuning_binned(ldp_sess,
                                 base_block, "instruction", "eye velocity",
                                 bin_x_data, bin_y_data)
@@ -481,7 +481,7 @@ def binned_mean_traces_2D(bin_x_data, bin_y_data, ax=None, color='k',
 
 
 def binned_mean_traces(bin_data, t_vals=None, ax=None, color='k',
-                       saturation=None, return_last_line=False):
+                       linestyle='-', saturation=None, return_last_line=False):
     """
     """
     if ax is None:
@@ -501,9 +501,9 @@ def binned_mean_traces(bin_data, t_vals=None, ax=None, color='k',
             darkness += dark_step
             continue
         if t_vals is None:
-            last_line = ax.plot(data_trace, color=(darkness * color))
+            last_line = ax.plot(data_trace, color=(darkness * color), linestyle=linestyle)
         else:
-            last_line = ax.plot(t_vals, data_trace, color=(darkness * color))
+            last_line = ax.plot(t_vals, data_trace, color=(darkness * color), linestyle=linestyle)
         darkness += dark_step
 
     if return_last_line:

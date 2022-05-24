@@ -52,13 +52,19 @@ def get_mean_xy_traces(ldp_sess, series_name, time_window, blocks=None,
 
 def get_binned_mean_xy_traces(ldp_sess, edges, series_name, time_window,
                               blocks=None, trial_sets=None, rotate=False,
-                              bin_by_instructed=False,
+                              bin_basis="raw",
                               return_t_inds=False):
     """ Calls get_xy_traces and then bin_by_trial. Returns the mean of each bin
     corresponding to 'edges'. """
     x, y, t = get_xy_traces(ldp_sess, series_name, time_window, blocks=blocks,
                      trial_sets=trial_sets, return_inds=True, rotate=rotate)
-    if bin_by_instructed:
+    if bin_basis.lower() == "raw":
+        # Do nothing
+        pass
+    elif bin_basis.lower() == "order":
+        t_order = np.argsort(t)
+        t[t_order] = np.arange(0, len(t))
+    elif bin_basis.lower() == "instructed":
         t = ldp_sess.n_instructed[t]
     bin_inds = bin_by_trial(t, edges, inc_last_edge=True)
     x_binned_traces = []
@@ -89,12 +95,12 @@ def get_binned_mean_xy_traces(ldp_sess, edges, series_name, time_window,
 
 def get_binned_xy_traces(ldp_sess, edges, series_name, time_window,
                          blocks=None, trial_sets=None, rotate=False,
-                         bin_by_instructed=False):
+                         bin_basis=False):
     """ Calls get_xy_traces and then bin_by_trial. Returns the mean of each bin
     corresponding to 'edges'. """
     x, y, t = get_xy_traces(ldp_sess, series_name, time_window, blocks=blocks,
                      trial_sets=trial_sets, return_inds=True, rotate=rotate)
-    if bin_by_instructed:
+    if bin_basis:
         t = ldp_sess.n_instructed[t]
     bin_inds = bin_by_trial(t, edges, inc_last_edge=True)
     x_binned_traces = []
