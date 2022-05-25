@@ -180,7 +180,7 @@ def plot_instruction_velocity_traces(ldp_sess, bin_edges, time_window=None,
     bin_x_data, bin_y_data = ab.get_binned_mean_xy_traces(ldp_sess, bin_edges,
                                 "eye velocity", time_window, blocks="Learning",
                                 trial_sets="instruction", rotate=True,
-                                bin_basis=True)
+                                bin_basis="instructed")
     bin_x_data, bin_y_data = ab.subtract_baseline_tuning_binned(ldp_sess,
                                 base_block, "instruction", "eye velocity",
                                 bin_x_data, bin_y_data)

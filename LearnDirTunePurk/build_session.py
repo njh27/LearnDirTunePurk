@@ -22,6 +22,11 @@ def create_behavior_session(fname, maestro_dir=None, session_name=None, existing
     else:
         # Try to find a file from a Maestro directory or existing pickle
         maestro_data = load_maestro_directory(fname, maestro_dir, existing_dir=existing_dir, save_dir=save_dir)
+    if ( ("Yoda" in session_name) and (int(session_name.split("_")[-1]) < 20) ):
+        print("Treating this as a weird Yoda file")
+        is_weird_Yoda = True
+    else:
+        is_weird_Yoda = False
     # Sets trial targets as objects so probably want to do this after loading and not saved
     if verbose: print("Formatting target data and trials.")
     rm.format_trials.data_to_target(maestro_data)
@@ -29,7 +34,7 @@ def create_behavior_session(fname, maestro_dir=None, session_name=None, existing
     # Reformat the multi targets and names of trials into one and name events
     if verbose: print("Renaming trials and events.")
     format_trials.rename_stab_probe_trials(maestro_data)
-    format_trials.name_trial_events(maestro_data)
+    format_trials.name_trial_events(maestro_data, is_weird_Yoda)
 
     # Create base list of ApparatusTrial trials from target0
     if verbose: print("Converting data to trial objects.")
@@ -46,6 +51,9 @@ def create_behavior_session(fname, maestro_dir=None, session_name=None, existing
     ldp_sess = LDPSession(trial_list, session_name=session_name)
     ldp_sess.add_trial_data(trial_list_bhv, data_type=None)
 
+    weird_yoda_tuning_trials = ['195', '165', '210', '315', '150', '225', '45',
+                                '135', '255', '285', '240', '300']
+
     # Add hard coded blocks by trial names
     fix_trial_names = ['d014fix', 'd0-14fix', 'd-1010fix', 'd1010fix', 'd140fix', 'd-10-10fix', 'd10-10fix', 'd-140fix', 'd00fix']
     block_names = ['FixTune']
@@ -56,8 +64,10 @@ def create_behavior_session(fname, maestro_dir=None, session_name=None, existing
     ldp_sess.add_blocks(trial_names, block_names, number_names=True, block_min=20, n_min_per_trial=5)
 
     trial_names = ['90', '0', '180','270']
+    ignore_trial_names = weird_yoda_tuning_trials if is_weird_Yoda else ['']
     block_names = ['StandTune']
-    ldp_sess.add_blocks(trial_names, block_names, number_names=True, block_min=12, n_min_per_trial=3)
+    ldp_sess.add_blocks(trial_names, block_names, number_names=True,
+                        ignore_trial_names=ignore_trial_names, block_min=12, n_min_per_trial=3)
 
     trial_names = ['90Stab', '0Stab', '180Stab','270Stab']
     block_names = ['StabTune']
@@ -126,7 +136,7 @@ def create_behavior_session(fname, maestro_dir=None, session_name=None, existing
     ldp_sess.shift_event_to_refresh('rand_fix_onset')
     ldp_sess.shift_event_to_refresh('start_stabwin')
     ldp_sess.shift_event_to_refresh('target_offset')
-
+    return ldp_sess
     if verbose: print("Searching for incomplete trials.")
     # Fixation trials will be found and aligned by this many ms after fixation onset
     fixation_trial_t_offset = 1200.

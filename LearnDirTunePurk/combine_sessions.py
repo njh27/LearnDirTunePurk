@@ -218,8 +218,8 @@ def get_all_mean_data(f_regex, directory, time_window, base_block,
                 all_wash_bins_y_vel[inds_ind].append(bin_y_data[inds_ind])
 
 
-        if n_files > 1:
-            break
+        # if n_files > 1:
+        #     break
 
 
 
@@ -448,6 +448,8 @@ def plot_comb_tuning_probe_velocity_traces(data, time_window):
     p_b_labels = {'learning': "Learning", 'anti_learning': 'Anti-learning',
                   'pursuit': 'Pursuit', 'anti_pursuit': 'Anti-pursuit'}
     for curr_set in four_dir_trial_sets:
+        if curr_set != "anti_pursuit":
+            continue
         plot_axis = trial_set_base_axis[curr_set]
         if plot_axis == 0:
             learn_pursuit_ax, learn_last_line = plots.binned_mean_traces(bin_means_x[curr_set], time,
@@ -610,7 +612,8 @@ def plot_comb_washout_velocity_traces(data, time_window):
     return wash_learn_ax, wash_learn_fig, wash_pursuit_ax, wash_pursuit_fig
 
 
-def plot_combined_learning_curve(data, time_window, learn_window, trial_set):
+def plot_combined_learning_curve(data, time_window, learn_window, trial_set,
+                                 extra_bin_spacing=1):
     four_dir_trial_sets = ["learning", "anti_learning", "pursuit", "anti_pursuit"]
     trial_set_base_axis = {'learning': 0,
                        'anti_learning': 0,
@@ -618,12 +621,99 @@ def plot_combined_learning_curve(data, time_window, learn_window, trial_set):
                        'anti_pursuit': 1,
                        'instruction': 1
                         }
+    colors = {"LearnProbes": 'g',
+              "StabTunePost": 'k',
+              "Washout": 'r',
+              "StabTuneWash": 'b'}
+    ln_labels = {"LearnProbes": 'Learning block',
+                 "StabTunePost": 'Post-learning tuning block',
+                 "Washout": 'Washout block',
+                 "StabTuneWash": 'Post-washout tuning block'}
+    marker_size = 100
+    lines = {key: None for key in colors.keys()}
+    block_ends = {key: None for key in colors.keys()}
+    avg_indices = [learn_window[0] - time_window[0], learn_window[1] - time_window[0]]
+    fig = plt.figure(figsize=(12, 8))
+    ax = plt.axes()
+
     data_axis = trial_set_base_axis[trial_set]
     # START learning trial probe data
     data_name = "probe_bin_x_vel" if data_axis == 0 else "probe_bin_y_vel"
     bin_means = []
     for bin in range(0, len(data[data_name][trial_set])):
         if len(data[data_name][trial_set][bin]) == 0:
-            continue
-        bin_means.append(np.nanmean(data['probe_bin_x_vel'][trial_set][bin], axis=0))
-        bin_means_y[trial_set].append(np.nanmean(data['probe_bin_y_vel'][trial_set][bin], axis=0))
+            bin_means.append(np.nan)
+        else:
+            avg_trace = np.nanmean(data[data_name][trial_set][bin], axis=0)
+            bin_means.append(np.nanmean(avg_trace[avg_indices[0]:avg_indices[1]]))
+    lines['LearnProbes'] = ax.scatter(data['bin_inds_probe'], bin_means,
+                            color=colors['LearnProbes'], s=marker_size)
+    last_t_ind = data['bin_inds_probe'][-1] + ((data['bin_inds_probe'][-1] - data['bin_inds_probe'][-2])/2)
+    block_ends['LearnProbes'] = last_t_ind
+
+    # START post learning stab tuning data
+    data_name = "post_tuning_x_vel" if data_axis == 0 else "post_tuning_y_vel"
+    block_name = "StabTunePost"
+    bin_means = []
+    for bin in range(0, len(data[data_name][block_name][trial_set])):
+        if len(data[data_name][block_name][trial_set][bin]) == 0:
+            bin_means.append(np.nan)
+        else:
+            avg_trace = np.nanmean(data[data_name][block_name][trial_set][bin], axis=0)
+            bin_means.append(np.nanmean(avg_trace[avg_indices[0]:avg_indices[1]]))
+    curr_t_inds = extra_bin_spacing*data['bin_inds_tune'] + last_t_ind
+    lines['StabTunePost'] = ax.scatter(curr_t_inds,
+                    bin_means, color=colors['StabTunePost'], s=marker_size)
+    last_t_ind = (curr_t_inds[-1]) + extra_bin_spacing*(
+                    (data['bin_inds_tune'][-1] - data['bin_inds_tune'][-2])/2)
+    block_ends['StabTunePost'] = last_t_ind
+
+    # START washout trial instruction data
+    # Since there are no probes, we need our own data axis selection
+    curr_t_inds = extra_bin_spacing*data['bin_inds_wash'] + last_t_ind
+    if trial_set == "pursuit":
+        data_name = "wash_bin_x_vel" if data_axis == 0 else "wash_bin_y_vel"
+        bin_means = []
+        for bin in range(0, len(data[data_name])):
+            if len(data[data_name][bin]) == 0:
+                bin_means.append(np.nan)
+            else:
+                avg_trace = np.nanmean(data[data_name][bin], axis=0)
+                bin_means.append(np.nanmean(avg_trace[avg_indices[0]:avg_indices[1]]))
+        lines['Washout'] = ax.scatter(curr_t_inds,
+                            bin_means, color=colors['Washout'], s=marker_size)
+    last_t_ind = (curr_t_inds[-1]) + extra_bin_spacing*(
+                    (data['bin_inds_wash'][-1] - data['bin_inds_wash'][-2])/2)
+    block_ends['Washout'] = last_t_ind
+
+    # START post washout stab tuning data
+    data_name = "post_tuning_x_vel" if data_axis == 0 else "post_tuning_y_vel"
+    block_name = "StabTuneWash"
+    bin_means = []
+    for bin in range(0, len(data[data_name][block_name][trial_set])):
+        if len(data[data_name][block_name][trial_set][bin]) == 0:
+            bin_means.append(np.nan)
+        else:
+            avg_trace = np.nanmean(data[data_name][block_name][trial_set][bin], axis=0)
+            bin_means.append(np.nanmean(avg_trace[avg_indices[0]:avg_indices[1]]))
+    curr_t_inds = extra_bin_spacing*data['bin_inds_tune'] + last_t_ind
+    lines['StabTuneWash'] = ax.scatter(curr_t_inds,
+                                bin_means, color=colors['StabTuneWash'], s=marker_size)
+    last_t_ind = (curr_t_inds[-1]) + extra_bin_spacing*(
+                    (data['bin_inds_tune'][-1] - data['bin_inds_tune'][-2])/2)
+    block_ends['StabTuneWash'] = last_t_ind
+
+    y_name = "Learning" if trial_set in ["pursuit, anti_pursuit"] else "Pursuit"
+    yl_string = y_name + " axis velocity (deg/s)"
+    ax.set_ylabel(yl_string)
+    ax.set_xlabel("Trial number")
+    ax.set_title("Learned eye velocity over trials")
+
+    for ln in lines.keys():
+        if lines[ln] is not None:
+            lines[ln].set_label(ln_labels[ln])
+        ax.axvline(block_ends[ln], color=colors[ln])
+    fig.legend()
+    ax.axhline(0, color=[.5, .5, .5])
+
+    return ax, fig

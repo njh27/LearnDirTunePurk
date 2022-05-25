@@ -584,14 +584,13 @@ class LDPSession(Session):
                                     }
 
         # Setup dictionary for storing tuning data
-        tuning_blocks = ["StandTune", "StabTunePre"]
+        tuning_blocks = ["StandTunePre", "StabTunePre"]
         data_types = ["eye position", "eye velocity"]
         self.baseline_tuning = {}
         for block in tuning_blocks:
             # Check if block is present
-            try:
-                _ = self.blocks[block]
-            except KeyError:
+            if self.blocks[block] is None:
+                self.baseline_tuning[block] = None
                 continue
             self.baseline_tuning[block] = {}
             for data_t in data_types:

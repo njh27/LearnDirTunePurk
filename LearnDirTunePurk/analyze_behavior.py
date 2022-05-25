@@ -66,6 +66,15 @@ def get_binned_mean_xy_traces(ldp_sess, edges, series_name, time_window,
         t[t_order] = np.arange(0, len(t))
     elif bin_basis.lower() == "instructed":
         t = ldp_sess.n_instructed[t]
+    elif bin_basis.lower() == "block":
+        # If blocks is None, then we do nothing it's same as raw
+        if blocks is not None:
+            if isinstance(blocks, list):
+                if len(blocks) > 1:
+                    raise ValueError("Block bin basis is not defined over multiple blocks because it is ambiguous.")
+                else:
+                    blocks = blocks[0]
+            t = t - ldp_sess[blocks][0]
     bin_inds = bin_by_trial(t, edges, inc_last_edge=True)
     x_binned_traces = []
     y_binned_traces = []

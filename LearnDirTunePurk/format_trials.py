@@ -15,7 +15,12 @@ def rename_stab_probe_trials(maestro_data):
     learn_names = [x.lower() for x in learn_names]
     found_learn = False
     no_set_name = False
+    print_stab = True
+    print_learn = True
     for t in maestro_data:
+        if t['header']['name'] in ['90Stab', '0Stab', '180Stab','270Stab']:
+            if not t['header']['UsedStab']:
+                raise ValueError("Trial name is {0} but 'UsedStab' is {1}.".format(t['header']['name'], t['header']['UsedStab']))
         if t['header']['name'] in ["0", "90", "180", "270"]:
             try:
                 # This is only available in Maestro version >= 4.0
@@ -25,6 +30,28 @@ def rename_stab_probe_trials(maestro_data):
                 no_set_name = True
             if t['header']['UsedStab']:
                 t['header']['name'] = t['header']['name'] + "Stab"
+                if print_stab:
+                    print("This file has stabilization but trial names do not reflect this! Added 'Stab' to tuning names.")
+                    print_stab = False
+        if ("-left" in t['header']['name']):
+            old_name = "-left"
+            t['header']['name'].replace(old_name, "-lt")
+            if print_learn:
+                print("This file has old learning name {0} which was changed to {1}.".format(old_name, t['header']['name']))
+                print_learn = False
+        if ("-right" in t['header']['name']):
+            old_name = "-right"
+            t['header']['name'].replace(old_name, "-rt")
+            if print_learn:
+                print("This file has old learning name {0} which was changed to {1}.".format(old_name, t['header']['name']))
+                print_learn = False
+        if ("-down" in t['header']['name']):
+            old_name = "-down"
+            t['header']['name'].replace(old_name, "-dn")
+            if print_learn:
+                print("This file has old learning name {0} which was changed to {1}.".format(old_name, t['header']['name']))
+                print_learn = False
+
 
     if no_set_name:
         print("File does not have set name")
@@ -34,7 +61,7 @@ def rename_stab_probe_trials(maestro_data):
     return None
 
 
-def name_trial_events(maestro_data):
+def name_trial_events(maestro_data, is_weird_Yoda=False):
     """Assigns the event names to event times dictionary for each trial
     IN PLACE.
 
@@ -44,39 +71,75 @@ def name_trial_events(maestro_data):
     """
 
     # Set hard coded variables for expected trial name dictionaries.
-    event_names_fixation = {
-        "fixation_onset": [2, 0]
-        }
-    event_names_rand_vp = {
-        "fixation_onset": [0, 0],
-        "rand_fix_onset": [1, 0],
-        "target_onset": [2, 0],
-        "start_stabwin": [3, 0],
-        "target_offset": [4, 0]
-        }
-    event_names_stand_tuning = {
-        "fixation_onset": [0, 0],
-        "rand_fix_onset": [1, 0],
-        "target_onset": [2, 0],
-        "start_stabwin": [3, 0],
-        "target_offset": [4, 0]
-        }
-    event_names_stab_tuning = {
-        "fixation_onset": [0, 0],
-        "rand_fix_onset": [1, 0],
-        "target_onset": [2, 0],
-        "start_stabwin": [3, 0],
-        "instruction_onset": [4, 0],
-        "target_offset": [5, 0]
-        }
-    event_names_learning = {
-        "fixation_onset": [0, 0],
-        "rand_fix_onset": [1, 0],
-        "target_onset": [2, 0],
-        "start_stabwin": [3, 0],
-        "instruction_onset": [4, 0],
-        "target_offset": [5, 0]
-        }
+    if is_weird_Yoda:
+        event_names_fixation = {
+            "fixation_onset": [2, 0]
+            }
+        event_names_rand_vp = {
+            "fixation_onset": [0, 0],
+            "rand_fix_onset": [1, 0],
+            "target_onset": [2, 0],
+            "start_stabwin": [3, 0],
+            "target_offset": [4, 0]
+            }
+        event_names_stand_tuning = {
+            "fixation_onset": [0, 0],
+            "rand_fix_onset": [1, 0],
+            "target_onset": [1, 1],
+            "target_offset": [1, 3]
+            }
+        event_names_stab_tuning = {
+            "fixation_onset": [0, 0],
+            "rand_fix_onset": [1, 0],
+            "target_onset": [2, 0],
+            "start_stabwin": [3, 0],
+            "instruction_onset": [4, 0],
+            "target_offset": [5, 0]
+            }
+        event_names_learning = {
+            "fixation_onset": [0, 0],
+            "rand_fix_onset": [1, 0],
+            "target_onset": [1, 1],
+            "instruction_onset": [1, 2],
+            "target_offset": [1, 3]
+            }
+    else:
+        event_names_fixation = {
+            "fixation_onset": [2, 0]
+            }
+        event_names_rand_vp = {
+            "fixation_onset": [0, 0],
+            "rand_fix_onset": [1, 0],
+            "target_onset": [2, 0],
+            "start_stabwin": [3, 0],
+            "target_offset": [4, 0]
+            }
+        event_names_stand_tuning = {
+            "fixation_onset": [0, 0],
+            "rand_fix_onset": [1, 0],
+            "target_onset": [2, 0],
+            "start_stabwin": [3, 0],
+            "target_offset": [4, 0]
+            }
+        event_names_stab_tuning = {
+            "fixation_onset": [0, 0],
+            "rand_fix_onset": [1, 0],
+            "target_onset": [2, 0],
+            "start_stabwin": [3, 0],
+            "instruction_onset": [4, 0],
+            "target_offset": [5, 0]
+            }
+        event_names_learning = {
+            "fixation_onset": [0, 0],
+            "rand_fix_onset": [1, 0],
+            "target_onset": [2, 0],
+            "start_stabwin": [3, 0],
+            "instruction_onset": [4, 0],
+            "target_offset": [5, 0]
+            }
+
+    weird_yoda_tuning_trials = ['195', '165', '210', '315', '150', '225', '45',
+                                '135', '255', '285', '240', '300']
 
     # Generate the naming dictionary for each trial name
     maestro_trial_names = set()
@@ -95,19 +158,17 @@ def name_trial_events(maestro_data):
             event_names_by_trial[t_name] = event_names_stab_tuning
         elif "-rt" in t_name:
             event_names_by_trial[t_name] = event_names_learning
-            after_learing = True
         elif "-up" in t_name:
             event_names_by_trial[t_name] = event_names_learning
-            after_learing = True
         elif "-lt" in t_name:
             event_names_by_trial[t_name] = event_names_learning
-            after_learing = True
         elif "-dn" in t_name:
             event_names_by_trial[t_name] = event_names_learning
-            after_learing = True
+        elif t_name in weird_yoda_tuning_trials:
+            event_names_by_trial[t_name] = event_names_stand_tuning
         else:
-            raise ValueError("T name '{0}' not found!".format(t_name))
-    
+            raise ValueError("T name '{0}' not found! Names present: {1}".format(t_name, maestro_trial_names))
+
     format_maestro_events(maestro_data, event_names_by_trial,
             missing_event=None, convert_to_ms=True)
 
