@@ -398,16 +398,63 @@ class LDPSession(Session):
                     continue
                 if ( (self.blocks[b_name2][0] < curr_stop) and
                      (self.blocks[b_name2][1] > curr_stop) ):
-                    raise RuntimeError("The two blocks: '{0}' and '{1}' were found overlapping each other!".format(b_name, b_name2))
+                     print("Attempting to repair block overlap between {0} and {1}.".format(b_name, b_name2))
+                     self._fix_block_overlap(b_name, b_name2)
+                     self._verify_block_overlap()
+                     print("Repair successful!")
+                     return
+                    # raise RuntimeError("The two blocks: '{0}' and '{1}' were found overlapping each other!".format(b_name, b_name2))
                 if ( (self.blocks[b_name2][0] < curr_start) and
                      (self.blocks[b_name2][1] > curr_start) ):
-                    raise RuntimeError("The two blocks: '{0}' and '{1}' were found overlapping each other!".format(b_name, b_name2))
+                     print("Attempting to repair block overlap between {0} and {1}.".format(b_name, b_name2))
+                     self._fix_block_overlap(b_name, b_name2)
+                     self._verify_block_overlap()
+                     print("Repair successful!")
+                     return
+                    # raise RuntimeError("The two blocks: '{0}' and '{1}' were found overlapping each other!".format(b_name, b_name2))
                 if self.blocks[b_name2][0] == curr_start:
                     if self.blocks[b_name2][1] != curr_stop:
-                        raise RuntimeError("The two blocks: '{0}' and '{1}' were found overlapping each other!".format(b_name, b_name2))
+                        print("Attempting to repair block overlap between {0} and {1}.".format(b_name, b_name2))
+                        self._fix_block_overlap(b_name, b_name2)
+                        self._verify_block_overlap()
+                        print("Repair successful!")
+                        return
+                        # raise RuntimeError("The two blocks: '{0}' and '{1}' were found overlapping each other!".format(b_name, b_name2))
                 if self.blocks[b_name2][1] == curr_stop:
                     if self.blocks[b_name2][0] != curr_start:
-                        raise RuntimeError("The two blocks: '{0}' and '{1}' were found overlapping each other!".format(b_name, b_name2))
+                        print("Attempting to repair block overlap between {0} and {1}.".format(b_name, b_name2))
+                        self._fix_block_overlap(b_name, b_name2)
+                        self._verify_block_overlap()
+                        print("Repair successful!")
+                        return
+                        # raise RuntimeError("The two blocks: '{0}' and '{1}' were found overlapping each other!".format(b_name, b_name2))
+        return None
+
+    def _fix_block_overlap(self, check_block_1, check_block_2):
+        if self.blocks[check_block_1][0] < self.blocks[check_block_2][0]:
+            # Block 1 starts first
+            b_name1 = check_block_1
+            b_name2 = check_block_2
+        elif self.blocks[check_block_1][0] > self.blocks[check_block_2][0]:
+            # Block 2 starts first
+            b_name1 = check_block_2
+            b_name2 = check_block_1
+        else:
+            # Blocks start at same trial
+            raise ValueError("Resolving block overlaps that start on the same trial not implemented!")
+        t_names1 = set()
+        t_names2 = set()
+        for t_ind in range(self.blocks[b_name1][0], self.blocks[b_name1][1]):
+            t_names1.add(self[t_ind].name)
+        for t_ind in range(self.blocks[b_name2][0], self.blocks[b_name2][1]):
+            t_names2.add(self[t_ind].name)
+        unique_names1 = t_names1 - t_names2
+
+        for t_ind in reversed(range(self.blocks[b_name1][0], self.blocks[b_name2][0]+1)):
+            if self[t_ind].name in unique_names1:
+                self.blocks[b_name1][1] = t_ind + 1
+                self.blocks[b_name2][0] = t_ind + 1
+                break
         return None
 
     def assign_orphan_trials(self, orphan_trials):
@@ -611,6 +658,25 @@ class LDPSession(Session):
         # Save the time window used for future reference
         self.baseline_time_window = time_window
         return None
+
+    def is_stabilized(self, block, trial_set=None):
+        not_stab = set()
+        if trial_set is None:
+            check_trials = np.ones(len(self), dtype='bool')
+        elif isinstance(trial_set, str):
+            check_trials = self.trial_sets[trial_set]
+        else:
+            check_trials = trial_set
+
+        for t_ind in range(self.blocks[block][0], self.blocks[block][1]):
+            if check_trials[t_ind]:
+                if not self[t_ind].used_stab:
+                    not_stab.add(self[t_ind].name)
+        if len(not_stab) > 0:
+            print("Trials: {0} are not stabilized during block {1}.".format(not_stab, block))
+            return False
+        else:
+            return True
 
     def delete_trials(self, indices):
         """ Calls parent delete function, then must update our block info

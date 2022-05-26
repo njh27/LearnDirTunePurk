@@ -34,24 +34,50 @@ def rename_stab_probe_trials(maestro_data):
                     print("This file has stabilization but trial names do not reflect this! Added 'Stab' to tuning names.")
                     print_stab = False
         if ("-left" in t['header']['name']):
-            old_name = "-left"
-            t['header']['name'].replace(old_name, "-lt")
+            old_name = t['header']['name']
+            new_name = t['header']['name'].replace("-left", "-lt")
+            t['header']['name'] = new_name
+            if t['header']['UsedStab']:
+                if "Stab" not in t['header']['name']:
+                    t['header']['name'] = t['header']['name'] + "Stab"
+                    new_name = t['header']['name']
             if print_learn:
-                print("This file has old learning name {0} which was changed to {1}.".format(old_name, t['header']['name']))
+                print("This file has old learning name {0} which was changed to {1}.".format(old_name, new_name))
                 print_learn = False
         if ("-right" in t['header']['name']):
-            old_name = "-right"
-            t['header']['name'].replace(old_name, "-rt")
+            old_name = t['header']['name']
+            new_name = t['header']['name'].replace("-right", "-rt")
+            t['header']['name'] = new_name
+            if t['header']['UsedStab']:
+                if "Stab" not in t['header']['name']:
+                    t['header']['name'] = t['header']['name'] + "Stab"
+                    new_name = t['header']['name']
             if print_learn:
-                print("This file has old learning name {0} which was changed to {1}.".format(old_name, t['header']['name']))
+                print("This file has old learning name {0} which was changed to {1}.".format(old_name, new_name))
                 print_learn = False
         if ("-down" in t['header']['name']):
-            old_name = "-down"
-            t['header']['name'].replace(old_name, "-dn")
+            old_name = t['header']['name']
+            new_name = t['header']['name'].replace("-down", "-dn")
+            t['header']['name'] = new_name
+            if t['header']['UsedStab']:
+                if "Stab" not in t['header']['name']:
+                    t['header']['name'] = t['header']['name'] + "Stab"
+                    new_name = t['header']['name']
             if print_learn:
-                print("This file has old learning name {0} which was changed to {1}.".format(old_name, t['header']['name']))
+                print("This file has old learning name {0} which was changed to {1}.".format(old_name, new_name))
                 print_learn = False
-
+        if ("-up" in t['header']['name']):
+            # Should already be named correctly so just check Stab
+            old_name = t['header']['name']
+            # new_name = t['header']['name'].replace("-up", "-up")
+            # t['header']['name'] = new_name
+            if t['header']['UsedStab']:
+                if "Stab" not in t['header']['name']:
+                    t['header']['name'] = t['header']['name'] + "Stab"
+                    new_name = t['header']['name']
+                    if print_learn:
+                        print("This file has old learning name {0} which was changed to {1}.".format(old_name, new_name))
+                        print_learn = False
 
     if no_set_name:
         print("File does not have set name")
@@ -139,7 +165,8 @@ def name_trial_events(maestro_data, is_weird_Yoda=False):
             }
 
     weird_yoda_tuning_trials = ['195', '165', '210', '315', '150', '225', '45',
-                                '135', '255', '285', '240', '300']
+                                '135', '255', '285', '240', '300', '120', '105',
+                                '75', '60']
 
     # Generate the naming dictionary for each trial name
     maestro_trial_names = set()

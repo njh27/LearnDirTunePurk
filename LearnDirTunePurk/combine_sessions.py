@@ -18,7 +18,16 @@ def get_all_mean_data(f_regex, directory, time_window, base_block,
     """
 
     """ NEED TO COUNT NUMBER OF SAMPLES PER AVERAGE/BIN !!! """
-    skip_file_nums = ["14", "32", "36", "39", "47"]
+    if "Dandy" in f_regex:
+        skip_file_nums = ["14", "32", "36", "39", "47"]
+    elif "Yoda" in f_regex:
+        if base_block != "StandTunePre":
+            raise ValueError("Yoda only has StandTunePre tuning blocks!")
+        skip_file_nums = ["06", "07", "08", "09", "10", "11", "12", "13", "14",
+                          "15", "16", "17", "18", "19", "23", "31", "32", "35",
+                          "37", "42"]
+    else:
+        raise ValueError("Unrecognized monkey in f_regex.")
     verbose = True
     four_dir_trial_sets = ["learning", "anti_learning", "pursuit", "anti_pursuit"]
     post_blocks = ["StabTunePost", "StabTuneWash"]
@@ -245,6 +254,8 @@ def get_all_mean_data(f_regex, directory, time_window, base_block,
     # Concatenate post tuning arrays
     for block in post_blocks:
         for curr_set in four_dir_trial_sets:
+            if len(all_post_tuning_x_pos[block][curr_set]) == 0:
+                continue
             all_post_tuning_x_pos[block][curr_set] = np.vstack(all_post_tuning_x_pos[block][curr_set])
             all_post_tuning_y_pos[block][curr_set] = np.vstack(all_post_tuning_y_pos[block][curr_set])
     output_dict['post_tuning_x_pos'] = all_post_tuning_x_pos
@@ -370,6 +381,8 @@ def plot_comb_post_tuning_position_xy(data):
     post_tune_ax = plt.axes()
     for block in post_blocks:
         for curr_set in four_dir_trial_sets:
+            if len(data['post_tuning_x_pos'][block][curr_set]) == 0:
+                continue
             last_line = post_tune_ax.scatter(np.nanmean(data['post_tuning_x_pos'][block][curr_set], axis=0),
                             np.nanmean(data['post_tuning_y_pos'][block][curr_set], axis=0), color=colors[block])
         last_line.set_label(p_b_labels[block])
@@ -518,6 +531,8 @@ def plot_comb_post_tuning_velocity_traces(data, time_window):
     time = np.arange(time_window[0], time_window[1])
     for block in post_blocks:
         for curr_set in four_dir_trial_sets:
+            if len(means_x[block][curr_set]) == 0:
+                continue
             plot_axis = trial_set_base_axis[curr_set]
             line_label = p_b_labels[block] + " " + p_s_labels[curr_set]
             if plot_axis == 0:
@@ -703,7 +718,7 @@ def plot_combined_learning_curve(data, time_window, learn_window, trial_set,
                     (data['bin_inds_tune'][-1] - data['bin_inds_tune'][-2])/2)
     block_ends['StabTuneWash'] = last_t_ind
 
-    y_name = "Learning" if trial_set in ["pursuit, anti_pursuit"] else "Pursuit"
+    y_name = "Learning" if trial_set in ["pursuit", "anti_pursuit"] else "Pursuit"
     yl_string = y_name + " axis velocity (deg/s)"
     ax.set_ylabel(yl_string)
     ax.set_xlabel("Trial number")
