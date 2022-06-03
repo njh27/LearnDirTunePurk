@@ -19,7 +19,7 @@ def get_all_mean_data(f_regex, directory, time_window, base_block,
 
     """ NEED TO COUNT NUMBER OF SAMPLES PER AVERAGE/BIN !!! """
     if "Dandy" in f_regex:
-        skip_file_nums = ["14", "32", "36", "39", "47"]
+        skip_file_nums = ["14", "32", "36", "47"]
     elif "Yoda" in f_regex:
         if base_block != "StandTunePre":
             raise ValueError("Yoda only has StandTunePre tuning blocks!")
@@ -452,17 +452,17 @@ def plot_comb_tuning_probe_velocity_traces(data, time_window):
                 continue
             bin_means_x[curr_set].append(np.nanmean(data['probe_bin_x_vel'][curr_set][bin], axis=0))
             bin_means_y[curr_set].append(np.nanmean(data['probe_bin_y_vel'][curr_set][bin], axis=0))
-    learn_learn_fig = plt.figure(figsize=(12, 8))
+    learn_learn_fig = plt.figure(1, figsize=(12, 8))
     learn_learn_ax = plt.axes()
-    learn_pursuit_fig = plt.figure(figsize=(12, 8))
+    learn_pursuit_fig = plt.figure(2, figsize=(12, 8))
     learn_pursuit_ax = plt.axes()
     time = np.arange(time_window[0], time_window[1])
     p_col = {'pursuit': 'g', 'anti_pursuit': 'r', 'learning': 'g', 'anti_learning': 'r'}
     p_b_labels = {'learning': "Learning", 'anti_learning': 'Anti-learning',
                   'pursuit': 'Pursuit', 'anti_pursuit': 'Anti-pursuit'}
     for curr_set in four_dir_trial_sets:
-        if curr_set != "anti_pursuit":
-            continue
+        # if curr_set != "anti_pursuit":
+        #     continue
         plot_axis = trial_set_base_axis[curr_set]
         if plot_axis == 0:
             learn_pursuit_ax, learn_last_line = plots.binned_mean_traces(bin_means_x[curr_set], time,

@@ -458,10 +458,16 @@ class LDPSession(Session):
         return None
 
     def assign_orphan_trials(self, orphan_trials):
+        """ This will not skip trials and just add to nearby blocks so orphan
+        so orphan_trials needs to include all orphans and be ordered. """
+        if len(orphan_trials) > 1:
+            order_t = np.argsort(orphan_trials)
+            orphan_trials = orphan_trials[order_t]
         ot_ind = 0
         found_match = False
         n_orphans_assigned = 0
         while ot_ind < len(orphan_trials):
+            found_match = False
             for block in self.blocks_found:
                 if orphan_trials[ot_ind] < self.blocks['Learning'][0]:
                     # Missing before learning block
@@ -518,7 +524,7 @@ class LDPSession(Session):
                 ot_ind += 1
         return n_orphans_assigned
 
-    def add_saccades(self, time_window, blocks=None, trial_sets=None):
+    def add_saccades(self, time_window, blocks=None, trial_sets=None, ind_cushion=30):
         """ Adds saccade windows to session and by default nan's these out in
         the current 'eye' data. """
         # Get all eye data during initial fixation
@@ -543,7 +549,7 @@ class LDPSession(Session):
                                 x_targ=self[t_ind].get_data('xpos')[-100],
                                 y_targ=self[t_ind].get_data('ypos')[-100],
                                 epsilon_eye=0.1, max_iter=10, return_saccades=False,
-                                ind_cushion=20, acceleration_thresh=1, speed_thresh=30)
+                                ind_cushion=ind_cushion, acceleration_thresh=1, speed_thresh=30)
 
                 for sn in series_names:
                     if sn == "horizontal_eye_position":
@@ -560,7 +566,7 @@ class LDPSession(Session):
                 x_vel = self._trial_lists['eye'][t_ind].data['horizontal_eye_velocity']
                 y_vel = self._trial_lists['eye'][t_ind].data['vertical_eye_velocity']
                 saccade_windows, saccade_index = eye_data_series.find_saccade_windows(
-                        x_vel, y_vel, ind_cushion=20, acceleration_thresh=1, speed_thresh=30)
+                        x_vel, y_vel, ind_cushion=ind_cushion, acceleration_thresh=1, speed_thresh=30)
                 self._trial_lists['eye'][t_ind].saccade_windows = saccade_windows
                 self._trial_lists['eye'][t_ind].saccade_index = saccade_index
                 for sn in series_names:
