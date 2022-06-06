@@ -19,7 +19,7 @@ def get_all_mean_data(f_regex, directory, time_window, base_block,
 
     """ NEED TO COUNT NUMBER OF SAMPLES PER AVERAGE/BIN !!! """
     if "Dandy" in f_regex:
-        skip_file_nums = ["14", "32", "36", "47"]
+        skip_file_nums = ["32", "36", "47"]
     elif "Yoda" in f_regex:
         if base_block != "StandTunePre":
             raise ValueError("Yoda only has StandTunePre tuning blocks!")
@@ -77,7 +77,7 @@ def get_all_mean_data(f_regex, directory, time_window, base_block,
         print("Loading file:", f)
 
         ldp_sess = create_behavior_session(f, session_name=f.split("_maestro")[0],
-                    existing_dir=directory, verbose=False)
+                    existing_dir=directory, verbose=True)
         ldp_sess.set_baseline_averages(time_window)
         n_files += 1
 

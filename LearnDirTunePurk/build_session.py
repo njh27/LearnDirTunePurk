@@ -33,6 +33,7 @@ def create_behavior_session(fname, maestro_dir=None, session_name=None, existing
 
     # Reformat the multi targets and names of trials into one and name events
     if verbose: print("Renaming trials and events.")
+
     format_trials.rename_stab_probe_trials(maestro_data)
     format_trials.name_trial_events(maestro_data, is_weird_Yoda)
     is_stab_learning = True
@@ -197,7 +198,7 @@ def create_behavior_session(fname, maestro_dir=None, session_name=None, existing
     # Setup learning direction and trial type metadata
     if verbose: print("Choosing learning/pursuit directions and block names.")
     ldp_sess.assign_block_names()
-    
+
     if len(orphan_trials) > 0:
         if verbose: print("Attempting to repair {0} orphan trials.".format(len(orphan_trials)))
         n_orphans_assigned = ldp_sess.assign_orphan_trials(orphan_trials)
@@ -224,6 +225,22 @@ def create_behavior_session(fname, maestro_dir=None, session_name=None, existing
     ldp_sess.add_saccades(time_window=[-200, 0], blocks=None,
                           trial_sets=None, ind_cushion=20)
 
+    if verbose: print("Deleting large saccade and position error trials.")
+    max_sacc_amp = 6.
+    ldp_sess.trial_sets['not_inst'] = ~np.logical_or(
+                                        ldp_sess.trial_sets['instruction'],
+                                        ldp_sess.trial_sets['fixation_trials'])
+    t_inds_to_delete = ldp_sess.set_sacc_and_err_trials([-100, 325], max_sacc_amp=max_sacc_amp,
+                            max_pos_err=10., trial_sets="instruction")
+    if verbose: print("Set {0} 'instruction' trials with large errors.".format(len(t_inds_to_delete)))
+    t_inds_to_delete = ldp_sess.set_sacc_and_err_trials([600, 1200], max_sacc_amp=max_sacc_amp,
+                            max_pos_err=5., trial_sets="fixation_trials")
+    if verbose: print("Set {0} 'fixation' trials with large errors.".format(len(t_inds_to_delete)))
+    t_inds_to_delete = ldp_sess.set_sacc_and_err_trials([-100, 500], max_sacc_amp=max_sacc_amp,
+                            max_pos_err=6., trial_sets="not_inst")
+    if verbose: print("Set {0} 'non-instruction' trials with large errors.".format(len(t_inds_to_delete)))
+    # Set to only pull trial indices from blocks and sets that do not have errors
+    ldp_sess.rem_sacc_errs = True
     # Compute the indices for counting by number of preceding learning trials
     ldp_sess.get_n_instructed_trials(100)
 

@@ -29,6 +29,8 @@ class LDPSession(Session):
         Session.__init__(self, trial_data, session_name, data_type)
         self.block_info = {}
         self.block_name_to_learn_name = {}
+        self.sacc_and_err_trials = np.zeros(len(self), dtype='bool')
+        self.rem_sacc_errs = False
         self.verbose = True
 
     def verify_blocks(self):
@@ -535,17 +537,19 @@ class LDPSession(Session):
                         'horizontal_eye_velocity',
                         'vertical_eye_velocity']
         for sn in series_names:
-            series_fix_data[sn] = self.get_data_array(sn, time_window, blocks, trial_sets)
+            # t_inds should be the same for each data series
+            series_fix_data[sn], t_inds = self.get_data_array(sn, time_window,
+                                            blocks, trial_sets, return_inds=True)
 
         # Find fixation eye offset for each trial, adjust its data, then nan saccades
-        for t_ind in range(0, len(self)):
+        for ind, t_ind in enumerate(t_inds):
             try:
                 # Adjust to target position at -100 ms
                 offsets = eye_data_series.find_eye_offsets(
-                                series_fix_data['horizontal_eye_position'][t_ind, :],
-                                series_fix_data['vertical_eye_position'][t_ind, :],
-                                series_fix_data['horizontal_eye_velocity'][t_ind, :],
-                                series_fix_data['vertical_eye_velocity'][t_ind, :],
+                                series_fix_data['horizontal_eye_position'][ind, :],
+                                series_fix_data['vertical_eye_position'][ind, :],
+                                series_fix_data['horizontal_eye_velocity'][ind, :],
+                                series_fix_data['vertical_eye_velocity'][ind, :],
                                 x_targ=self[t_ind].get_data('xpos')[-100],
                                 y_targ=self[t_ind].get_data('ypos')[-100],
                                 epsilon_eye=0.1, max_iter=10, return_saccades=False,
@@ -573,7 +577,7 @@ class LDPSession(Session):
                     # NaN all this eye data
                     self._trial_lists['eye'][t_ind].data[sn][saccade_index] = np.nan
             except:
-                print(t_ind)
+                print(ind, t_ind)
                 raise
         return None
 
@@ -684,6 +688,58 @@ class LDPSession(Session):
         else:
             return True
 
+    def set_sacc_and_err_trials(self, time_window, max_sacc_amp=np.inf,
+                            max_pos_err=np.inf, blocks=None, trial_sets=None):
+        """Time window will be deleted based on current alignment for the trials
+        input in blocks and trial sets. """
+        # Get all eye data during initial fixation
+        series_pos_data = {}
+        # Hard coded names!
+        series_names = ['horizontal_eye_position',
+                        'vertical_eye_position',
+                        'horizontal_target_position',
+                        'vertical_target_position']
+        for sn in series_names:
+            # t_inds should be the same for each data series
+            series_pos_data[sn], t_inds = self.get_data_array(sn, time_window,
+                                            blocks, trial_sets, return_inds=True)
+            if len(series_pos_data[sn]) == 0:
+                # Specified blocks/trials do not return any values
+                return []
+        t_inds_to_set = []
+        for ind, t_ind in enumerate(t_inds):
+            eye_x = series_pos_data['horizontal_eye_position'][ind, :]
+            eye_y = series_pos_data['vertical_eye_position'][ind, :]
+            targ_x = series_pos_data['horizontal_target_position'][ind, :]
+            targ_y = series_pos_data['vertical_target_position'][ind, :]
+            sacc_amps = eye_data_series.sacc_amp_nan(eye_x, eye_y)
+            max_sacc = 0 if len(sacc_amps) == 0 else np.amax(sacc_amps)
+            error_x = (targ_x - eye_x)
+            error_y = (targ_y - eye_y)
+            error_tot = np.sqrt((error_x ** 2) + (error_y ** 2))
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore", category=RuntimeWarning)
+                max_err = np.nanmax(error_tot)
+                max_err = 0 if np.all(np.isnan(max_err)) else max_err
+            if ( (max_sacc > max_sacc_amp) or (max_err > max_pos_err) ):
+                t_inds_to_set.append(t_ind)
+
+        if len(t_inds_to_set) == 0:
+            # No bad trials found to set
+            return np.array([], dtype=np.int64)
+        t_inds_to_set = np.array(t_inds_to_set)
+        self.sacc_and_err_trials[t_inds_to_set] = True
+        return t_inds_to_set
+
+    """ SOME FUNCTIONS OVERWRITTING THE SESSION OBJECT FUNCTIONS """
+    def _parse_blocks_trial_sets(self, blocks=None, trial_sets=None):
+        t_inds = super()._parse_blocks_trial_sets(blocks, trial_sets)
+        # Filter this output by sacc error trials
+        if ( (self.rem_sacc_errs) and (len(t_inds) > 0) ):
+            t_sacc_err = self.sacc_and_err_trials[t_inds]
+            t_inds = t_inds[~t_sacc_err]
+        return t_inds
+
     def delete_trials(self, indices):
         """ Calls parent delete function, then must update our block info
         according to new blocks. """
@@ -691,4 +747,19 @@ class LDPSession(Session):
         if len(self.block_info) > 0:
             for block in self.blocks_found:
                 self.count_block_trial_names(block)
+        # Parse indices
+        if type(indices) == np.ndarray:
+            if indices.dtype == 'bool':
+                indices = np.int64(np.nonzero(indices)[0])
+            else:
+                # Only unique, sorted, as integers
+                indices = np.int64(indices)
+        elif type(indices) == list:
+            indices = np.array(indices, dtype=np.int64)
+        else:
+            if type(indices) != int:
+                raise ValueError("Indices must be a numpy array, python list, or integer type.")
+        indices = np.array(indices)
+        indices = np.unique(indices)
+        self.sacc_and_err_trials = np.delete(self.sacc_and_err_trials, indices)
         return None
