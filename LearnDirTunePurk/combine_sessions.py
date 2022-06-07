@@ -48,14 +48,18 @@ def get_all_mean_data(f_regex, directory, time_window, base_block,
     all_learning_bins_y_pos = [[] for x in range(0, len(learn_bin_edges)-1)]
     all_probe_bins_x_pos = {curr_set: [[] for x in range(0, len(probe_bin_edges)-1)] for curr_set in four_dir_trial_sets}
     all_probe_bins_y_pos = {curr_set: [[] for x in range(0, len(probe_bin_edges)-1)] for curr_set in four_dir_trial_sets}
-    all_post_tuning_x_pos = {block: {curr_set: [] for curr_set in four_dir_trial_sets} for block in post_blocks}
-    all_post_tuning_y_pos = {block: {curr_set: [] for curr_set in four_dir_trial_sets} for block in post_blocks}
+
+    all_post_tuning_x_pos = {block: {curr_set: [[] for x in range(0, len(tuning_bin_edges)-1)] for curr_set in four_dir_trial_sets} for block in post_blocks}
+    all_post_tuning_y_pos = {block: {curr_set: [[] for x in range(0, len(tuning_bin_edges)-1)] for curr_set in four_dir_trial_sets} for block in post_blocks}
+
     all_learning_bins_x_vel = [[] for x in range(0, len(learn_bin_edges)-1)]
     all_learning_bins_y_vel = [[] for x in range(0, len(learn_bin_edges)-1)]
     all_probe_bins_x_vel = {curr_set: [[] for x in range(0, len(probe_bin_edges)-1)] for curr_set in four_dir_trial_sets}
     all_probe_bins_y_vel = {curr_set: [[] for x in range(0, len(probe_bin_edges)-1)] for curr_set in four_dir_trial_sets}
+
     all_post_tuning_x_vel = {block: {curr_set: [[] for x in range(0, len(tuning_bin_edges)-1)] for curr_set in four_dir_trial_sets} for block in post_blocks}
     all_post_tuning_y_vel = {block: {curr_set: [[] for x in range(0, len(tuning_bin_edges)-1)] for curr_set in four_dir_trial_sets} for block in post_blocks}
+
     all_washout_bins_x_pos = [[] for x in range(0, len(wash_bin_edges)-1)]
     all_washout_bins_y_pos = [[] for x in range(0, len(wash_bin_edges)-1)]
     all_wash_bins_x_vel = [[] for x in range(0, len(wash_bin_edges)-1)]
@@ -122,13 +126,23 @@ def get_all_mean_data(f_regex, directory, time_window, base_block,
             if ldp_sess.blocks[block] is None:
                 continue
             for curr_set in four_dir_trial_sets:
-                x, y = ab.get_mean_xy_traces(ldp_sess, "eye position", time_window,
-                            blocks=block, trial_sets=curr_set, rotate=True)
-                x, y = ab.subtract_baseline_tuning(ldp_sess, base_block, curr_set,
-                                                   "eye position", x, y)
-                # Append the data
-                all_post_tuning_x_pos[block][curr_set].append(x)
-                all_post_tuning_y_pos[block][curr_set].append(y)
+                bin_x_data, bin_y_data, bin_t_inds = ab.get_binned_mean_xy_traces(
+                                        ldp_sess, tuning_bin_edges, "eye position", time_window,
+                                        blocks=block, trial_sets=curr_set,
+                                        rotate=True, bin_basis="order",
+                                        return_t_inds=True)
+                bin_x_data, bin_y_data = ab.subtract_baseline_tuning_binned(
+                                        ldp_sess, base_block, curr_set, "eye position",
+                                        bin_x_data, bin_y_data)
+
+                # Append all the bin data
+                for inds_ind, inds in enumerate(bin_t_inds):
+                    if len(inds) < n_bin_min_trials:
+                        # Not enough trials
+                        continue
+                    # Otherwise add it
+                    all_post_tuning_x_pos[block][curr_set][inds_ind].append(bin_x_data[inds_ind])
+                    all_post_tuning_y_pos[block][curr_set][inds_ind].append(bin_y_data[inds_ind])
 
         if verbose: print("Getting bin learning velocity data")
         bin_x_data, bin_y_data, bin_t_inds = ab.get_binned_mean_xy_traces(ldp_sess,
@@ -227,7 +241,7 @@ def get_all_mean_data(f_regex, directory, time_window, base_block,
                 all_wash_bins_y_vel[inds_ind].append(bin_y_data[inds_ind])
 
 
-        # if n_files > 1:
+        # if n_files > 2:
         #     break
 
 
@@ -254,10 +268,11 @@ def get_all_mean_data(f_regex, directory, time_window, base_block,
     # Concatenate post tuning arrays
     for block in post_blocks:
         for curr_set in four_dir_trial_sets:
-            if len(all_post_tuning_x_pos[block][curr_set]) == 0:
-                continue
-            all_post_tuning_x_pos[block][curr_set] = np.vstack(all_post_tuning_x_pos[block][curr_set])
-            all_post_tuning_y_pos[block][curr_set] = np.vstack(all_post_tuning_y_pos[block][curr_set])
+            for bin in range(0, len(all_post_tuning_x_pos[block][curr_set])):
+                if len(all_post_tuning_x_pos[block][curr_set][bin]) == 0:
+                    continue
+                all_post_tuning_x_pos[block][curr_set][bin] = np.vstack(all_post_tuning_x_pos[block][curr_set][bin])
+                all_post_tuning_y_pos[block][curr_set][bin] = np.vstack(all_post_tuning_y_pos[block][curr_set][bin])
     output_dict['post_tuning_x_pos'] = all_post_tuning_x_pos
     output_dict['post_tuning_y_pos'] = all_post_tuning_y_pos
 
@@ -370,11 +385,22 @@ def plot_comb_tuning_probe_position_xy(data):
 
 
 def plot_comb_post_tuning_position_xy(data):
-    four_dir_trial_sets = ["learning", "anti_learning", "pursuit", "anti_pursuit"]
     post_blocks = ["StabTunePost", "StabTuneWash"]
-    colors = {'StabTunePost': "r",
-              'StabTuneWash': "g"
-              }
+    four_dir_trial_sets = ["learning", "anti_learning", "pursuit", "anti_pursuit"]
+    bin_means_x = {}
+    bin_means_y = {}
+    for block in post_blocks:
+        bin_means_x[block] = {}
+        bin_means_y[block] = {}
+        for curr_set in four_dir_trial_sets:
+            bin_means_x[block][curr_set] = []
+            bin_means_y[block][curr_set] = []
+            for bin in range(0, len(data['post_tuning_x_pos'][block][curr_set])):
+                if len(data['post_tuning_x_pos'][block][curr_set][bin]) == 0:
+                    continue
+                bin_means_x[block][curr_set].append(np.nanmean(data['post_tuning_x_pos'][block][curr_set][bin], axis=0))
+                bin_means_y[block][curr_set].append(np.nanmean(data['post_tuning_y_pos'][block][curr_set][bin], axis=0))
+
     p_b_labels = {'StabTunePost': "Post", 'StabTuneWash': 'Washout'}
     colors = {"StabTunePost": 'r', "StabTuneWash": 'g'}
     fig = plt.figure(figsize=(10, 10))
@@ -383,8 +409,10 @@ def plot_comb_post_tuning_position_xy(data):
         for curr_set in four_dir_trial_sets:
             if len(data['post_tuning_x_pos'][block][curr_set]) == 0:
                 continue
-            last_line = post_tune_ax.scatter(np.nanmean(data['post_tuning_x_pos'][block][curr_set], axis=0),
-                            np.nanmean(data['post_tuning_y_pos'][block][curr_set], axis=0), color=colors[block])
+            post_tune_ax, last_line = plots.binned_mean_traces_2D(bin_means_x[block][curr_set],
+                                    bin_means_y[block][curr_set],
+                                    ax=post_tune_ax, color=colors[block],
+                                    saturation=None, return_last_line=True)
         last_line.set_label(p_b_labels[block])
 
     post_tune_ax.legend()
@@ -637,7 +665,7 @@ def plot_combined_learning_curve(data, time_window, learn_window, trial_set,
                        'instruction': 1
                         }
     colors = {"LearnProbes": 'g',
-              "StabTunePost": 'k',
+              "StabTunePost": 'b',
               "Washout": 'r',
               "StabTuneWash": 'b'}
     ln_labels = {"LearnProbes": 'Learning block',

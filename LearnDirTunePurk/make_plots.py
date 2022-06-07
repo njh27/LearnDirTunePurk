@@ -459,7 +459,7 @@ def baseline_tuning_2D(ldp_sess, base_block, base_data, colors=None):
 
 
 def binned_mean_traces_2D(bin_x_data, bin_y_data, ax=None, color='k',
-                          saturation=None):
+                          saturation=None, return_last_line=False):
     """ """
     if ax is None:
         fig = plt.figure()
@@ -474,10 +474,13 @@ def binned_mean_traces_2D(bin_x_data, bin_y_data, ax=None, color='k',
     darkness = saturation[0]
     dark_step = (saturation[1] - saturation[0]) / len(bin_x_data)
     for x_trace, y_trace in zip(bin_x_data, bin_y_data):
-        ax.plot(x_trace, y_trace, color=(darkness * color))
+        last_line = ax.plot(x_trace, y_trace, color=(darkness * color))
         darkness += dark_step
 
-    return ax
+    if return_last_line:
+        return ax, last_line[-1]
+    else:
+        return ax
 
 
 def binned_mean_traces(bin_data, t_vals=None, ax=None, color='k',

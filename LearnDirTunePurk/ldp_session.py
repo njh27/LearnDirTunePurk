@@ -718,7 +718,7 @@ class LDPSession(Session):
             error_y = (targ_y - eye_y)
             error_tot = np.sqrt((error_x ** 2) + (error_y ** 2))
             with warnings.catch_warnings():
-                warnings.filterwarnings("ignore", category=RuntimeWarning)
+                warnings.filterwarnings(action="ignore", category=RuntimeWarning)
                 max_err = np.nanmax(error_tot)
                 max_err = 0 if np.all(np.isnan(max_err)) else max_err
             if ( (max_sacc > max_sacc_amp) or (max_err > max_pos_err) ):
