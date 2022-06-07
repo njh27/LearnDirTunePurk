@@ -10,7 +10,7 @@ import LearnDirTunePurk.make_plots as plots
 
 def get_all_mean_data(f_regex, directory, time_window, base_block,
         learn_bin_edges, probe_bin_edges, tuning_bin_edges,
-        n_min_trials, n_bin_min_trials):
+        n_min_trials, n_bin_min_trials, normalize_orth_vel=False):
     """
 
     e.g f_regex = 'LearnDirTunePurk_Dandy_[0-9][0-9]_maestro.pickle'
@@ -406,14 +406,18 @@ def plot_comb_post_tuning_position_xy(data):
     fig = plt.figure(figsize=(10, 10))
     post_tune_ax = plt.axes()
     for block in post_blocks:
+        plotted_block = False
         for curr_set in four_dir_trial_sets:
-            if len(data['post_tuning_x_pos'][block][curr_set]) == 0:
+            if len(data['post_tuning_x_pos'][block][curr_set][0]) == 0:
                 continue
+            plotted_block = True
             post_tune_ax, last_line = plots.binned_mean_traces_2D(bin_means_x[block][curr_set],
                                     bin_means_y[block][curr_set],
                                     ax=post_tune_ax, color=colors[block],
                                     saturation=None, return_last_line=True)
-        last_line.set_label(p_b_labels[block])
+        if plotted_block:
+            # Only mark the line if we plotted something for this block
+            last_line.set_label(p_b_labels[block])
 
     post_tune_ax.legend()
     post_tune_ax.set_ylabel("Learning axis eye position (deg)")
