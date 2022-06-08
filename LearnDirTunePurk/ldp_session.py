@@ -23,12 +23,14 @@ def make_180(angle):
 
 class LDPSession(Session):
 
-    def __init__(self, trial_data, session_name=None, data_type=None):
+    def __init__(self, trial_data, session_name=None, data_type=None,
+                 rotate=False):
         """
         """
         Session.__init__(self, trial_data, session_name, data_type)
         self.block_info = {}
         self.block_name_to_learn_name = {}
+        self.rotate = rotate
         self.sacc_and_err_trials = np.zeros(len(self), dtype='bool')
         self.rem_sacc_errs = False
         self.verbose = True
@@ -639,6 +641,10 @@ class LDPSession(Session):
                                    'anti_pursuit': 1,
                                    'instruction': 1
                                     }
+        # Set rotation according to whether baseline is rotated
+        if self.rotate != rotate:
+            warnings.warn("Input rotation value {0} does not match existing value {1}. Resetting rotation to {2} so previous analyses could be invalid!".format(rotate, self.rotate, rotate))
+            self.rotate = rotate
 
         # Setup dictionary for storing tuning data
         tuning_blocks = ["StandTunePre", "StabTunePre"]
@@ -653,8 +659,9 @@ class LDPSession(Session):
             for data_t in data_types:
                 self.baseline_tuning[block][data_t] = {}
                 for curr_set in self.four_dir_trial_sets:
-                    x, y = ab.get_xy_traces(self, data_t, time_window, blocks=block,
-                                                            trial_sets=curr_set, return_inds=False, rotate=rotate)
+                    x, y = ab.get_xy_traces(self, data_t, time_window,
+                                    blocks=block, trial_sets=curr_set,
+                                    return_inds=False)
                     if x.shape[0] == 0:
                         # Found no matching data
                         continue

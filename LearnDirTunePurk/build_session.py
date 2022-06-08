@@ -8,8 +8,8 @@ import SessionAnalysis as sa
 
 
 
-def create_behavior_session(fname, maestro_dir=None, session_name=None, existing_dir=None,
-        save_dir=None, verbose=True):
+def create_behavior_session(fname, maestro_dir=None, session_name=None,
+            existing_dir=None, save_dir=None, rotate=False, verbose=True):
     if session_name is None:
         session_name = fname
     # Load all Maestro data
@@ -61,7 +61,7 @@ def create_behavior_session(fname, maestro_dir=None, session_name=None, existing
     # Create base session from apparatus trials then add behavior
     # ldp_sess = sa.session.Session(trial_list, session_name=session_name)
     if verbose: print("Generating session and adding blocks.")
-    ldp_sess = LDPSession(trial_list, session_name=session_name)
+    ldp_sess = LDPSession(trial_list, session_name=session_name, rotate=rotate)
     ldp_sess.add_trial_data(trial_list_bhv, data_type=None)
 
     # Align all target related events with monitor refresh rate

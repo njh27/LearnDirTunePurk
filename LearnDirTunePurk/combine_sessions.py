@@ -81,14 +81,14 @@ def get_all_mean_data(f_regex, directory, time_window, base_block,
         print("Loading file:", f)
 
         ldp_sess = create_behavior_session(f, session_name=f.split("_maestro")[0],
-                    existing_dir=directory, verbose=True)
+                    existing_dir=directory, verbose=True, rotate=True)
         ldp_sess.set_baseline_averages(time_window)
         n_files += 1
 
         if verbose: print("Getting bin learning position data")
         bin_x_data, bin_y_data, bin_t_inds = ab.get_binned_mean_xy_traces(
                     ldp_sess, learn_bin_edges, "eye position", time_window,
-                    blocks="Learning", trial_sets="instruction", rotate=True,
+                    blocks="Learning", trial_sets="instruction",
                     bin_basis="instructed", return_t_inds=True)
         bin_x_data, bin_y_data = ab.subtract_baseline_tuning_binned(
                                     ldp_sess, base_block, "instruction", "eye position",
@@ -107,7 +107,7 @@ def get_all_mean_data(f_regex, directory, time_window, base_block,
             bin_x_data, bin_y_data, bin_t_inds = ab.get_binned_mean_xy_traces(
                                     ldp_sess, probe_bin_edges, "eye position", time_window,
                                     blocks="Learning", trial_sets=curr_set,
-                                    rotate=True, bin_basis="instructed",
+                                    bin_basis="instructed",
                                     return_t_inds=True)
             bin_x_data, bin_y_data = ab.subtract_baseline_tuning_binned(
                                     ldp_sess, base_block, curr_set, "eye position",
@@ -129,7 +129,7 @@ def get_all_mean_data(f_regex, directory, time_window, base_block,
                 bin_x_data, bin_y_data, bin_t_inds = ab.get_binned_mean_xy_traces(
                                         ldp_sess, tuning_bin_edges, "eye position", time_window,
                                         blocks=block, trial_sets=curr_set,
-                                        rotate=True, bin_basis="order",
+                                        bin_basis="order",
                                         return_t_inds=True)
                 bin_x_data, bin_y_data = ab.subtract_baseline_tuning_binned(
                                         ldp_sess, base_block, curr_set, "eye position",
@@ -148,7 +148,7 @@ def get_all_mean_data(f_regex, directory, time_window, base_block,
         bin_x_data, bin_y_data, bin_t_inds = ab.get_binned_mean_xy_traces(ldp_sess,
                                     learn_bin_edges,
                                     "eye velocity", time_window, blocks="Learning",
-                                    trial_sets="instruction", rotate=True,
+                                    trial_sets="instruction",
                                     bin_basis="instructed", return_t_inds=True)
         bin_x_data, bin_y_data = ab.subtract_baseline_tuning_binned(ldp_sess,
                                     base_block, "instruction", "eye velocity",
@@ -167,7 +167,7 @@ def get_all_mean_data(f_regex, directory, time_window, base_block,
             bin_x_data, bin_y_data, bin_t_inds = ab.get_binned_mean_xy_traces(
                                     ldp_sess, probe_bin_edges, "eye velocity", time_window,
                                     blocks="Learning", trial_sets=curr_set,
-                                    rotate=True, bin_basis="instructed",
+                                    bin_basis="instructed",
                                     return_t_inds=True)
             bin_x_data, bin_y_data = ab.subtract_baseline_tuning_binned(
                                     ldp_sess, base_block, curr_set, "eye velocity",
@@ -189,7 +189,7 @@ def get_all_mean_data(f_regex, directory, time_window, base_block,
                 bin_x_data, bin_y_data, bin_t_inds = ab.get_binned_mean_xy_traces(
                                         ldp_sess, tuning_bin_edges, "eye velocity", time_window,
                                         blocks=block, trial_sets=curr_set,
-                                        rotate=True, bin_basis="order",
+                                        bin_basis="order",
                                         return_t_inds=True)
                 bin_x_data, bin_y_data = ab.subtract_baseline_tuning_binned(
                                         ldp_sess, base_block, curr_set, "eye velocity",
@@ -207,7 +207,7 @@ def get_all_mean_data(f_regex, directory, time_window, base_block,
         if ldp_sess.blocks['Washout'] is not None:
             bin_x_data, bin_y_data, bin_t_inds = ab.get_binned_mean_xy_traces(
                         ldp_sess, wash_bin_edges, "eye position", time_window,
-                        blocks="Washout", trial_sets="instruction", rotate=True,
+                        blocks="Washout", trial_sets="instruction",
                         bin_basis="order", return_t_inds=True)
             bin_x_data, bin_y_data = ab.subtract_baseline_tuning_binned(
                                         ldp_sess, base_block, "instruction", "eye position",
@@ -226,7 +226,7 @@ def get_all_mean_data(f_regex, directory, time_window, base_block,
             bin_x_data, bin_y_data, bin_t_inds = ab.get_binned_mean_xy_traces(ldp_sess,
                                         wash_bin_edges,
                                         "eye velocity", time_window, blocks="Washout",
-                                        trial_sets="instruction", rotate=True,
+                                        trial_sets="instruction",
                                         bin_basis="order", return_t_inds=True)
             bin_x_data, bin_y_data = ab.subtract_baseline_tuning_binned(ldp_sess,
                                         base_block, "instruction", "eye velocity",
@@ -339,7 +339,7 @@ def plot_comb_instruction_position_xy(ldp_sess, bin_edges, time_window=None,
     learn_ax = plt.axes()
     bin_x_data, bin_y_data = ab.get_binned_mean_xy_traces(
                 ldp_sess, bin_edges, "eye position", time_window,
-                blocks="Learning", trial_sets="instruction", rotate=True,
+                blocks="Learning", trial_sets="instruction",
                 bin_basis="instructed")
     bin_x_data, bin_y_data = ab.subtract_baseline_tuning_binned(
                                 ldp_sess, base_block, "instruction", "eye position",

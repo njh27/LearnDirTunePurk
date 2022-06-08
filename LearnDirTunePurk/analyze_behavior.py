@@ -34,11 +34,11 @@ def subtract_baseline_tuning_binned(ldp_sess, base_block, base_set, base_data, x
 
 
 def get_mean_xy_traces(ldp_sess, series_name, time_window, blocks=None,
-                        trial_sets=None, rotate=False):
+                        trial_sets=None):
     """ Calls get_xy_traces below and takes the mean over rows of the output. """
 
     x, y = get_xy_traces(ldp_sess, series_name, time_window, blocks=blocks,
-                     trial_sets=trial_sets, return_inds=False, rotate=rotate)
+                     trial_sets=trial_sets, return_inds=False)
     if x.shape[0] == 0:
         # Found no matching data
         return x, y
@@ -51,13 +51,13 @@ def get_mean_xy_traces(ldp_sess, series_name, time_window, blocks=None,
 
 
 def get_binned_mean_xy_traces(ldp_sess, edges, series_name, time_window,
-                              blocks=None, trial_sets=None, rotate=False,
+                              blocks=None, trial_sets=None,
                               bin_basis="raw",
                               return_t_inds=False):
     """ Calls get_xy_traces and then bin_by_trial. Returns the mean of each bin
     corresponding to 'edges'. """
     x, y, t = get_xy_traces(ldp_sess, series_name, time_window, blocks=blocks,
-                     trial_sets=trial_sets, return_inds=True, rotate=rotate)
+                     trial_sets=trial_sets, return_inds=True)
     if bin_basis.lower() == "raw":
         # Do nothing
         pass
@@ -103,12 +103,12 @@ def get_binned_mean_xy_traces(ldp_sess, edges, series_name, time_window,
 
 
 def get_binned_xy_traces(ldp_sess, edges, series_name, time_window,
-                         blocks=None, trial_sets=None, rotate=False,
+                         blocks=None, trial_sets=None,
                          bin_basis=False):
     """ Calls get_xy_traces and then bin_by_trial. Returns the mean of each bin
     corresponding to 'edges'. """
     x, y, t = get_xy_traces(ldp_sess, series_name, time_window, blocks=blocks,
-                     trial_sets=trial_sets, return_inds=True, rotate=rotate)
+                     trial_sets=trial_sets, return_inds=True)
     if bin_basis:
         t = ldp_sess.n_instructed[t]
     bin_inds = bin_by_trial(t, edges, inc_last_edge=True)
@@ -170,8 +170,12 @@ def bin_by_trial(t_inds, edges, inc_last_edge=True):
     return bin_out
 
 
+def rescale_velocity(ldp_sess, x, y, t):
+    pass
+
+
 def get_xy_traces(ldp_sess, series_name, time_window, blocks=None,
-                 trial_sets=None, return_inds=False, rotate=False):
+                 trial_sets=None, return_inds=False):
     """ If rotated, the "x/horizontal" axis of output will be the "pursuit"
     axis and the "y/vertical" axis will be the learning axis.
     """
@@ -216,7 +220,7 @@ def get_xy_traces(ldp_sess, series_name, time_window, blocks=None,
         t_data_y = np.full(out_inds.shape[0], np.nan)
         t_data_x[out_inds] = trial_obj['data'][x_name][valid_tinds]
         t_data_y[out_inds] = trial_obj['data'][y_name][valid_tinds]
-        if rotate:
+        if ldp_sess.rotate:
             rot_data = ldp_sess.rotation_matrix @ np.vstack((t_data_x, t_data_y))
             t_data_x = rot_data[0, :]
             t_data_y = rot_data[1, :]
