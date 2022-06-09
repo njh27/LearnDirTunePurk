@@ -15,12 +15,12 @@ def subtract_baseline_tuning(ldp_sess, base_block, base_set, base_data, x, y,
         if alpha_scale_factors is None:
             x = x - ldp_sess.baseline_tuning[base_block][base_data][base_set][0, :]
         else:
-            x = x - (np.sum(alpha_scale_factors, axis=0) * ldp_sess.baseline_tuning[base_block][base_data][base_set][0, :])
+            x = x - (alpha_scale_factors * ldp_sess.baseline_tuning[base_block][base_data][base_set][0, :])
     elif ldp_sess.trial_set_base_axis[base_set] == 1:
         if alpha_scale_factors is None:
             y = y - ldp_sess.baseline_tuning[base_block][base_data][base_set][1, :]
         else:
-            y = y - (np.sum(alpha_scale_factors, axis=0) * ldp_sess.baseline_tuning[base_block][base_data][base_set][1, :])
+            y = y - (alpha_scale_factors * ldp_sess.baseline_tuning[base_block][base_data][base_set][1, :])
     else:
         raise ValueError("Could not match baseline for subtraction for block '{0}', set '{1}', and data '{2}'.".format(base_block, base_set, base_data))
 
@@ -60,7 +60,7 @@ def get_mean_xy_traces(ldp_sess, series_name, time_window, blocks=None,
             if len(trial_sets) > 1:
                 raise ValueError("Rescaling velocity across multiple trial sets is not allowed!")
             trial_sets = trial_sets[0]
-        x, y, alpha = rescale_velocity(ldp_sess, trial_sets, x, y, t)
+        x, y, alpha = rescale_velocity(ldp_sess, trial_sets, x, y, t, time_window)
     else:
         alpha = np.ones(x.shape)
     if x.shape[0] == 0:
@@ -94,7 +94,7 @@ def get_binned_mean_xy_traces(ldp_sess, edges, series_name, time_window,
             if len(trial_sets) > 1:
                 raise ValueError("Rescaling velocity across multiple trial sets is not allowed!")
             trial_sets = trial_sets[0]
-        x, y, alpha = rescale_velocity(ldp_sess, trial_sets, x, y, t)
+        x, y, alpha = rescale_velocity(ldp_sess, trial_sets, x, y, t, time_window)
     else:
         alpha = np.ones(x.shape)
     if bin_basis.lower() == "raw":
@@ -163,7 +163,7 @@ def get_binned_xy_traces(ldp_sess, edges, series_name, time_window,
             if len(trial_sets) > 1:
                 raise ValueError("Rescaling velocity across multiple trial sets is not allowed!")
             trial_sets = trial_sets[0]
-        x, y, alpha = rescale_velocity(ldp_sess, trial_sets, x, y, t)
+        x, y, alpha = rescale_velocity(ldp_sess, trial_sets, x, y, t, time_window)
     else:
         alpha = np.ones(x.shape)
     if bin_basis:
@@ -233,7 +233,7 @@ def bin_by_trial(t_inds, edges, inc_last_edge=True):
     return bin_out
 
 
-def rescale_velocity(ldp_sess, base_set, x, y, t):
+def rescale_velocity(ldp_sess, base_set, x, y, t, time_window):
     """Rescales pursuit velocity on the orthogonal axis according to
     ldp_sess.trial_set_base_axis[base_set] by the velocity on the target motion
     axis. """
@@ -246,14 +246,26 @@ def rescale_velocity(ldp_sess, base_set, x, y, t):
     if ldp_sess.trial_set_base_axis[base_set] == 0:
         rescale_data = x
         base_data = y
+        targ_ax = "yvel_comm"
     else:
         rescale_data = y
         base_data = x
+        targ_ax = "xvel_comm"
+
     for ind, t_ind in enumerate(t):
         if not ldp_sess.trial_sets[base_set][t_ind]:
             raise ValueError("Data for trial {0} was input but not contained in base trial set {1}!".format(t_ind, base_set))
-    nonzero_eye 
-    scale_factors = 1 / ( np.sqrt(base_data ** 2) / 20)
+        valid_tinds = ldp_sess._session_trial_data[t_ind]['curr_t_win']['valid_tinds']
+        out_inds = ldp_sess._session_trial_data[t_ind]['curr_t_win']['out_inds']
+        targ_data = np.zeros(out_inds.shape[0])
+        targ_data[out_inds] = ldp_sess._trial_lists['target0'][t_ind][targ_ax][valid_tinds]
+        nonzero_targ = targ_data != 0
+        # print(targ_data.shape, x.shape, scale_factors.shape, base_data.shape, nonzero_targ.shape, time_window)
+        scale_factors[ind, nonzero_targ] = base_data[ind, nonzero_targ] / targ_data[nonzero_targ]
+        nonzero_scale = scale_factors[ind, :] != 0
+        scale_factors[ind, nonzero_scale] = 1/scale_factors[ind, nonzero_scale]
+        scale_factors[ind, ~nonzero_scale] = 1
+
     rescale_data = rescale_data * scale_factors
     """I would probably do a something like target_velocity = alpha * eye velocity.
     Solve for alpha using least squares (without an intercept) on a trial by

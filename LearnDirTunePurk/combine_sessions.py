@@ -10,7 +10,7 @@ import LearnDirTunePurk.make_plots as plots
 
 def get_all_mean_data(f_regex, directory, time_window, base_block,
         learn_bin_edges, probe_bin_edges, tuning_bin_edges,
-        n_min_trials, n_bin_min_trials, normalize_orth_vel=False):
+        n_min_trials, n_bin_min_trials, rescale=False):
     """
 
     e.g f_regex = 'LearnDirTunePurk_Dandy_[0-9][0-9]_maestro.pickle'
@@ -145,14 +145,21 @@ def get_all_mean_data(f_regex, directory, time_window, base_block,
                     all_post_tuning_y_pos[block][curr_set][inds_ind].append(bin_y_data[inds_ind])
 
         if verbose: print("Getting bin learning velocity data")
-        bin_x_data, bin_y_data, bin_t_inds = ab.get_binned_mean_xy_traces(ldp_sess,
+        bin_xy_out = ab.get_binned_mean_xy_traces(ldp_sess,
                                     learn_bin_edges,
                                     "eye velocity", time_window, blocks="Learning",
                                     trial_sets="instruction",
-                                    bin_basis="instructed", return_t_inds=True)
+                                    bin_basis="instructed", return_t_inds=True,
+                                    rescale=rescale)
+        if rescale:
+            bin_x_data, bin_y_data, bin_t_inds, alpha_bin = bin_xy_out
+        else:
+            bin_x_data, bin_y_data, bin_t_inds = bin_xy_out
+            alpha_bin = None
         bin_x_data, bin_y_data = ab.subtract_baseline_tuning_binned(ldp_sess,
                                     base_block, "instruction", "eye velocity",
-                                    bin_x_data, bin_y_data)
+                                    bin_x_data, bin_y_data,
+                                    alpha_scale_factors=alpha_bin)
         # Append all the bin data
         for inds_ind, inds in enumerate(bin_t_inds):
             if len(inds) < n_bin_min_trials:
@@ -164,14 +171,20 @@ def get_all_mean_data(f_regex, directory, time_window, base_block,
 
         if verbose: print("Getting bin learning probe velocity traces")
         for curr_set in four_dir_trial_sets:
-            bin_x_data, bin_y_data, bin_t_inds = ab.get_binned_mean_xy_traces(
+            bin_xy_out = ab.get_binned_mean_xy_traces(
                                     ldp_sess, probe_bin_edges, "eye velocity", time_window,
                                     blocks="Learning", trial_sets=curr_set,
                                     bin_basis="instructed",
-                                    return_t_inds=True)
+                                    return_t_inds=True, rescale=rescale)
+            if rescale:
+                bin_x_data, bin_y_data, bin_t_inds, alpha_bin = bin_xy_out
+            else:
+                bin_x_data, bin_y_data, bin_t_inds = bin_xy_out
+                alpha_bin = None
             bin_x_data, bin_y_data = ab.subtract_baseline_tuning_binned(
                                     ldp_sess, base_block, curr_set, "eye velocity",
-                                    bin_x_data, bin_y_data)
+                                    bin_x_data, bin_y_data,
+                                    alpha_scale_factors=alpha_bin)
             # Append all the bin data
             for inds_ind, inds in enumerate(bin_t_inds):
                 if len(inds) < n_bin_min_trials:
@@ -186,14 +199,20 @@ def get_all_mean_data(f_regex, directory, time_window, base_block,
             if ldp_sess.blocks[block] is None:
                 continue
             for curr_set in four_dir_trial_sets:
-                bin_x_data, bin_y_data, bin_t_inds = ab.get_binned_mean_xy_traces(
+                bin_xy_out= ab.get_binned_mean_xy_traces(
                                         ldp_sess, tuning_bin_edges, "eye velocity", time_window,
                                         blocks=block, trial_sets=curr_set,
                                         bin_basis="order",
-                                        return_t_inds=True)
+                                        return_t_inds=True, rescale=rescale)
+                if rescale:
+                    bin_x_data, bin_y_data, bin_t_inds, alpha_bin = bin_xy_out
+                else:
+                    bin_x_data, bin_y_data, bin_t_inds = bin_xy_out
+                    alpha_bin = None
                 bin_x_data, bin_y_data = ab.subtract_baseline_tuning_binned(
                                         ldp_sess, base_block, curr_set, "eye velocity",
-                                        bin_x_data, bin_y_data)
+                                        bin_x_data, bin_y_data,
+                                        alpha_scale_factors=alpha_bin)
                 # Append all the bin data
                 for inds_ind, inds in enumerate(bin_t_inds):
                     if len(inds) < n_bin_min_trials:
@@ -223,14 +242,21 @@ def get_all_mean_data(f_regex, directory, time_window, base_block,
 
         if verbose: print("Getting bin washout velocity traces")
         if ldp_sess.blocks['Washout'] is not None:
-            bin_x_data, bin_y_data, bin_t_inds = ab.get_binned_mean_xy_traces(ldp_sess,
+            bin_xy_out = ab.get_binned_mean_xy_traces(ldp_sess,
                                         wash_bin_edges,
                                         "eye velocity", time_window, blocks="Washout",
                                         trial_sets="instruction",
-                                        bin_basis="order", return_t_inds=True)
+                                        bin_basis="order", return_t_inds=True,
+                                        rescale=rescale)
+            if rescale:
+                bin_x_data, bin_y_data, bin_t_inds, alpha_bin = bin_xy_out
+            else:
+                bin_x_data, bin_y_data, bin_t_inds = bin_xy_out
+                alpha_bin = None
             bin_x_data, bin_y_data = ab.subtract_baseline_tuning_binned(ldp_sess,
                                         base_block, "instruction", "eye velocity",
-                                        bin_x_data, bin_y_data)
+                                        bin_x_data, bin_y_data,
+                                        alpha_scale_factors=alpha_bin)
             # Append all the bin data
             for inds_ind, inds in enumerate(bin_t_inds):
                 if len(inds) < n_bin_min_trials:
@@ -241,8 +267,8 @@ def get_all_mean_data(f_regex, directory, time_window, base_block,
                 all_wash_bins_y_vel[inds_ind].append(bin_y_data[inds_ind])
 
 
-        # if n_files > 2:
-        #     break
+        if n_files > 2:
+            break
 
 
 
