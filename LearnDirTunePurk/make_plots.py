@@ -5,7 +5,8 @@ import LearnDirTunePurk.analyze_behavior as ab
 
 
 
-def show_all_eye_plots(ldp_sess, base_block="StabTunePre", exp_bins=False):
+def show_all_eye_plots(ldp_sess, base_block="StabTunePre", exp_bins=False,
+                        rescale=False):
     base_t_ax = baseline_tuning_2D(ldp_sess, base_block, "eye position", colors='k')
 
     learn_step_size = 10
@@ -40,7 +41,7 @@ def show_all_eye_plots(ldp_sess, base_block="StabTunePre", exp_bins=False):
     if exp_bins:
         bin_edges = np.hstack((0, 2*np.exp(np.arange(1, np.log(t_max/2)+1, 1))))
     inst_learn_ax, instr_pursuit_ax = plot_instruction_velocity_traces(ldp_sess, bin_edges, time_window=None,
-                                                                                      base_block=base_block)
+                                                        base_block=base_block, rescale=rescale)
 
     t_max = 700
     step_size = probe_step_size
@@ -48,9 +49,10 @@ def show_all_eye_plots(ldp_sess, base_block="StabTunePre", exp_bins=False):
     if exp_bins:
         bin_edges = np.hstack((0, 2*np.exp(np.arange(1, np.log(t_max/2)+1, 1))))
     learn_learn_ax, learn_pursuit_ax = plot_tuning_probe_velocity_traces(ldp_sess, bin_edges, time_window=None,
-                                                                                        base_block=base_block)
+                                                            base_block=base_block, rescale=rescale)
 
-    post_learn_ax, post_pursuit_ax = plot_post_tuning_velocity_traces(ldp_sess, time_window=None, base_block=base_block)
+    post_learn_ax, post_pursuit_ax = plot_post_tuning_velocity_traces(ldp_sess,
+                        time_window=None, base_block=base_block, rescale=rescale)
 
     if ldp_sess.blocks['Washout'] is not None:
         t_max = ldp_sess.blocks['Washout'][1]
@@ -66,25 +68,31 @@ def show_all_eye_plots(ldp_sess, base_block="StabTunePre", exp_bins=False):
         if exp_bins:
             bin_edges = np.hstack((0, 2*np.exp(np.arange(1, np.log(t_max/2)+1, 1))))
         inst_learn_ax, instr_pursuit_ax = plot_washout_velocity_traces(ldp_sess, bin_edges, time_window=None,
-                                                                                  base_block=base_block)
+                                                        base_block=base_block, rescale=rescale)
 
     return None
 
 
 def plot_instruction_position_xy(ldp_sess, bin_edges, time_window=None,
-                                 base_block="StabTunePre"):
+                                 base_block="StabTunePre", rescale=False):
 
     if time_window is None:
         time_window = ldp_sess.baseline_time_window
     fig = plt.figure()
     learn_ax = plt.axes()
-    bin_x_data, bin_y_data = ab.get_binned_mean_xy_traces(
+    bin_xy_out = ab.get_binned_mean_xy_traces(
                 ldp_sess, bin_edges, "eye position", time_window,
                 blocks="Learning", trial_sets="instruction",
-                bin_basis="instructed")
+                bin_basis="instructed", rescale=rescale)
+    if rescale:
+        bin_x_data, bin_y_data, alpha_bin = bin_xy_out
+    else:
+        bin_x_data, bin_y_data  = bin_xy_out
+        alpha_bin = None
     bin_x_data, bin_y_data = ab.subtract_baseline_tuning_binned(
                                 ldp_sess, base_block, "instruction", "eye position",
-                                bin_x_data, bin_y_data)
+                                bin_x_data, bin_y_data,
+                                alpha_scale_factors=alpha_bin)
     learn_ax = binned_mean_traces_2D(bin_x_data, bin_y_data,
                             ax=learn_ax, color='k', saturation=None)
 
@@ -99,22 +107,29 @@ def plot_instruction_position_xy(ldp_sess, bin_edges, time_window=None,
 
 def plot_tuning_probe_position_xy(ldp_sess, bin_edges, time_window=None,
                                   base_block="StabTunePre", colors='k',
-                                  saturation=None):
+                                  saturation=None, rescale=False):
 
     if time_window is None:
         time_window = ldp_sess.baseline_time_window
     bin_x_data = {}
     bin_y_data = {}
+    alpha_bin = {}
     fig = plt.figure()
     learn_ax = plt.axes()
     for curr_set in ldp_sess.four_dir_trial_sets:
-        bin_x_data[curr_set], bin_y_data[curr_set] = ab.get_binned_mean_xy_traces(
+        bin_xy_out = ab.get_binned_mean_xy_traces(
                                 ldp_sess, bin_edges, "eye position", time_window,
                                 blocks="Learning", trial_sets=curr_set,
-                                bin_basis="instructed")
+                                bin_basis="instructed", rescale=rescale)
+        if rescale:
+            bin_x_data[curr_set], bin_y_data[curr_set], alpha_bin[curr_set] = bin_xy_out
+        else:
+            bin_x_data[curr_set], bin_y_data[curr_set]  = bin_xy_out
+            alpha_bin[curr_set] = None
         bin_x_data[curr_set], bin_y_data[curr_set] = ab.subtract_baseline_tuning_binned(
                                 ldp_sess, base_block, curr_set, "eye position",
-                                bin_x_data[curr_set], bin_y_data[curr_set])
+                                bin_x_data[curr_set], bin_y_data[curr_set],
+                                alpha_scale_factors=alpha_bin[curr_set])
         learn_ax = binned_mean_traces_2D(bin_x_data[curr_set], bin_y_data[curr_set],
                                     ax=learn_ax, color=colors, saturation=saturation)
 
@@ -130,7 +145,8 @@ def plot_tuning_probe_position_xy(ldp_sess, bin_edges, time_window=None,
     return learn_ax
 
 
-def plot_post_tuning_position_xy(ldp_sess, time_window=None, base_block="StabTunePre"):
+def plot_post_tuning_position_xy(ldp_sess, time_window=None,
+                    base_block="StabTunePre", rescale=False):
     """
     """
     if time_window is None:
@@ -146,10 +162,17 @@ def plot_post_tuning_position_xy(ldp_sess, time_window=None, base_block="StabTun
         if ldp_sess.blocks[block] is None:
             continue
         for curr_set in ldp_sess.four_dir_trial_sets:
-            x, y = ab.get_mean_xy_traces(ldp_sess, "eye position", time_window,
-                        blocks=block, trial_sets=curr_set)
+            xy_out = ab.get_mean_xy_traces(ldp_sess, "eye position", time_window,
+                        blocks=block, trial_sets=curr_set,
+                        rescale=rescale)
+            if rescale:
+                x, y, alpha = xy_out
+            else:
+                x, y = xy_out
+                alpha = None
             x, y = ab.subtract_baseline_tuning(ldp_sess, base_block, curr_set,
-                                               "eye position", x, y)
+                                               "eye position", x, y,
+                                               alpha_scale_factors=alpha)
             last_line = post_tune_ax.scatter(x, y, color=colors[block])
         last_line.set_label(p_b_labels[block])
 
@@ -167,7 +190,7 @@ def plot_post_tuning_position_xy(ldp_sess, time_window=None, base_block="StabTun
 
 
 def plot_instruction_velocity_traces(ldp_sess, bin_edges, time_window=None,
-                                     base_block="StabTunePre"):
+                                     base_block="StabTunePre", rescale=False):
     """ """
     if time_window is None:
         time_window = ldp_sess.baseline_time_window
@@ -177,13 +200,19 @@ def plot_instruction_velocity_traces(ldp_sess, bin_edges, time_window=None,
     instr_pursuit_ax = plt.axes()
     time = np.arange(time_window[0], time_window[1])
 
-    bin_x_data, bin_y_data = ab.get_binned_mean_xy_traces(ldp_sess, bin_edges,
+    bin_xy_out = ab.get_binned_mean_xy_traces(ldp_sess, bin_edges,
                                 "eye velocity", time_window, blocks="Learning",
                                 trial_sets="instruction",
-                                bin_basis="instructed")
+                                bin_basis="instructed", rescale=rescale)
+    if rescale:
+        bin_x_data, bin_y_data, alpha_bin = bin_xy_out
+    else:
+        bin_x_data, bin_y_data  = bin_xy_out
+        alpha_bin = None
     bin_x_data, bin_y_data = ab.subtract_baseline_tuning_binned(ldp_sess,
                                 base_block, "instruction", "eye velocity",
-                                bin_x_data, bin_y_data)
+                                bin_x_data, bin_y_data,
+                                alpha_scale_factors=alpha_bin)
 
     inst_learn_ax = binned_mean_traces(bin_y_data, t_vals=time,
                                 ax=inst_learn_ax, color='k', saturation=None)
@@ -208,12 +237,13 @@ def plot_instruction_velocity_traces(ldp_sess, bin_edges, time_window=None,
 
 
 def plot_tuning_probe_velocity_traces(ldp_sess, bin_edges, time_window=None,
-                                     base_block="StabTunePre"):
+                                     base_block="StabTunePre", rescale=False):
     """ """
     if time_window is None:
         time_window = ldp_sess.baseline_time_window
     bin_x_data = {}
     bin_y_data = {}
+    alpha_bin = {}
     fig = plt.figure()
     learn_learn_ax = plt.axes()
     fig = plt.figure()
@@ -222,13 +252,19 @@ def plot_tuning_probe_velocity_traces(ldp_sess, bin_edges, time_window=None,
     p_col = {'pursuit': 'g', 'anti_pursuit': 'r', 'learning': 'g', 'anti_learning': 'r'}
 
     for curr_set in ldp_sess.four_dir_trial_sets:
-        bin_x_data[curr_set], bin_y_data[curr_set] = ab.get_binned_mean_xy_traces(
+        bin_xy_out = ab.get_binned_mean_xy_traces(
                                 ldp_sess, bin_edges, "eye velocity", time_window,
                                 blocks="Learning", trial_sets=curr_set,
-                                bin_basis="instructed")
+                                bin_basis="instructed", rescale=rescale)
+        if rescale:
+            bin_x_data[curr_set], bin_y_data[curr_set], alpha_bin[curr_set] = bin_xy_out
+        else:
+            bin_x_data[curr_set], bin_y_data[curr_set] = bin_xy_out
+            alpha_bin[curr_set] = None
         bin_x_data[curr_set], bin_y_data[curr_set] = ab.subtract_baseline_tuning_binned(
                                 ldp_sess, base_block, curr_set, "eye velocity",
-                                bin_x_data[curr_set], bin_y_data[curr_set])
+                                bin_x_data[curr_set], bin_y_data[curr_set],
+                                alpha_scale_factors=alpha_bin[curr_set])
         plot_axis = ldp_sess.trial_set_base_axis[curr_set]
         if plot_axis == 0:
             learn_pursuit_ax = binned_mean_traces(bin_x_data[curr_set], time,
@@ -256,7 +292,8 @@ def plot_tuning_probe_velocity_traces(ldp_sess, bin_edges, time_window=None,
     return learn_learn_ax, learn_pursuit_ax
 
 
-def plot_post_tuning_velocity_traces(ldp_sess, time_window=None, base_block="StabTunePre"):
+def plot_post_tuning_velocity_traces(ldp_sess, time_window=None,
+                        base_block="StabTunePre", rescale=False):
     """ """
     if time_window is None:
         time_window = ldp_sess.baseline_time_window
@@ -277,10 +314,16 @@ def plot_post_tuning_velocity_traces(ldp_sess, time_window=None, base_block="Sta
         if ldp_sess.blocks[block] is None:
             continue
         for curr_set in ldp_sess.four_dir_trial_sets:
-            x, y = ab.get_mean_xy_traces(ldp_sess, "eye velocity", time_window,
-                                blocks=block, trial_sets=curr_set)
+            xy_out = ab.get_mean_xy_traces(ldp_sess, "eye velocity", time_window,
+                                blocks=block, trial_sets=curr_set, rescale=rescale)
+            if rescale:
+                x, y, alpha = xy_out
+            else:
+                x, y = xy_out
+                alpha = None
             x, y = ab.subtract_baseline_tuning(ldp_sess, base_block, curr_set,
-                                               "eye velocity", x, y)
+                                               "eye velocity", x, y,
+                                                alpha_scale_factors=alpha)
 
             plot_axis = ldp_sess.trial_set_base_axis[curr_set]
             line_label = p_b_labels[block] + " " + p_s_labels[curr_set]
@@ -311,19 +354,25 @@ def plot_post_tuning_velocity_traces(ldp_sess, time_window=None, base_block="Sta
 
 
 def plot_washout_position_xy(ldp_sess, bin_edges, time_window=None,
-                                 base_block="StabTunePre"):
+                         base_block="StabTunePre", rescale=False):
 
     if time_window is None:
         time_window = ldp_sess.baseline_time_window
     fig = plt.figure()
     learn_ax = plt.axes()
-    bin_x_data, bin_y_data = ab.get_binned_mean_xy_traces(
+    bin_xy_out = ab.get_binned_mean_xy_traces(
                 ldp_sess, bin_edges, "eye position", time_window,
                 blocks="Washout", trial_sets="instruction",
-                bin_basis="raw")
+                bin_basis="raw", rescale=rescale)
+    if rescale:
+        bin_x_data, bin_y_data, alpha_bin = bin_xy_out
+    else:
+        bin_x_data, bin_y_data  = bin_xy_out
+        alpha_bin = None
     bin_x_data, bin_y_data = ab.subtract_baseline_tuning_binned(
                                 ldp_sess, base_block, "instruction", "eye position",
-                                bin_x_data, bin_y_data)
+                                bin_x_data, bin_y_data,
+                                alpha_scale_factors=alpha_bin)
     learn_ax = binned_mean_traces_2D(bin_x_data, bin_y_data,
                             ax=learn_ax, color='k', saturation=None)
 
@@ -337,7 +386,7 @@ def plot_washout_position_xy(ldp_sess, bin_edges, time_window=None,
 
 
 def plot_washout_velocity_traces(ldp_sess, bin_edges, time_window=None,
-                                     base_block="StabTunePre"):
+                                     base_block="StabTunePre", rescale=False):
     """ """
     if time_window is None:
         time_window = ldp_sess.baseline_time_window
@@ -347,13 +396,19 @@ def plot_washout_velocity_traces(ldp_sess, bin_edges, time_window=None,
     instr_pursuit_ax = plt.axes()
     time = np.arange(time_window[0], time_window[1])
 
-    bin_x_data, bin_y_data = ab.get_binned_mean_xy_traces(ldp_sess, bin_edges,
+    bin_xy_out = ab.get_binned_mean_xy_traces(ldp_sess, bin_edges,
                                 "eye velocity", time_window, blocks="Washout",
                                 trial_sets="instruction",
-                                bin_basis="raw")
+                                bin_basis="raw", rescale=rescale)
+    if rescale:
+        bin_x_data, bin_y_data, alpha_bin = bin_xy_out
+    else:
+        bin_x_data, bin_y_data  = bin_xy_out
+        alpha_bin = None
     bin_x_data, bin_y_data = ab.subtract_baseline_tuning_binned(ldp_sess,
                                 base_block, "instruction", "eye velocity",
-                                bin_x_data, bin_y_data)
+                                bin_x_data, bin_y_data,
+                                alpha_scale_factors=alpha_bin)
 
     inst_learn_ax = binned_mean_traces(bin_y_data, t_vals=time,
                                 ax=inst_learn_ax, color='k', saturation=None)

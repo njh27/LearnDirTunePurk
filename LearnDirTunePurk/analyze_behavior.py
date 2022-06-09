@@ -3,7 +3,8 @@ import warnings
 
 
 
-def subtract_baseline_tuning(ldp_sess, base_block, base_set, base_data, x, y):
+def subtract_baseline_tuning(ldp_sess, base_block, base_set, base_data, x, y,
+                             alpha_scale_factors=None):
     """ Subtracts the baseline data on the orthogonal axis relative to the
     4 axes defined by ldp_sess.trial_set_base_axis.
     Relatively simple function but cleans up other code since this is clumsy.
@@ -11,53 +12,91 @@ def subtract_baseline_tuning(ldp_sess, base_block, base_set, base_data, x, y):
     if (len(x) == 0) or (len(y) == 0):
         return x, y
     if ldp_sess.trial_set_base_axis[base_set] == 0:
-        x = x - ldp_sess.baseline_tuning[base_block][base_data][base_set][0, :]
+        if alpha_scale_factors is None:
+            x = x - ldp_sess.baseline_tuning[base_block][base_data][base_set][0, :]
+        else:
+            x = x - (np.sum(alpha_scale_factors, axis=0) * ldp_sess.baseline_tuning[base_block][base_data][base_set][0, :])
     elif ldp_sess.trial_set_base_axis[base_set] == 1:
-        y = y - ldp_sess.baseline_tuning[base_block][base_data][base_set][1, :]
+        if alpha_scale_factors is None:
+            y = y - ldp_sess.baseline_tuning[base_block][base_data][base_set][1, :]
+        else:
+            y = y - (np.sum(alpha_scale_factors, axis=0) * ldp_sess.baseline_tuning[base_block][base_data][base_set][1, :])
     else:
         raise ValueError("Could not match baseline for subtraction for block '{0}', set '{1}', and data '{2}'.".format(base_block, base_set, base_data))
 
     return x, y
 
-def subtract_baseline_tuning_binned(ldp_sess, base_block, base_set, base_data, x, y):
+def subtract_baseline_tuning_binned(ldp_sess, base_block, base_set, base_data,
+                                    x, y, alpha_scale_factors=None):
     """ Subtracts the baseline data on the orthogonal axis relative to the
     4 axes defined by ldp_sess.trial_set_base_axis.
     Relatively simple function but cleans up other code since this is clumsy.
     Data are subtracted from x and y IN PLACE!"""
     if len(x) != len(y):
         raise ValueError("x and y data must have the same number of bins (length).")
-    for bin_ind in range(0, len(x)):
-        x[bin_ind], y[bin_ind] = subtract_baseline_tuning(ldp_sess, base_block,
-                                    base_set, base_data, x[bin_ind], y[bin_ind])
+
+    if alpha_scale_factors is None:
+        for bin_ind in range(0, len(x)):
+            x[bin_ind], y[bin_ind] = subtract_baseline_tuning(ldp_sess, base_block,
+                                        base_set, base_data, x[bin_ind], y[bin_ind],
+                                        alpha_scale_factors=None)
+    else:
+        for bin_ind in range(0, len(x)):
+            x[bin_ind], y[bin_ind] = subtract_baseline_tuning(ldp_sess, base_block,
+                                        base_set, base_data, x[bin_ind], y[bin_ind],
+                                        alpha_scale_factors=alpha_scale_factors[bin_ind])
 
     return x, y
 
 
 def get_mean_xy_traces(ldp_sess, series_name, time_window, blocks=None,
-                        trial_sets=None):
+                        trial_sets=None, rescale=False):
     """ Calls get_xy_traces below and takes the mean over rows of the output. """
 
-    x, y = get_xy_traces(ldp_sess, series_name, time_window, blocks=blocks,
-                     trial_sets=trial_sets, return_inds=False)
+    x, y, t = get_xy_traces(ldp_sess, series_name, time_window, blocks=blocks,
+                     trial_sets=trial_sets, return_inds=True)
+    if rescale:
+        if isinstance(trial_sets, list):
+            if len(trial_sets) > 1:
+                raise ValueError("Rescaling velocity across multiple trial sets is not allowed!")
+            trial_sets = trial_sets[0]
+        x, y, alpha = rescale_velocity(ldp_sess, trial_sets, x, y, t)
+    else:
+        alpha = np.ones(x.shape)
     if x.shape[0] == 0:
         # Found no matching data
-        return x, y
+        if rescale:
+            return x, y, alpha
+        else:
+            return x, y
     with warnings.catch_warnings():
         warnings.filterwarnings("ignore", category=RuntimeWarning, message="Mean of empty slice")
         x = np.nanmean(x, axis=0)
         y = np.nanmean(y, axis=0)
+        alpha = np.nanmean(alpha, axis=0)
 
-    return x, y
+    if rescale:
+        return x, y, alpha
+    else:
+        return x, y
 
 
 def get_binned_mean_xy_traces(ldp_sess, edges, series_name, time_window,
                               blocks=None, trial_sets=None,
                               bin_basis="raw",
-                              return_t_inds=False):
+                              return_t_inds=False, rescale=False):
     """ Calls get_xy_traces and then bin_by_trial. Returns the mean of each bin
     corresponding to 'edges'. """
     x, y, t = get_xy_traces(ldp_sess, series_name, time_window, blocks=blocks,
                      trial_sets=trial_sets, return_inds=True)
+    if rescale:
+        if isinstance(trial_sets, list):
+            if len(trial_sets) > 1:
+                raise ValueError("Rescaling velocity across multiple trial sets is not allowed!")
+            trial_sets = trial_sets[0]
+        x, y, alpha = rescale_velocity(ldp_sess, trial_sets, x, y, t)
+    else:
+        alpha = np.ones(x.shape)
     if bin_basis.lower() == "raw":
         # Do nothing
         pass
@@ -79,51 +118,75 @@ def get_binned_mean_xy_traces(ldp_sess, edges, series_name, time_window,
     x_binned_traces = []
     y_binned_traces = []
     t_binned_inds = []
+    alpha_binned = []
     for inds in bin_inds:
         if len(inds) == 0:
             x_binned_traces.append([])
             y_binned_traces.append([])
             t_binned_inds.append([])
+            alpha_binned.append([])
         elif len(inds) == 1:
             x_binned_traces.append(x[inds[0], :])
             y_binned_traces.append(y[inds[0], :])
             t_binned_inds.append(np.array([t[inds[0]]]))
+            alpha_binned.append(alpha[inds[0], :])
         else:
             numpy_inds = np.array(inds)
             with warnings.catch_warnings():
                 warnings.filterwarnings("ignore", category=RuntimeWarning, message="Mean of empty slice")
                 x_binned_traces.append(np.nanmean(x[numpy_inds, :], axis=0))
                 y_binned_traces.append(np.nanmean(y[numpy_inds, :], axis=0))
+                alpha_binned.append(np.nanmean(alpha[numpy_inds, :], axis=0))
             t_binned_inds.append(t[numpy_inds])
 
     if return_t_inds:
-        return x_binned_traces, y_binned_traces, t_binned_inds
+        if rescale:
+            return x_binned_traces, y_binned_traces, t_binned_inds, alpha_binned
+        else:
+            return x_binned_traces, y_binned_traces, t_binned_inds
     else:
-        return x_binned_traces, y_binned_traces
+        if rescale:
+            return x_binned_traces, y_binned_traces, alpha_binned
+        else:
+            return x_binned_traces, y_binned_traces
 
 
 def get_binned_xy_traces(ldp_sess, edges, series_name, time_window,
                          blocks=None, trial_sets=None,
-                         bin_basis=False):
+                         bin_basis=False, rescale=False):
     """ Calls get_xy_traces and then bin_by_trial. Returns the mean of each bin
     corresponding to 'edges'. """
     x, y, t = get_xy_traces(ldp_sess, series_name, time_window, blocks=blocks,
                      trial_sets=trial_sets, return_inds=True)
+    if rescale:
+        if isinstance(trial_sets, list):
+            if len(trial_sets) > 1:
+                raise ValueError("Rescaling velocity across multiple trial sets is not allowed!")
+            trial_sets = trial_sets[0]
+        x, y, alpha = rescale_velocity(ldp_sess, trial_sets, x, y, t)
+    else:
+        alpha = np.ones(x.shape)
     if bin_basis:
         t = ldp_sess.n_instructed[t]
     bin_inds = bin_by_trial(t, edges, inc_last_edge=True)
     x_binned_traces = []
     y_binned_traces = []
+    alpha_binned = []
     for inds in bin_inds:
         if len(inds) == 0:
             x_binned_traces.append([])
             y_binned_traces.append([])
+            alpha_binned.append([])
         else:
             numpy_inds = np.array(inds)
             x_binned_traces.append(x[numpy_inds, :])
             y_binned_traces.append(y[numpy_inds, :])
+            alpha_binned.append(alpha[numpy_inds, :])
 
-    return x_binned_traces, y_binned_traces
+    if rescale:
+        return x_binned_traces, y_binned_traces, alpha_binned
+    else:
+        return x_binned_traces, y_binned_traces
 
 
 def bin_by_trial(t_inds, edges, inc_last_edge=True):
@@ -170,9 +233,33 @@ def bin_by_trial(t_inds, edges, inc_last_edge=True):
     return bin_out
 
 
-def rescale_velocity(ldp_sess, x, y, t):
-    pass
+def rescale_velocity(ldp_sess, base_set, x, y, t):
+    """Rescales pursuit velocity on the orthogonal axis according to
+    ldp_sess.trial_set_base_axis[base_set] by the velocity on the target motion
+    axis. """
+    scale_factors = np.zeros(x.shape)
+    if (len(x) == 0) or (len(y) == 0):
+        return scale_factors
 
+    # Match input x-y data to the scale axis numbers
+    # NOTE: these are just aliasing x, y names then outputing the same
+    if ldp_sess.trial_set_base_axis[base_set] == 0:
+        rescale_data = x
+        base_data = y
+    else:
+        rescale_data = y
+        base_data = x
+    for ind, t_ind in enumerate(t):
+        if not ldp_sess.trial_sets[base_set][t_ind]:
+            raise ValueError("Data for trial {0} was input but not contained in base trial set {1}!".format(t_ind, base_set))
+    nonzero_eye 
+    scale_factors = 1 / ( np.sqrt(base_data ** 2) / 20)
+    rescale_data = rescale_data * scale_factors
+    """I would probably do a something like target_velocity = alpha * eye velocity.
+    Solve for alpha using least squares (without an intercept) on a trial by
+    trial basis. The corrected learned velocity is then
+    "learning axis velocity" / alpha. """
+    return x, y, scale_factors
 
 def get_xy_traces(ldp_sess, series_name, time_window, blocks=None,
                  trial_sets=None, return_inds=False):

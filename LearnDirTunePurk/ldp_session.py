@@ -635,16 +635,32 @@ class LDPSession(Session):
         info provided over the default 4 axes in trial_sets. """
         # Hard coded default sets and axes
         self.four_dir_trial_sets = ["learning", "anti_learning", "pursuit", "anti_pursuit"]
-        self.trial_set_base_axis = {'learning': 0,
-                                   'anti_learning': 0,
-                                   'pursuit': 1,
-                                   'anti_pursuit': 1,
-                                   'instruction': 1
-                                    }
+
         # Set rotation according to whether baseline is rotated
         if self.rotate != rotate:
             warnings.warn("Input rotation value {0} does not match existing value {1}. Resetting rotation to {2} so previous analyses could be invalid!".format(rotate, self.rotate, rotate))
             self.rotate = rotate
+        if self.rotate:
+            self.trial_set_base_axis = {'learning': 0,
+                                       'anti_learning': 0,
+                                       'pursuit': 1,
+                                       'anti_pursuit': 1,
+                                       'instruction': 1
+                                        }
+        else:
+            self.trial_set_base_axis = {}
+            for t_set in self.directions:
+                if self.directions[t_set] == 0:
+                    self.trial_set_base_axis[t_set] = 1
+                elif self.directions[t_set] == 90:
+                    self.trial_set_base_axis[t_set] = 0
+                elif self.directions[t_set] == 180:
+                    self.trial_set_base_axis[t_set] = 1
+                elif self.directions[t_set] == 270:
+                    self.trial_set_base_axis[t_set] = 0
+                else:
+                    raise RuntimeError("Could not find base set axes for direction '{0}'".format(self.directions[t_set]))
+            self.trial_set_base_axis['instruction'] = self.trial_set_base_axis['pursuit']
 
         # Setup dictionary for storing tuning data
         tuning_blocks = ["StandTunePre", "StabTunePre"]
