@@ -11,6 +11,8 @@ def subtract_baseline_tuning(ldp_sess, base_block, base_set, base_data, x, y,
     Data are subtracted from x and y IN PLACE!"""
     if (len(x) == 0) or (len(y) == 0):
         return x, y
+    # alpha_scale_factors = None
+    # print("NO SCALING IN BASELINE OFF!!!!!!")
     if ldp_sess.trial_set_base_axis[base_set] == 0:
         if alpha_scale_factors is None:
             x = x - ldp_sess.baseline_tuning[base_block][base_data][base_set][0, :]
@@ -60,7 +62,7 @@ def get_mean_xy_traces(ldp_sess, series_name, time_window, blocks=None,
             if len(trial_sets) > 1:
                 raise ValueError("Rescaling velocity across multiple trial sets is not allowed!")
             trial_sets = trial_sets[0]
-        x, y, alpha = rescale_velocity(ldp_sess, trial_sets, x, y, t, time_window)
+        x, y, alpha = rescale_velocity(ldp_sess, trial_sets, x, y, t, time_window, blocks=blocks)
     else:
         alpha = np.ones(x.shape)
     if x.shape[0] == 0:
@@ -94,7 +96,7 @@ def get_binned_mean_xy_traces(ldp_sess, edges, series_name, time_window,
             if len(trial_sets) > 1:
                 raise ValueError("Rescaling velocity across multiple trial sets is not allowed!")
             trial_sets = trial_sets[0]
-        x, y, alpha = rescale_velocity(ldp_sess, trial_sets, x, y, t, time_window)
+        x, y, alpha = rescale_velocity(ldp_sess, trial_sets, x, y, t, time_window, blocks=blocks)
     else:
         alpha = np.ones(x.shape)
     if bin_basis.lower() == "raw":
@@ -153,7 +155,7 @@ def get_binned_mean_xy_traces(ldp_sess, edges, series_name, time_window,
 
 def get_binned_xy_traces(ldp_sess, edges, series_name, time_window,
                          blocks=None, trial_sets=None,
-                         bin_basis=False, rescale=False):
+                         bin_basis="raw", rescale=False):
     """ Calls get_xy_traces and then bin_by_trial. Returns the mean of each bin
     corresponding to 'edges'. """
     x, y, t = get_xy_traces(ldp_sess, series_name, time_window, blocks=blocks,
@@ -163,11 +165,26 @@ def get_binned_xy_traces(ldp_sess, edges, series_name, time_window,
             if len(trial_sets) > 1:
                 raise ValueError("Rescaling velocity across multiple trial sets is not allowed!")
             trial_sets = trial_sets[0]
-        x, y, alpha = rescale_velocity(ldp_sess, trial_sets, x, y, t, time_window)
+        x, y, alpha = rescale_velocity(ldp_sess, trial_sets, x, y, t, time_window, blocks=blocks)
     else:
         alpha = np.ones(x.shape)
-    if bin_basis:
+    if bin_basis.lower() == "raw":
+        # Do nothing
+        pass
+    elif bin_basis.lower() == "order":
+        t_order = np.argsort(t)
+        t[t_order] = np.arange(0, len(t))
+    elif bin_basis.lower() == "instructed":
         t = ldp_sess.n_instructed[t]
+    elif bin_basis.lower() == "block":
+        # If blocks is None, then we do nothing it's same as raw
+        if blocks is not None:
+            if isinstance(blocks, list):
+                if len(blocks) > 1:
+                    raise ValueError("Block bin basis is not defined over multiple blocks because it is ambiguous.")
+                else:
+                    blocks = blocks[0]
+            t = t - ldp_sess[blocks][0]
     bin_inds = bin_by_trial(t, edges, inc_last_edge=True)
     x_binned_traces = []
     y_binned_traces = []
@@ -233,44 +250,47 @@ def bin_by_trial(t_inds, edges, inc_last_edge=True):
     return bin_out
 
 
-def rescale_velocity(ldp_sess, base_set, x, y, t, time_window):
+def rescale_velocity(ldp_sess, base_set, x, y, t, time_window, blocks=None):
     """Rescales pursuit velocity on the orthogonal axis according to
     ldp_sess.trial_set_base_axis[base_set] by the velocity on the target motion
     axis. """
-    scale_factors = np.zeros(x.shape)
+    scale_factors = np.ones(x.shape)
     if (len(x) == 0) or (len(y) == 0):
         return scale_factors
 
     # Match input x-y data to the scale axis numbers
     # NOTE: these are just aliasing x, y names then outputing the same
+    # Choose the target vector OPPOSITE the baseline/stabilized axis
     if ldp_sess.trial_set_base_axis[base_set] == 0:
         rescale_data = x
         base_data = y
-        targ_ax = "yvel_comm"
+        targ_ax = 1
     else:
         rescale_data = y
         base_data = x
-        targ_ax = "xvel_comm"
-
-    for ind, t_ind in enumerate(t):
-        if not ldp_sess.trial_sets[base_set][t_ind]:
-            raise ValueError("Data for trial {0} was input but not contained in base trial set {1}!".format(t_ind, base_set))
-        valid_tinds = ldp_sess._session_trial_data[t_ind]['curr_t_win']['valid_tinds']
-        out_inds = ldp_sess._session_trial_data[t_ind]['curr_t_win']['out_inds']
-        targ_data = np.zeros(out_inds.shape[0])
-        targ_data[out_inds] = ldp_sess._trial_lists['target0'][t_ind][targ_ax][valid_tinds]
-        nonzero_targ = targ_data != 0
-        # print(targ_data.shape, x.shape, scale_factors.shape, base_data.shape, nonzero_targ.shape, time_window)
-        scale_factors[ind, nonzero_targ] = base_data[ind, nonzero_targ] / targ_data[nonzero_targ]
-        nonzero_scale = scale_factors[ind, :] != 0
-        scale_factors[ind, nonzero_scale] = 1/scale_factors[ind, nonzero_scale]
-        scale_factors[ind, ~nonzero_scale] = 1
+        targ_ax = 0
+    targ_xy = get_xy_traces(ldp_sess, "target velocity comm", time_window,
+                         blocks=blocks, trial_sets=base_set, return_inds=False)
+    for ind in range(0, x.shape[0]):
+        nonzero_targ = targ_xy[targ_ax][ind, :] != 0
+        nonzero_eye = np.abs(base_data[ind, :] > 1)
+        valid_inds = np.logical_and(nonzero_targ, nonzero_eye)
+        # Nonvalid scale factors stay at default of 1
+        scale_factors[ind, valid_inds] = base_data[ind, valid_inds] / targ_xy[targ_ax][ind, valid_inds]
+        scale_factors[ind, valid_inds] = 1/scale_factors[ind, valid_inds]
+        # if np.any(scale_factors[ind, :] < 0):
+        #     print("THIS MANY UNDER ZERO {0}!".format(np.count_nonzero(scale_factors[ind, :] < 0)))
+        #     print("Indices", np.where(scale_factors[ind, :] < 0)[0])
 
     rescale_data = rescale_data * scale_factors
     """I would probably do a something like target_velocity = alpha * eye velocity.
     Solve for alpha using least squares (without an intercept) on a trial by
     trial basis. The corrected learned velocity is then
     "learning axis velocity" / alpha. """
+    if ldp_sess.trial_set_base_axis[base_set] == 0:
+        x, y = rescale_data, base_data
+    else:
+        y, x = rescale_data, base_data
     return x, y, scale_factors
 
 def get_xy_traces(ldp_sess, series_name, time_window, blocks=None,
@@ -294,8 +314,12 @@ def get_xy_traces(ldp_sess, series_name, time_window, blocks=None,
             x_name = "horizontal_target_position"
             y_name = "vertical_target_position"
         elif "velocity" in series_name:
-            x_name = "horizontal_target_velocity"
-            y_name = "vertical_target_velocity"
+            if "comm" in series_name:
+                x_name = "xvel_comm"
+                y_name = "yvel_comm"
+            else:
+                x_name = "horizontal_target_velocity"
+                y_name = "vertical_target_velocity"
         else:
             raise InputError("Data name for 'eye' must also include either 'position' or 'velocity' to specify data type.")
         data_name = "target0"

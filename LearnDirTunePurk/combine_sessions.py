@@ -267,8 +267,8 @@ def get_all_mean_data(f_regex, directory, time_window, base_block,
                 all_wash_bins_y_vel[inds_ind].append(bin_y_data[inds_ind])
 
 
-        if n_files > 2:
-            break
+        # if n_files > 2:
+        #     break
 
 
 
