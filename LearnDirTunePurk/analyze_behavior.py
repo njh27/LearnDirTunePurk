@@ -272,15 +272,12 @@ def rescale_velocity(ldp_sess, base_set, x, y, t, time_window, blocks=None):
     targ_xy = get_xy_traces(ldp_sess, "target velocity comm", time_window,
                          blocks=blocks, trial_sets=base_set, return_inds=False)
     for ind in range(0, x.shape[0]):
-        nonzero_targ = targ_xy[targ_ax][ind, :] != 0
-        nonzero_eye = np.abs(base_data[ind, :] > 1)
+        nonzero_targ = np.logical_and(targ_xy[targ_ax][ind, :] != 0, ~np.isnan(targ_xy[targ_ax][ind, :]))
+        nonzero_eye = np.abs(base_data[ind, :]) > 1
         valid_inds = np.logical_and(nonzero_targ, nonzero_eye)
         # Nonvalid scale factors stay at default of 1
         scale_factors[ind, valid_inds] = base_data[ind, valid_inds] / targ_xy[targ_ax][ind, valid_inds]
         scale_factors[ind, valid_inds] = 1/scale_factors[ind, valid_inds]
-        # if np.any(scale_factors[ind, :] < 0):
-        #     print("THIS MANY UNDER ZERO {0}!".format(np.count_nonzero(scale_factors[ind, :] < 0)))
-        #     print("Indices", np.where(scale_factors[ind, :] < 0)[0])
 
     rescale_data = rescale_data * scale_factors
     """I would probably do a something like target_velocity = alpha * eye velocity.

@@ -790,3 +790,166 @@ def plot_combined_learning_curve(data, time_window, learn_window, trial_set,
     ax.axhline(0, color=[.5, .5, .5])
 
     return ax, fig
+
+
+def plot_tan_combined_learning_curve(data, time_window, learn_window, trial_set,
+                                 extra_bin_spacing=1, multiplier=1):
+    four_dir_trial_sets = ["learning", "anti_learning", "pursuit", "anti_pursuit"]
+    trial_set_base_axis = {'learning': 0,
+                       'anti_learning': 0,
+                       'pursuit': 1,
+                       'anti_pursuit': 1,
+                       'instruction': 1
+                        }
+    colors = {"LearnProbes": 'g',
+              "StabTunePost": 'b',
+              "Washout": 'r',
+              "StabTuneWash": 'b'}
+    ln_labels = {"LearnProbes": 'Learning block',
+                 "StabTunePost": 'Post-learning tuning block',
+                 "Washout": 'Washout block',
+                 "StabTuneWash": 'Post-washout tuning block'}
+    marker_size = 100
+    lines = {key: None for key in colors.keys()}
+    block_ends = {key: None for key in colors.keys()}
+    avg_indices = [learn_window[0] - time_window[0], learn_window[1] - time_window[0]]
+    fig = plt.figure(figsize=(12, 8))
+    ax = plt.axes()
+
+    data_axis = trial_set_base_axis[trial_set]
+    # START learning trial probe data
+    if data_axis == 0:
+        num_data = "probe_bin_x_pos"
+        den_data = "probe_bin_y_pos"
+    else:
+        num_data = "probe_bin_y_pos"
+        den_data = "probe_bin_x_pos"
+    bin_means = []
+    for bin in range(0, len(data[num_data][trial_set])):
+        if len(data[num_data][trial_set][bin]) == 0:
+            bin_means.append(np.nan)
+        else:
+            # tan_data = data[num_data][trial_set][bin] / np.abs(data[den_data][trial_set][bin])
+            # tan_data[~np.isfinite(tan_data)] = np.nan
+            # tan_data[np.abs(tan_data) > 5] = np.nan
+            # tan_data = np.arctan(tan_data)
+            # avg_trace = multiplier * np.nanmean(tan_data, axis=0)
+            # bin_means.append(np.nanmean(avg_trace[avg_indices[0]:avg_indices[1]]))
+            num_avg_trace = np.nanmean(data[num_data][trial_set][bin], axis=0)
+            den_avg_trace = np.nanmean(np.abs(data[den_data][trial_set][bin]), axis=0)
+            avg_tan = ( (num_avg_trace[avg_indices[1]] - num_avg_trace[avg_indices[0]]) /
+                        (den_avg_trace[avg_indices[1]] - den_avg_trace[avg_indices[0]]) )
+            bin_means.append(avg_tan)
+    lines['LearnProbes'] = ax.scatter(data['bin_inds_probe'], bin_means,
+                            color=colors['LearnProbes'], s=marker_size)
+    last_t_ind = data['bin_inds_probe'][-1] + ((data['bin_inds_probe'][-1] - data['bin_inds_probe'][-2])/2)
+    block_ends['LearnProbes'] = last_t_ind
+
+    # START post learning stab tuning data
+    if data_axis == 0:
+        num_data = "post_tuning_x_pos"
+        den_data = "post_tuning_y_pos"
+    else:
+        num_data = "post_tuning_y_pos"
+        den_data = "post_tuning_x_pos"
+    block_name = "StabTunePost"
+    bin_means = []
+    for bin in range(0, len(data[num_data][block_name][trial_set])):
+        if len(data[num_data][block_name][trial_set][bin]) == 0:
+            bin_means.append(np.nan)
+        else:
+            # tan_data = data[num_data][block_name][trial_set][bin] / np.abs(data[den_data][block_name][trial_set][bin])
+            # tan_data[~np.isfinite(tan_data)] = np.nan
+            # tan_data[np.abs(tan_data) > 5] = np.nan
+            # tan_data = np.arctan(tan_data)
+            # avg_trace = multiplier * np.nanmean(tan_data, axis=0)
+            # bin_means.append(np.nanmean(avg_trace[avg_indices[0]:avg_indices[1]]))
+            num_avg_trace = np.nanmean(data[num_data][block_name][trial_set][bin], axis=0)
+            den_avg_trace = np.nanmean(np.abs(data[den_data][block_name][trial_set][bin]), axis=0)
+            avg_tan = ( (num_avg_trace[avg_indices[1]] - num_avg_trace[avg_indices[0]]) /
+                        (den_avg_trace[avg_indices[1]] - den_avg_trace[avg_indices[0]]) )
+            bin_means.append(avg_tan)
+    curr_t_inds = extra_bin_spacing*data['bin_inds_tune'] + last_t_ind
+    lines['StabTunePost'] = ax.scatter(curr_t_inds,
+                    bin_means, color=colors['StabTunePost'], s=marker_size)
+    last_t_ind = (curr_t_inds[-1]) + extra_bin_spacing*(
+                    (data['bin_inds_tune'][-1] - data['bin_inds_tune'][-2])/2)
+    block_ends['StabTunePost'] = last_t_ind
+
+    # START washout trial instruction data
+    # Since there are no probes, we need our own data axis selection
+    curr_t_inds = extra_bin_spacing*data['bin_inds_wash'] + last_t_ind
+    if trial_set == "pursuit":
+        if data_axis == 0:
+            num_data = "wash_bin_x_pos"
+            den_data = "wash_bin_y_pos"
+        else:
+            num_data = "wash_bin_y_pos"
+            den_data = "wash_bin_x_pos"
+        bin_means = []
+        for bin in range(0, len(data[num_data])):
+            if len(data[num_data][bin]) == 0:
+                bin_means.append(np.nan)
+            else:
+                # tan_data = data[num_data][bin] / np.abs(data[den_data][bin])
+                # tan_data[~np.isfinite(tan_data)] = np.nan
+                # tan_data[np.abs(tan_data) > 5] = np.nan
+                # tan_data = np.arctan(tan_data)
+                # avg_trace = multiplier * np.nanmean(tan_data, axis=0)
+                # bin_means.append(np.nanmean(avg_trace[avg_indices[0]:avg_indices[1]]))
+                num_avg_trace = np.nanmean(data[num_data][bin], axis=0)
+                den_avg_trace = np.nanmean(np.abs(data[den_data][bin]), axis=0)
+                avg_tan = ( (num_avg_trace[avg_indices[1]] - num_avg_trace[avg_indices[0]]) /
+                            (den_avg_trace[avg_indices[1]] - den_avg_trace[avg_indices[0]]) )
+                bin_means.append(avg_tan)
+        lines['Washout'] = ax.scatter(curr_t_inds,
+                            bin_means, color=colors['Washout'], s=marker_size)
+    last_t_ind = (curr_t_inds[-1]) + extra_bin_spacing*(
+                    (data['bin_inds_wash'][-1] - data['bin_inds_wash'][-2])/2)
+    block_ends['Washout'] = last_t_ind
+
+    # START post washout stab tuning data
+    if data_axis == 0:
+        num_data = "post_tuning_x_pos"
+        den_data = "post_tuning_y_pos"
+    else:
+        num_data = "post_tuning_y_pos"
+        den_data = "post_tuning_x_pos"
+    block_name = "StabTuneWash"
+    bin_means = []
+    for bin in range(0, len(data[num_data][block_name][trial_set])):
+        if len(data[num_data][block_name][trial_set][bin]) == 0:
+            bin_means.append(np.nan)
+        else:
+            # tan_data = data[num_data][block_name][trial_set][bin] / np.abs(data[den_data][block_name][trial_set][bin])
+            # tan_data[~np.isfinite(tan_data)] = np.nan
+            # tan_data[np.abs(tan_data) > 5] = np.nan
+            # tan_data = np.arctan(tan_data)
+            # avg_trace = multiplier * np.nanmean(tan_data, axis=0)
+            # bin_means.append(np.nanmean(avg_trace[avg_indices[0]:avg_indices[1]]))
+            num_avg_trace = np.nanmean(data[num_data][block_name][trial_set][bin], axis=0)
+            den_avg_trace = np.nanmean(np.abs(data[den_data][block_name][trial_set][bin]), axis=0)
+            avg_tan = ( (num_avg_trace[avg_indices[1]] - num_avg_trace[avg_indices[0]]) /
+                        (den_avg_trace[avg_indices[1]] - den_avg_trace[avg_indices[0]]) )
+            bin_means.append(avg_tan)
+    curr_t_inds = extra_bin_spacing*data['bin_inds_tune'] + last_t_ind
+    lines['StabTuneWash'] = ax.scatter(curr_t_inds,
+                                bin_means, color=colors['StabTuneWash'], s=marker_size)
+    last_t_ind = (curr_t_inds[-1]) + extra_bin_spacing*(
+                    (data['bin_inds_tune'][-1] - data['bin_inds_tune'][-2])/2)
+    block_ends['StabTuneWash'] = last_t_ind
+
+    y_name = "Learning" if trial_set in ["pursuit", "anti_pursuit"] else "Pursuit"
+    yl_string = y_name + " axis velocity (deg/s)"
+    ax.set_ylabel(yl_string)
+    ax.set_xlabel("Trial number")
+    ax.set_title("Learned eye velocity over trials")
+
+    for ln in lines.keys():
+        if lines[ln] is not None:
+            lines[ln].set_label(ln_labels[ln])
+        ax.axvline(block_ends[ln], color=colors[ln])
+    fig.legend()
+    ax.axhline(0, color=[.5, .5, .5])
+
+    return ax, fig
