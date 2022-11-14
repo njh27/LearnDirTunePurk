@@ -8,20 +8,19 @@ import SessionAnalysis as sa
 
 
 
-def create_behavior_session(fname, maestro_dir=None, session_name=None,
-            existing_dir=None, save_dir=None, rotate=False, verbose=True):
+def create_behavior_session(fname, maestro_dir, session_name=None, rotate=True,
+            check_existing_maestro=True, save_maestro_data=True,
+            save_maestro_name=None, return_maestro=False, verbose=True):
     if session_name is None:
         session_name = fname
+
     # Load all Maestro data
     if verbose: print("Loading Maestro directory data.")
-    if maestro_dir is None and existing_dir is not None:
-        # Load an existing file directly
-        existing_dir = existing_dir + "/" if (existing_dir[-1] != "/") else existing_dir
-        with open(existing_dir + fname, 'rb') as fp:
-            maestro_data = pickle.load(fp)
-    else:
-        # Try to find a file from a Maestro directory or existing pickle
-        maestro_data = load_maestro_directory(fname, maestro_dir, existing_dir=existing_dir, save_dir=save_dir)
+    maestro_data = rm.maestro_read.load_directory(maestro_dir+fname,
+                                        check_existing=check_existing_maestro,
+                                        save_data=save_maestro_data,
+                                        save_name=save_maestro_name)
+
     if ( ("Yoda" in session_name) and (int(session_name.split("_")[-1]) < 20) ):
         print("Treating this as a weird Yoda file")
         is_weird_Yoda = True
@@ -63,6 +62,48 @@ def create_behavior_session(fname, maestro_dir=None, session_name=None,
     if verbose: print("Generating session and adding blocks.")
     ldp_sess = LDPSession(trial_list, session_name=session_name, rotate=rotate)
     ldp_sess.add_trial_data(trial_list_bhv, data_type=None)
+    # Add fields characteristic to this session for future reference
+    ldp_sess.is_weird_Yoda = is_weird_Yoda
+    ldp_sess.is_stab_learning = is_stab_learning
+    ldp_sess.fname = fname
+
+    # Can return maestro data so we dont' need to reload if adding neurons
+    if return_maestro:
+        return ldp_sess, maestro_data
+    else:
+        return ldp_sess
+
+
+
+def add_neuron_trials(ldp_sess, maestro_data, neurons_file, PL2_dir=None,
+                      dt_data=1, save_maestro_name=None):
+    """ Adds neuron trials to the LDPSession object from the neurons list
+    of dictionaries in neurons. """
+    if len(ldp_sess) != len(maestro_data):
+        raise ValueError("The session must have the same number of trials as the input maestro_data to sync! Make sure they are the correct file and none have been removed from the Session.")
+    if not rm.utils.PL2_maestro.is_maestro_pl2_synced(maestro_data, ldp_sess.fname + ".pl2"):
+        if save_maestro_name is None:
+            print("maestro_data not yet synced with PL2 file {0}. Syncing file but not saving because maestro_save_name not specified.".format(ldp_sess.fname + ".pl2"))
+        else:
+            print("maestro_data not yet synced with PL2 file {0}. Syncing and saving as {1}.".format(ldp_sess.fname + ".pl2", save_maestro_name))
+        maestro_data = rm.utils.PL2_maestro.add_plexon_events(maestro_data,
+                                                    PL2_dir + ldp_sess.fname + ".pl2",
+                                                    maestro_pl2_chan_offset=3,
+                                                    save_name=save_maestro_name)
+    with open(neurons_file, 'rb') as fp:
+        neurons = pickle.load(fp)
+
+    trial_list_nrn = sa.utils.format_trial_dicts.maestro_to_neuron_trial(
+                                            maestro_data, neurons, dt_data=dt_data,
+                                            start_data=0, default_name="n_",
+                                            use_class_names=True, data_name='neurons')
+    ldp_sess.add_trial_data(trial_list_nrn, data_type=None)
+
+    return ldp_sess
+
+
+
+def format_ldp_trials_blocks(ldp_sess, verbose=True):
 
     # Align all target related events with monitor refresh rate
     ldp_sess.shift_event_to_refresh('target_onset')
@@ -109,7 +150,7 @@ def create_behavior_session(fname, maestro_dir=None, session_name=None,
     ldp_sess.add_blocks(trial_names, block_names, number_names=True, block_min=20, n_min_per_trial=5)
 
     trial_names = ['90', '0', '180','270']
-    ignore_trial_names = weird_yoda_tuning_trials if is_weird_Yoda else ['']
+    ignore_trial_names = weird_yoda_tuning_trials if ldp_sess.is_weird_Yoda else ['']
     block_names = ['StandTune']
     ldp_sess.add_blocks(trial_names, block_names, number_names=True,
                         ignore_trial_names=ignore_trial_names, block_min=12,
@@ -120,72 +161,72 @@ def create_behavior_session(fname, maestro_dir=None, session_name=None,
     ldp_sess.add_blocks(trial_names, block_names, number_names=True,
                         block_min=12, n_min_per_trial=3, max_consec_single=20)
 
-    trial_names = ['0-upStab'] if is_stab_learning else ["0-up"]
+    trial_names = ['0-upStab'] if ldp_sess.is_stab_learning else ["0-up"]
     ignore_trial_names = ['90Stab', '0Stab', '180Stab','270Stab', '90', '0', '180','270']
-    if is_weird_Yoda:
+    if ldp_sess.is_weird_Yoda:
         ignore_trial_names.extend(weird_yoda_tuning_trials)
     block_names = ['0Learn90']
     ldp_sess.block_name_to_learn_name['0Learn90'] = '0-upStab'
     ldp_sess.add_blocks(trial_names, block_names, number_names=True, ignore_trial_names=ignore_trial_names,
                     max_consec_absent=0, block_min=20, n_min_per_trial=20)
 
-    trial_names = ['0-dnStab'] if is_stab_learning else ["0-dn"]
+    trial_names = ['0-dnStab'] if ldp_sess.is_stab_learning else ["0-dn"]
     ignore_trial_names = ['90Stab', '0Stab', '180Stab','270Stab', '90', '0', '180','270']
-    if is_weird_Yoda:
+    if ldp_sess.is_weird_Yoda:
         ignore_trial_names.extend(weird_yoda_tuning_trials)
     block_names = ['0Learn270']
     ldp_sess.block_name_to_learn_name['0Learn270'] = '0-dnStab'
     ldp_sess.add_blocks(trial_names, block_names, number_names=True, ignore_trial_names=ignore_trial_names,
                     max_consec_absent=0, block_min=20, n_min_per_trial=20)
 
-    trial_names = ['90-rtStab'] if is_stab_learning else ["90-rt"]
+    trial_names = ['90-rtStab'] if ldp_sess.is_stab_learning else ["90-rt"]
     ignore_trial_names = ['90Stab', '0Stab', '180Stab','270Stab', '90', '0', '180','270']
-    if is_weird_Yoda:
+    if ldp_sess.is_weird_Yoda:
         ignore_trial_names.extend(weird_yoda_tuning_trials)
     block_names = ['90Learn0']
     ldp_sess.block_name_to_learn_name['90Learn0'] = '90-rtStab'
     ldp_sess.add_blocks(trial_names, block_names, number_names=True, ignore_trial_names=ignore_trial_names,
                     max_consec_absent=0, block_min=20, n_min_per_trial=20)
 
-    trial_names = ['90-ltStab'] if is_stab_learning else ["90-lt"]
+    trial_names = ['90-ltStab'] if ldp_sess.is_stab_learning else ["90-lt"]
     ignore_trial_names = ['90Stab', '0Stab', '180Stab','270Stab', '90', '0', '180','270']
-    if is_weird_Yoda:
+    if ldp_sess.is_weird_Yoda:
         ignore_trial_names.extend(weird_yoda_tuning_trials)
     block_names = ['90Learn180']
     ldp_sess.block_name_to_learn_name['90Learn180'] = '90-ltStab'
     ldp_sess.add_blocks(trial_names, block_names, number_names=True, ignore_trial_names=ignore_trial_names,
                     max_consec_absent=0, block_min=20, n_min_per_trial=20)
 
-    trial_names = ['180-upStab'] if is_stab_learning else ["180-up"]
+    trial_names = ['180-upStab'] if ldp_sess.is_stab_learning else ["180-up"]
     ignore_trial_names = ['90Stab', '0Stab', '180Stab','270Stab', '90', '0', '180','270']
-    if is_weird_Yoda:
+    if ldp_sess.is_weird_Yoda:
         ignore_trial_names.extend(weird_yoda_tuning_trials)
     block_names = ['180Learn90']
     ldp_sess.block_name_to_learn_name['180Learn90'] = '180-upStab'
     ldp_sess.add_blocks(trial_names, block_names, number_names=True, ignore_trial_names=ignore_trial_names,
                     max_consec_absent=0, block_min=20, n_min_per_trial=20)
 
-    trial_names = ['180-dnStab'] if is_stab_learning else ["180-dn"]
+    trial_names = ['180-dnStab'] if ldp_sess.is_stab_learning else ["180-dn"]
     ignore_trial_names = ['90Stab', '0Stab', '180Stab','270Stab', '90', '0', '180','270']
-    if is_weird_Yoda:
+    if ldp_sess.is_weird_Yoda:
         ignore_trial_names.extend(weird_yoda_tuning_trials)
     block_names = ['180Learn270']
     ldp_sess.block_name_to_learn_name['180Learn270'] = '180-dnStab'
     ldp_sess.add_blocks(trial_names, block_names, number_names=True, ignore_trial_names=ignore_trial_names,
                     max_consec_absent=0, block_min=20, n_min_per_trial=20)
 
-    trial_names = ['270-rtStab'] if is_stab_learning else ["270-rt"]
+    trial_names = ['270-rtStab'] if ldp_sess.is_stab_learning else ["270-rt"]
     ignore_trial_names = ['90Stab', '0Stab', '180Stab','270Stab', '90', '0', '180','270']
-    if is_weird_Yoda:
+    if ldp_sess.is_weird_Yoda:
         ignore_trial_names.extend(weird_yoda_tuning_trials)
     block_names = ['270Learn0']
     ldp_sess.block_name_to_learn_name['270Learn0'] = '270-rtStab'
     ldp_sess.add_blocks(trial_names, block_names, number_names=True, ignore_trial_names=ignore_trial_names,
                     max_consec_absent=0, block_min=20, n_min_per_trial=20)
 
-    trial_names = ['270-ltStab'] if is_stab_learning else ["270-lt"]
+    trial_names = ['270-ltStab'] if ldp_sess.is_stab_learning else ["270-lt"]
     ignore_trial_names = ['90Stab', '0Stab', '180Stab','270Stab', '90', '0', '180','270']
-    if is_weird_Yoda:
+    if ldp_sess.is_weird_Yoda:
         ignore_trial_names.extend(weird_yoda_tuning_trials)
     block_names = ['270Learn180']
     ldp_sess.block_name_to_learn_name['270Learn180'] = '270-ltStab'
