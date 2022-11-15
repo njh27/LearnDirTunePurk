@@ -18,8 +18,9 @@ def create_behavior_session(fname, maestro_dir, session_name=None, rotate=True,
     # Load all Maestro data
     maestro_data = load_maestro_directory(fname, maestro_dir,
                                 check_existing_maestro=check_existing_maestro,
-                                save_dir=save_maestro_name, combine_targs=True,
-                                compress_data=True, save_name=None)
+                                save_data=save_maestro_data,
+                                save_name=save_maestro_name, combine_targs=True,
+                                compress_data=True, )
 
     if ( ("Yoda" in session_name) and (int(session_name.split("_")[-1]) < 20) ):
         print("Treating this as a weird Yoda file")

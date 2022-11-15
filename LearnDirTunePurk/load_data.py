@@ -6,8 +6,8 @@ import os
 
 
 def load_maestro_directory(fname, maestro_dir, check_existing_maestro=True,
-                            save_dir=None, combine_targs=True,
-                            compress_data=True, save_name=None):
+                           save_data=True, save_name=None, combine_targs=True,
+                           compress_data=True):
     """ Loads maestro data but can also combine targets and do target data
     compression as is generally required by LearnDirTunePurk files and save
     these conversions in the maestro pickle file. """
@@ -15,9 +15,11 @@ def load_maestro_directory(fname, maestro_dir, check_existing_maestro=True,
     maestro_dir = maestro_dir.split(fname)[0]
     if maestro_dir[-1] != "/":
         maestro_dir = maestro_dir + "/"
+    if save_name is not None:
+        if (save_name[-7:] != ".pickle") and (save_name[-4:] != ".pkl"):
+            save_name = save_name + ".pickle"
     # Set save always False here. If we are saving, we will save at the end with
     # the compressed data and combined targets
-    print("Loading Maestro directory data from {0}.".format(maestro_dir+fname))
     maestro_data, l_exists = rm.maestro_read.load_directory(maestro_dir + fname,
                                         check_existing=check_existing_maestro,
                                         save_data=False,
@@ -34,16 +36,11 @@ def load_maestro_directory(fname, maestro_dir, check_existing_maestro=True,
         print("Compressing target data for each trial.")
         rm.target.compress_target_data(maestro_data)
 
-    if save_name is None:
-        # Make default save name
-        save_name = fname + "_maestro.pickle"
-
-    if save_dir is not None:
-        save_dir = save_dir.split(fname)[0]
-        if save_dir[-1] != "/":
-            save_dir = save_dir + "/"
-        print("Saving Maestro trial data as:", save_dir + save_name)
-        with open(save_dir + save_name, 'wb') as fp:
+    if save_data:
+        if save_name is None:
+            save_name = maestro_dir + fname + "_maestro.pickle"
+        print("Saving Maestro trial data as:", save_name)
+        with open(save_name, 'wb') as fp:
             pickle.dump(maestro_data, fp, protocol=-1)
 
     return maestro_data
