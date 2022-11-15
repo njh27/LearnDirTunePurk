@@ -5,8 +5,9 @@ import os
 
 
 
-def load_maestro_directory(fname, maestro_dir, existing_dir=None, save_dir=None,
-    combine_targs=True, compress_data=True, save_name=None):
+def load_maestro_directory(fname, maestro_dir, check_existing_maestro=True,
+                            save_dir=None, combine_targs=True,
+                            compress_data=True, save_name=None):
     """ Loads maestro data but can also combine targets and do target data
     compression as is generally required by LearnDirTunePurk files and save
     these conversions in the maestro pickle file. """
@@ -18,7 +19,8 @@ def load_maestro_directory(fname, maestro_dir, existing_dir=None, save_dir=None,
     # the compressed data and combined targets
     print("Loading Maestro directory data from {0}.".format(maestro_dir+fname))
     maestro_data, l_exists = rm.maestro_read.load_directory(maestro_dir + fname,
-                                        check_existing=False, save_data=False,
+                                        check_existing=check_existing_maestro,
+                                        save_data=False,
                                         return_loaded_existing=True)
     if l_exists:
         # assumes that combine targets and compress data are already done!

@@ -16,9 +16,10 @@ def create_behavior_session(fname, maestro_dir, session_name=None, rotate=True,
     if session_name is None:
         session_name = fname
     # Load all Maestro data
-    maestro_data = load_maestro_directory(fname, maestro_dir, existing_dir=None,
-                                          save_dir=None, combine_targs=True,
-                                          compress_data=True, save_name=None)
+    maestro_data = load_maestro_directory(fname, maestro_dir,
+                                check_existing_maestro=check_existing_maestro,
+                                save_dir=save_maestro_name, combine_targs=True,
+                                compress_data=True, save_name=None)
 
     if ( ("Yoda" in session_name) and (int(session_name.split("_")[-1]) < 20) ):
         print("Treating this as a weird Yoda file")
@@ -84,7 +85,7 @@ def add_neuron_trials(ldp_sess, maestro_dir, neurons_file, PL2_dir=None,
         if save_maestro_name is None:
             print("maestro_data not yet synced with PL2 file {0}. Syncing file but not saving because maestro_save_name not specified.".format(ldp_sess.fname + ".pl2"))
         else:
-            print("maestro_data not yet synced with PL2 file {0}. Syncing and saving as {1}.".format(ldp_sess.fname + ".pl2", save_maestro_name))
+            print("maestro_data not yet synced with PL2 file {0}. Syncing.".format(ldp_sess.fname + ".pl2"))
         maestro_data = rm.utils.PL2_maestro.add_plexon_events(maestro_data,
                                                     PL2_dir + ldp_sess.fname + ".pl2",
                                                     maestro_pl2_chan_offset=3,
