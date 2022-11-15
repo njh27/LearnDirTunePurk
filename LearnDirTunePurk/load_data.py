@@ -8,7 +8,8 @@ import os
 def load_maestro_directory(fname, maestro_dir, existing_dir=None, save_dir=None,
     combine_targs=True, compress_data=True, save_name=None):
     """ Loads maestro data but can also combine targets and do target data
-    compression as is generally required by LearnDirTunePurk files. """
+    compression as is generally required by LearnDirTunePurk files and save
+    these conversions in the maestro pickle file. """
     fname = fname.split(maestro_dir)[-1]
     maestro_dir = maestro_dir.split(fname)[0]
     if maestro_dir[-1] != "/":
@@ -24,8 +25,10 @@ def load_maestro_directory(fname, maestro_dir, existing_dir=None, save_dir=None,
         return maestro_data
     if combine_targs:
         # Combining these two targets is hard coded for LearnDirTunePurk
+        print("Combining targets 'rmfixation1'and 'rmpursuit1'.")
         rm.format_trials.combine_targets(maestro_data, 'rmfixation1', 'rmpursuit1')
     if compress_data:
+        print("Compressing target data for each trial.")
         rm.target.compress_target_data(maestro_data)
 
     if save_name is None:
