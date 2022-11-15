@@ -82,6 +82,13 @@ def add_neuron_trials(ldp_sess, maestro_dir, neurons_file, PL2_dir=None,
                                         save_name=save_maestro_name)
     if len(ldp_sess) != len(maestro_data):
         raise ValueError("The session must have the same number of trials as the input maestro_data to sync! Make sure they are the correct file and none have been removed from the Session.")
+    # trial names may have been updated to create sess so check them
+    for t_ind in range(0, len(maestro_data)):
+        if maestro_data[t_ind]['header']['name'] in ldp_sess[t_ind].name:
+            maestro_data[t_ind]['header']['name'] = ldp_sess[t_ind].name
+        else:
+            raise RuntimeError("Could not match trial names for trial {0} between maestro data {1} and session name {2}.".format(t_ind, maestro_data[t_ind]['header']['name'], ldp_sess[t_ind].name))
+
     if not rm.utils.PL2_maestro.is_maestro_pl2_synced(maestro_data, ldp_sess.fname + ".pl2"):
         if save_maestro_name is None:
             print("maestro_data not yet synced with PL2 file {0}. Syncing file but not saving because maestro_save_name not specified.".format(ldp_sess.fname + ".pl2"))
