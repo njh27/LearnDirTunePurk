@@ -7,37 +7,24 @@ import os
 
 def load_maestro_directory(fname, maestro_dir, existing_dir=None, save_dir=None,
     combine_targs=True, compress_data=True, save_name=None):
-
+    """ Loads maestro data but can also combine targets and do target data
+    compression as is generally required by LearnDirTunePurk files. """
     fname = fname.split(maestro_dir)[-1]
-    if existing_dir is not None:
-        existing_dir = existing_dir.split(fname)[0]
-        if existing_dir[-1] != "/":
-            existing_dir = existing_dir + "/"
-        try:
-            with open(existing_dir + fname + ".pickle", 'rb') as fp:
-                data = pickle.load(fp)
-            return data
-        except FileNotFoundError:
-            pass
-        try:
-            with open(existing_dir + fname + "_maestro.pickle", 'rb') as fp:
-                data = pickle.load(fp)
-            return data
-        except FileNotFoundError:
-            pass
-        print("Could not find existing Maestro file. Recomputing from scratch.")
-
-    # Set save always False here. If we are saving, we will save at the end with
-    # the compressed data and combined targets
     maestro_dir = maestro_dir.split(fname)[0]
     if maestro_dir[-1] != "/":
         maestro_dir = maestro_dir + "/"
-    maestro_data = rm.maestro_read.load_directory(maestro_dir + fname, check_existing=False, save_data=False)
-
+    # Set save always False here. If we are saving, we will save at the end with
+    # the compressed data and combined targets
+    print("Loading Maestro directory data from {0}.".format(maestro_dir+fname))
+    maestro_data, l_exists = rm.maestro_read.load_directory(maestro_dir + fname,
+                                        check_existing=False, save_data=False,
+                                        return_loaded_existing=True)
+    if l_exists:
+        # assumes that combine targets and compress data are already done!
+        return maestro_data
     if combine_targs:
         # Combining these two targets is hard coded for LearnDirTunePurk
         rm.format_trials.combine_targets(maestro_data, 'rmfixation1', 'rmpursuit1')
-
     if compress_data:
         rm.target.compress_target_data(maestro_data)
 
