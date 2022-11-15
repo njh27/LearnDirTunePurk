@@ -105,7 +105,7 @@ def add_neuron_trials(ldp_sess, maestro_dir, neurons_file, PL2_dir=None,
                                             maestro_data, neurons, dt_data=dt_data,
                                             start_data=0, default_name="n_",
                                             use_class_names=True, data_name='neurons')
-    ldp_sess.add_trial_data(trial_list_nrn, data_type=None)
+    ldp_sess.add_neuron_trials(trial_list_nrn, meta_dict_name='meta_data')
 
     return ldp_sess
 
