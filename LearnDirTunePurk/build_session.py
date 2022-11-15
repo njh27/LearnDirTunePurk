@@ -73,8 +73,7 @@ def create_behavior_session(fname, maestro_dir, session_name=None, rotate=True,
 
 
 def add_neuron_trials(ldp_sess, maestro_dir, neurons_file, PL2_dir=None,
-                      dt_data=1, save_maestro_name=None, save_maestro_data=True,
-                      save_maestro_name=None):
+                      dt_data=1, save_maestro_name=None, save_maestro_data=True):
     """ Adds neuron trials to the LDPSession object from the neurons list
     of dictionaries in neurons. """
     maestro_data = rm.maestro_read.load_directory(maestro_dir+ldp_sess.fname,
