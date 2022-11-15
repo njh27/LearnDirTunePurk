@@ -10,10 +10,11 @@ import SessionAnalysis as sa
 
 def create_behavior_session(fname, maestro_dir, session_name=None, rotate=True,
             check_existing_maestro=True, save_maestro_data=True,
-            save_maestro_name=None, return_maestro=False, verbose=True):
+            save_maestro_name=None, verbose=True):
+    """
+    """
     if session_name is None:
         session_name = fname
-
     # Load all Maestro data
     if verbose: print("Loading Maestro directory data.")
     maestro_data = rm.maestro_read.load_directory(maestro_dir+fname,
@@ -67,18 +68,19 @@ def create_behavior_session(fname, maestro_dir, session_name=None, rotate=True,
     ldp_sess.is_stab_learning = is_stab_learning
     ldp_sess.fname = fname
 
-    # Can return maestro data so we dont' need to reload if adding neurons
-    if return_maestro:
-        return ldp_sess, maestro_data
-    else:
-        return ldp_sess
+    return ldp_sess
 
 
 
-def add_neuron_trials(ldp_sess, maestro_data, neurons_file, PL2_dir=None,
-                      dt_data=1, save_maestro_name=None):
+def add_neuron_trials(ldp_sess, maestro_dir, neurons_file, PL2_dir=None,
+                      dt_data=1, save_maestro_name=None, save_maestro_data=True,
+                      save_maestro_name=None):
     """ Adds neuron trials to the LDPSession object from the neurons list
     of dictionaries in neurons. """
+    maestro_data = rm.maestro_read.load_directory(maestro_dir+ldp_sess.fname,
+                                        check_existing=True,
+                                        save_data=save_maestro_data,
+                                        save_name=save_maestro_name)
     if len(ldp_sess) != len(maestro_data):
         raise ValueError("The session must have the same number of trials as the input maestro_data to sync! Make sure they are the correct file and none have been removed from the Session.")
     if not rm.utils.PL2_maestro.is_maestro_pl2_synced(maestro_data, ldp_sess.fname + ".pl2"):
