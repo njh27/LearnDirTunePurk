@@ -27,6 +27,7 @@ def load_maestro_directory(fname, maestro_dir, check_existing_maestro=True,
                                         return_loaded_existing=True)
     if l_exists:
         # assumes that combine targets and compress data are already done!
+        print("Loaded maestro data from {0}.".format(save_name))
         return maestro_data
     if combine_targs:
         # Combining these two targets is hard coded for LearnDirTunePurk
