@@ -21,6 +21,7 @@ def load_maestro_directory(fname, maestro_dir, check_existing_maestro=True,
     maestro_data, l_exists = rm.maestro_read.load_directory(maestro_dir + fname,
                                         check_existing=check_existing_maestro,
                                         save_data=False,
+                                        save_name=save_name,
                                         return_loaded_existing=True)
     if l_exists:
         # assumes that combine targets and compress data are already done!
