@@ -276,19 +276,76 @@ class LDPSession(Session):
         self.blocks.update(new_block_names)
         return None
 
+    def _parse_fixation_trials(self, trial_name, trial_index):
+        if trial_name == 'd140fix':
+            t_dir = [0, None]
+        elif trial_name == 'd1010fix':
+            t_dir = [0, 90]
+        elif trial_name == 'd014fix':
+            t_dir = [None, 90]
+        elif trial_name == 'd-1010fix':
+            t_dir = [180, 90]
+        elif trial_name == 'd-140fix':
+            t_dir = [180, None]
+        elif trial_name == 'd-10-10fix':
+            t_dir = [180, 270]
+        elif trial_name == 'd0-14fix':
+            t_dir = [None, 270]
+        elif trial_name == 'd10-10fix':
+            t_dir = [0, 270]
+        elif trial_name == 'd00fix':
+            t_dir = [None, None]
+        else:
+            raise ValueError("Unrecognized trial name {0}.".format(trial_name))
+        fix_set_name = "fix"
+        if t_dir[0] is not None:
+            for direction in self.directions:
+                if self.directions[direction] == t_dir[0]:
+                    name_1 = "_" + direction
+                    break
+        else:
+            name_1 = ""
+        if t_dir[1] is not None:
+            for direction in self.directions:
+                if self.directions[direction] == t_dir[1]:
+                    name_2 = "_" + direction
+                    break
+        else:
+            name_2 = ""
+        fix_set_name = fix_set_name + name_1 + name_2
+        if fix_set_name == "fix":
+            # Was fixation only trial
+            fix_set_name = "fix_fix_center"
+        self.trial_sets[fix_set_name][trial_index] = True
+        return
+
     def add_default_trial_sets(self):
         """ Adds boolean masks for all the expected trial types to the
         trial_sets dictionary to the session object which indicates
         whether a trial falls into the classes given in "directions" or whether it
         is a learning trial. """
+
         instructexp = re.compile(str(self.directions['pursuit'])+"-..")
         self.trial_sets['pursuit'] = np.zeros(len(self), dtype='bool')
         self.trial_sets['learning'] = np.zeros(len(self), dtype='bool')
         self.trial_sets['anti_pursuit'] = np.zeros(len(self), dtype='bool')
         self.trial_sets['anti_learning'] = np.zeros(len(self), dtype='bool')
         self.trial_sets['instruction'] = np.zeros(len(self), dtype='bool')
+        # Need to initialize all these fixation sets here before call to parse
+        # fixation trials which just stops this from getting to messy in loop
+        self.trial_sets['fix_pursuit'] = np.zeros(len(self), dtype='bool')
+        self.trial_sets['fix_pursuit_learning'] = np.zeros(len(self), dtype='bool')
+        self.trial_sets['fix_learning'] = np.zeros(len(self), dtype='bool')
+        self.trial_sets['fix_anti_pursuit_learning'] = np.zeros(len(self), dtype='bool')
+        self.trial_sets['fix_anti_pursuit'] = np.zeros(len(self), dtype='bool')
+        self.trial_sets['fix_anti_pursuit_anti_learning'] = np.zeros(len(self), dtype='bool')
+        self.trial_sets['fix_anti_learning'] = np.zeros(len(self), dtype='bool')
+        self.trial_sets['fix_pursuit_anti_learning'] = np.zeros(len(self), dtype='bool')
+        self.trial_sets['fix_fix_center'] = np.zeros(len(self), dtype='bool')
         for ind, st in enumerate(self._session_trial_data):
-            if st['name'] == str(self.directions['pursuit']):
+            if "fix" in st['name']:
+                self._parse_fixation_trials(st['name'], ind)
+            elif st['name'] == str(self.directions['pursuit']):
                 self.trial_sets['pursuit'][ind] = True
             elif st['name'] == str(self.directions['pursuit']) + "RandVP":
                 self.trial_sets['pursuit'][ind] = True

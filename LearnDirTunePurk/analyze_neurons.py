@@ -53,11 +53,8 @@ def subtract_baseline_firing_binned(ldp_sess, base_block, base_set, base_data,
 
 
 def get_mean_firing_trace(ldp_sess, series_name, time_window, blocks=None,
-                        trial_sets=None):
+                        trial_sets=None, return_inds=False):
     """ Calls ldp_sess.get_data_array and takes the mean over rows of the output. """
-
-    x, y, t = get_xy_traces(ldp_sess, series_name, time_window, blocks=blocks,
-                     trial_sets=trial_sets, return_inds=True)
     fr, t = ldp_sess.get_data_array(series_name, time_window, blocks=blocks,
                         trial_sets=trial_sets, return_inds=True)
     if fr.shape[0] == 0:
@@ -67,4 +64,7 @@ def get_mean_firing_trace(ldp_sess, series_name, time_window, blocks=None,
         warnings.filterwarnings("ignore", category=RuntimeWarning, message="Mean of empty slice")
         fr = np.nanmean(fr, axis=0)
 
-    return fr, t
+    if return_inds:
+        return fr, t
+    else:
+        return fr
