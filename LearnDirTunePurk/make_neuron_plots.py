@@ -26,33 +26,52 @@ def fr_to_colors(fr, use_map='Greys', vmin=None, vmax=None):
     return colors, colorbar_sm
 
 
+def update_min_max_fr(fr, min_fr, max_fr):
+    curr_max_fr = np.amax(fr)
+    if curr_max_fr > max_fr:
+        max_fr = curr_max_fr
+    curr_min_fr = np.amin(fr)
+    if curr_min_fr < min_fr:
+        min_fr = curr_min_fr
+    return min_fr, max_fr
+
+
 def baseline_tuning_2D(ldp_sess, base_block, base_data, neuron_series,
                         use_map="Reds"):
     """ Plots the 4 direction 2D tuning for the block and data sepcified from
     the baseline sets stored in ldp_sess. """
-
+    fix_trial_sets = [key for key in ldp_sess.trial_sets.keys() if key[0:4] == "fix_"]
+    fix_time_window = [0, 600]
+    fix_block = "FixTunePre"
     fig = plt.figure()
     ax = plt.axes()
     fr_by_set = {}
     max_fr = 0.
     min_fr = np.inf
     # Get firing rate for each trial to find max and min for colormap
+    for curr_set in fix_trial_sets:
+        fr_by_set[curr_set] = an.get_mean_firing_trace(ldp_sess,
+                                                neuron_series,
+                                                fix_time_window,
+                                                fix_block, curr_set)
+        min_fr, max_fr = update_min_max_fr(fr_by_set[curr_set], min_fr, max_fr)
     for curr_set in ldp_sess.four_dir_trial_sets:
         fr_by_set[curr_set] = an.get_mean_firing_trace(ldp_sess,
                                                 neuron_series,
                                                 ldp_sess.baseline_time_window,
                                                 base_block, curr_set)
-        curr_max_fr = np.amax(fr_by_set[curr_set])
-        if curr_max_fr > max_fr:
-            max_fr = curr_max_fr
-        curr_min_fr = np.amin(fr_by_set[curr_set])
-        if curr_min_fr < min_fr:
-            min_fr = curr_min_fr
+        min_fr, max_fr = update_min_max_fr(fr_by_set[curr_set], min_fr, max_fr)
     for curr_set in ldp_sess.four_dir_trial_sets:
         colors, colorbar_sm = fr_to_colors(fr_by_set[curr_set], use_map, min_fr, max_fr)
         s_plot = ax.scatter(ldp_sess.baseline_tuning[base_block][base_data][curr_set][0, :],
                    ldp_sess.baseline_tuning[base_block][base_data][curr_set][1, :],
                    color=colors)
+    for curr_set in fix_trial_sets:
+        colors, colorbar_sm = fr_to_colors(fr_by_set[curr_set], use_map, min_fr, max_fr)
+        x, y = ab.get_mean_xy_traces(ldp_sess, base_data, fix_time_window, blocks=fix_block,
+                                trial_sets=curr_set, rescale=False)
+        s_plot = ax.scatter(x, y, color=colors)
+
     if "position" in base_data:
         units = " (deg)"
     elif "velocity" in base_data:
@@ -99,4 +118,3 @@ def plot_instruction_position_xy(ldp_sess, bin_edges, time_window=None,
     learn_ax.axhline(0, color='b')
 
     return learn_ax
-    

@@ -57,7 +57,7 @@ def get_mean_firing_trace(ldp_sess, series_name, time_window, blocks=None,
     """ Calls ldp_sess.get_data_array and takes the mean over rows of the output. """
     fr, t = ldp_sess.get_data_array(series_name, time_window, blocks=blocks,
                         trial_sets=trial_sets, return_inds=True)
-    if fr.shape[0] == 0:
+    if len(fr) == 0:
         # Found no matching data
         return fr, t
     with warnings.catch_warnings():
