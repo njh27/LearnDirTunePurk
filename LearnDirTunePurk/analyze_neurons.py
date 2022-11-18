@@ -1,5 +1,6 @@
 import numpy as np
 import warnings
+import LearnDirTunePurk.analyze_behavior as ab
 
 
 
@@ -59,7 +60,10 @@ def get_mean_firing_trace(ldp_sess, series_name, time_window, blocks=None,
                         trial_sets=trial_sets, return_inds=True)
     if len(fr) == 0:
         # Found no matching data
-        return fr, t
+        if return_inds:
+            return fr, t
+        else:
+            return fr
     with warnings.catch_warnings():
         warnings.filterwarnings("ignore", category=RuntimeWarning, message="Mean of empty slice")
         fr = np.nanmean(fr, axis=0)
@@ -68,3 +72,53 @@ def get_mean_firing_trace(ldp_sess, series_name, time_window, blocks=None,
         return fr, t
     else:
         return fr
+
+
+def get_binned_mean_firing_trace(ldp_sess, edges, series_name, time_window,
+                              blocks=None, trial_sets=None,
+                              bin_basis="raw", return_t_inds=False):
+    """ Calls get_data_array and then bin_by_trial. Returns the mean of each bin
+    corresponding to 'edges'. """
+    fr, t = ldp_sess.get_data_array(series_name, time_window, blocks=blocks,
+                        trial_sets=trial_sets, return_inds=True)
+
+    if bin_basis.lower() == "raw":
+        # Do nothing
+        pass
+    elif bin_basis.lower() == "order":
+        t_order = np.argsort(t)
+        t[t_order] = np.arange(0, len(t))
+    elif bin_basis.lower() == "instructed":
+        t = ldp_sess.n_instructed[t]
+    elif bin_basis.lower() == "block":
+        # If blocks is None, then we do nothing it's same as raw
+        if blocks is not None:
+            if isinstance(blocks, list):
+                if len(blocks) > 1:
+                    raise ValueError("Block bin basis is not defined over multiple blocks because it is ambiguous.")
+                else:
+                    blocks = blocks[0]
+            t = t - ldp_sess[blocks][0]
+    else:
+        raise ValueError("Unrecognized bin_basis {0}.".format(bin_basis))
+    bin_inds = ab.bin_by_trial(t, edges, inc_last_edge=True)
+    fr_binned_traces = []
+    t_binned_inds = []
+    for inds in bin_inds:
+        if len(inds) == 0:
+            fr_binned_traces.append([])
+            t_binned_inds.append([])
+        elif len(inds) == 1:
+            fr_binned_traces.append(fr[inds[0], :])
+            t_binned_inds.append(np.array([t[inds[0]]]))
+        else:
+            numpy_inds = np.array(inds)
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore", category=RuntimeWarning, message="Mean of empty slice")
+                fr_binned_traces.append(np.nanmean(fr[numpy_inds, :], axis=0))
+            t_binned_inds.append(t[numpy_inds])
+
+    if return_t_inds:
+        return fr_binned_traces, t_binned_inds
+    else:
+        return fr_binned_traces

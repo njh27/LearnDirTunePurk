@@ -27,6 +27,9 @@ def fr_to_colors(fr, use_map='Greys', vmin=None, vmax=None):
 
 
 def update_min_max_fr(fr, min_fr, max_fr):
+    if len(fr) == 0:
+        # Empty rate so return input values
+        return min_fr, max_fr
     curr_max_fr = np.amax(fr)
     if curr_max_fr > max_fr:
         max_fr = curr_max_fr
@@ -55,6 +58,8 @@ def baseline_tuning_2D(ldp_sess, base_block, base_data, neuron_series,
                                                 fix_time_window,
                                                 fix_block, curr_set)
         min_fr, max_fr = update_min_max_fr(fr_by_set[curr_set], min_fr, max_fr)
+        if len(fr_by_set[curr_set]) > 0:
+            fr_by_set[curr_set] = np.nanmean(fr_by_set[curr_set])
     for curr_set in ldp_sess.four_dir_trial_sets:
         fr_by_set[curr_set] = an.get_mean_firing_trace(ldp_sess,
                                                 neuron_series,
@@ -70,6 +75,9 @@ def baseline_tuning_2D(ldp_sess, base_block, base_data, neuron_series,
         colors, colorbar_sm = fr_to_colors(fr_by_set[curr_set], use_map, min_fr, max_fr)
         x, y = ab.get_mean_xy_traces(ldp_sess, base_data, fix_time_window, blocks=fix_block,
                                 trial_sets=curr_set, rescale=False)
+        if len(x) > 0:
+            x = np.nanmean(x)
+            y = np.nanmean(y)
         s_plot = ax.scatter(x, y, color=colors)
 
     if "position" in base_data:
@@ -88,28 +96,62 @@ def baseline_tuning_2D(ldp_sess, base_block, base_data, neuron_series,
     return ax
 
 
-def plot_instruction_position_xy(ldp_sess, bin_edges, time_window=None,
-                                 base_block="StabTunePre", rescale=False):
+def binned_mean_firing_traces_2D(bin_fr_data, bin_x_data, bin_y_data, ax=None,
+                        use_map="Reds", return_last_plot=False):
+    """ """
+    if ax is None:
+        fig = plt.figure()
+        ax = plt.axes()
+
+    max_fr = 0.
+    min_fr = np.inf
+    for fr_trace in bin_fr_data:
+        min_fr, max_fr = update_min_max_fr(fr_trace, min_fr, max_fr)
+
+    for bin_ind in range(0, len(bin_fr_data)):
+        colors, colorbar_sm = fr_to_colors(bin_fr_data[bin_ind], use_map,
+                                             min_fr, max_fr)
+        last_s_plot = ax.scatter(bin_x_data[bin_ind], bin_y_data[bin_ind],
+                                 color=colors)
+    plt.colorbar(colorbar_sm, ticks=np.linspace(np.floor(min_fr), np.ceil(max_fr), 10))
+    if return_last_plot:
+        return ax, last_s_plot
+    else:
+        return ax
+
+
+def plot_instruction_firing_position_xy(ldp_sess, bin_edges, neuron_series_name,
+                                time_window=None, base_block="StabTunePre",
+                                rescale=False):
 
     if time_window is None:
         time_window = ldp_sess.baseline_time_window
+    # Blocks are hard coded for learning instruction trials binned by instructed
+    use_block = "Learning"
+    use_trial_set = "instruction"
+    use_bin_basis = "instructed"
     fig = plt.figure()
     learn_ax = plt.axes()
     bin_xy_out = ab.get_binned_mean_xy_traces(
                 ldp_sess, bin_edges, "eye position", time_window,
-                blocks="Learning", trial_sets="instruction",
-                bin_basis="instructed", rescale=rescale)
+                blocks=use_block, trial_sets=use_trial_set,
+                bin_basis=use_bin_basis, rescale=rescale)
     if rescale:
         bin_x_data, bin_y_data, alpha_bin = bin_xy_out
     else:
         bin_x_data, bin_y_data  = bin_xy_out
         alpha_bin = None
     bin_x_data, bin_y_data = ab.subtract_baseline_tuning_binned(
-                                ldp_sess, base_block, "instruction", "eye position",
+                                ldp_sess, base_block, use_trial_set, "eye position",
                                 bin_x_data, bin_y_data,
                                 alpha_scale_factors=alpha_bin)
-    learn_ax = binned_mean_traces_2D(bin_x_data, bin_y_data,
-                            ax=learn_ax, color='k', saturation=None)
+    bin_fr_data = an.get_binned_mean_firing_trace(ldp_sess, bin_edges,
+                                    neuron_series_name,
+                                    time_window, blocks=use_block, trial_sets=use_trial_set,
+                                    bin_basis=use_bin_basis, return_t_inds=False)
+
+    learn_ax = binned_mean_firing_traces_2D(bin_fr_data, bin_x_data, bin_y_data,
+                                            ax=learn_ax, use_map="Reds")
 
     learn_ax.set_ylabel("Learning axis eye position (deg)")
     learn_ax.set_xlabel("Pursuit axis eye position (deg)")

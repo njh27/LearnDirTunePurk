@@ -116,6 +116,8 @@ def get_binned_mean_xy_traces(ldp_sess, edges, series_name, time_window,
                 else:
                     blocks = blocks[0]
             t = t - ldp_sess[blocks][0]
+    else:
+        raise ValueError("Unrecognized bin_basis {0}.".format(bin_basis))
     bin_inds = bin_by_trial(t, edges, inc_last_edge=True)
     x_binned_traces = []
     y_binned_traces = []
@@ -185,6 +187,8 @@ def get_binned_xy_traces(ldp_sess, edges, series_name, time_window,
                 else:
                     blocks = blocks[0]
             t = t - ldp_sess[blocks][0]
+    else:
+        raise ValueError("Unrecognized bin_basis {0}.".format(bin_basis))
     bin_inds = bin_by_trial(t, edges, inc_last_edge=True)
     x_binned_traces = []
     y_binned_traces = []
