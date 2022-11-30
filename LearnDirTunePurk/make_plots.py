@@ -433,8 +433,8 @@ def plot_washout_velocity_traces(ldp_sess, bin_edges, time_window=None,
 
 
 def baseline_tuning(ldp_sess, base_block, base_data, colors=None):
-    """ Plots the 4 direction 2D tuning for the block and data sepcified from
-    the baseline sets stored in ldp_sess. """
+    """ Plots the 4 direction 1D tuning vs. time for the block and data
+    sepcified from the baseline sets stored in ldp_sess. """
 
     colors = parse_colors(ldp_sess.four_dir_trial_sets, colors)
     fig = plt.figure()

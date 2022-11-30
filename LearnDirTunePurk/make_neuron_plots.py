@@ -260,7 +260,7 @@ def plot_post_tuning_firing_position_xy(ldp_sess, neuron_series_name, time_windo
             continue
         for curr_set in trial_sets:
             fr_by_block_set[block][curr_set] = an.get_mean_firing_trace(ldp_sess,
-                                                    neuron_series,
+                                                    neuron_series_name,
                                                     time_window,
                                                     block, curr_set)
             min_fr, max_fr = update_min_max_fr(fr_by_block_set[block][curr_set], min_fr, max_fr)
@@ -278,15 +278,19 @@ def plot_post_tuning_firing_position_xy(ldp_sess, neuron_series_name, time_windo
             else:
                 x, y = xy_out
                 alpha = None
-            x, y = ab.subtract_baseline_tuning(ldp_sess, base_block, curr_set,
-                                               "eye position", x, y,
-                                               alpha_scale_factors=alpha)
+            # x, y = ab.subtract_baseline_tuning(ldp_sess, base_block, curr_set,
+            #                                    "eye position", x, y,
+            #                                    alpha_scale_factors=alpha)
+        #     colors, colorbar_sm = fr_to_colors(fr_by_block_set[block][curr_set],
+        #                                     colormaps[block], min_fr, max_fr)
+        #
+        #
+        #     last_line = post_tune_ax.scatter(x, y, color=colors[block])
+        # last_line.set_label(p_b_labels[block])
             colors, colorbar_sm = fr_to_colors(fr_by_block_set[block][curr_set],
-                                            colormaps['block'], min_fr, max_fr)
-
-
-            last_line = post_tune_ax.scatter(x, y, color=colors[block])
-        last_line.set_label(p_b_labels[block])
+                                                colormaps[block], min_fr, max_fr)
+            s_plot = post_tune_ax.scatter(x, y, color=colors)
+        s_plot.set_label(p_b_labels[block])
 
     post_tune_ax.legend()
     post_tune_ax.set_ylabel("Learning axis eye position (deg)")
@@ -294,8 +298,170 @@ def plot_post_tuning_firing_position_xy(ldp_sess, neuron_series_name, time_windo
     post_tune_ax.set_title("Direction tuning after learning")
     post_tune_ax.axvline(0, color='k')
     post_tune_ax.axhline(0, color='k')
+    plt.colorbar(colorbar_sm, ticks=np.linspace(np.floor(min_fr), np.ceil(max_fr), 10))
 
     # save_name = "/Users/nate/onedrive - duke university/sync/LearnDirTunePurk/Data/Maestro/" + ldp_sess.session_name + ".pdf"
     # plt.savefig(save_name)
 
     return post_tune_ax
+
+
+def baseline_firing_tuning(ldp_sess, neuron_series_name, base_block, base_data, colors=None):
+    """ Plots the 4 direction 1D tuning vs. time for the block and data
+    sepcified from the baseline sets stored in ldp_sess. """
+
+    colors = parse_colors(ldp_sess.four_dir_trial_sets, colors)
+    fig = plt.figure()
+    pursuit_ax = plt.axes()
+    fig = plt.figure()
+    learn_ax = plt.axes()
+    time = np.arange(ldp_sess.baseline_time_window[0], ldp_sess.baseline_time_window[1])
+    for curr_set in ldp_sess.four_dir_trial_sets:
+        # Need to plot the OPPOSITE of the orthogonal axis
+        if ldp_sess.trial_set_base_axis[curr_set] == 0:
+            plot_axis = 1
+        elif ldp_sess.trial_set_base_axis[curr_set] == 1:
+            plot_axis = 0
+        else:
+            raise ValueError("Unrecognized trial set baseline axis {0} for set {1}.".format(ldp_sess.trial_set_base_axis[curr_set], curr_set))
+
+        fr = an.get_mean_firing_trace(ldp_sess,
+                                                neuron_series_name,
+                                                ldp_sess.baseline_time_window,
+                                                base_block, curr_set)
+        fix_fr = np.nanmean(fr[time < 75])
+        fr -= fix_fr
+        if "learn" in curr_set:
+            if 'anti' in curr_set:
+                line_label = "Anti-learning"
+            else:
+                line_label = "Learning"
+            eye_data = ldp_sess.baseline_tuning[base_block][base_data][curr_set][plot_axis, :]
+            use_ax = learn_ax
+        elif "pursuit" in curr_set:
+            if 'anti' in curr_set:
+                line_label = "Anti-pursuit"
+            else:
+                line_label = "Pursuit"
+            eye_data = ldp_sess.baseline_tuning[base_block][base_data][curr_set][plot_axis, :]
+            use_ax = pursuit_ax
+            # pursuit_ax.plot(time,
+            #         ,
+            #         color=colors[curr_set], label=line_label)
+        else:
+            raise ValueError("Unrecognized trial set {0}.".format(curr_set))
+
+        use_ax.plot(time, fr, color=colors[curr_set], label=line_label)
+        # use_ax.plot(time, eye_data, color=colors[curr_set], label=line_label)
+        # eye_data[eye_data < 1.0] = np.inf
+        # spk_per_deg = fr / eye_data
+        # use_ax.plot(time, spk_per_deg, color=colors[curr_set], label=line_label)
+
+
+    learn_ax.set_ylabel("Learning axis firing rate (spk/s)")
+    learn_ax.set_xlabel("Time from target motion (ms)")
+    learn_ax.set_title("Baseline tuning trials")
+    learn_ax.legend()
+    pursuit_ax.set_ylabel("Pursuit axis firing rate (spk/s)")
+    pursuit_ax.set_xlabel("Time from target motion (ms)")
+    pursuit_ax.set_title("Baseline tuning trials")
+    pursuit_ax.legend()
+
+    learn_ax.axvline(0, color='k')
+    learn_ax.axhline(0, color='k')
+    pursuit_ax.axvline(0, color='k')
+    pursuit_ax.axhline(0, color='k')
+
+    return learn_ax, pursuit_ax
+
+
+def plot_instruction_firing_traces(ldp_sess, bin_edges, neuron_series_name,
+                    time_window=None, base_block="StabTunePre"):
+    """ """
+    if time_window is None:
+        time_window = ldp_sess.baseline_time_window
+    fig = plt.figure()
+    inst_ax = plt.axes()
+    time = np.arange(time_window[0], time_window[1])
+
+    bin_fr_data = an.get_binned_mean_firing_trace(ldp_sess, bin_edges,
+                                    neuron_series_name,
+                                    time_window, blocks="Learning",
+                                    trial_sets="instruction",
+                                    bin_basis="instructed", return_t_inds=False)
+
+    inst_ax = binned_mean_traces(bin_fr_data, t_vals=time,
+                                ax=inst_ax, color='k', saturation=None)
+
+    inst_ax.set_ylabel("Learning trial firing rate (spk/s)")
+    inst_ax.set_xlabel("Time from target motion (ms)")
+    inst_ax.set_title("Instruction trials")
+
+    inst_ax.axvline(0, color='b')
+    inst_ax.axhline(0, color='b')
+    inst_ax.axvline(250, color='r')
+
+    return inst_ax
+
+
+def binned_mean_traces(bin_data, t_vals=None, ax=None, color='k',
+                       linestyle='-', saturation=None, return_last_line=False):
+    """
+    """
+    if ax is None:
+        fig = plt.figure()
+        ax = plt.axes()
+    if isinstance(color, str):
+        color = c_look.to_rgb(color)
+    if saturation is None:
+        saturation = [.2, .8]
+    color = np.array(color)
+    if np.all(color == 0.):
+        color[:] = 1.
+    darkness = saturation[0]
+    dark_step = (saturation[1] - saturation[0]) / len(bin_data)
+    for data_trace in bin_data:
+        if len(data_trace) == 0:
+            darkness += dark_step
+            continue
+        if t_vals is None:
+            last_line = ax.plot(data_trace, color=(darkness * color), linestyle=linestyle)
+        else:
+            last_line = ax.plot(t_vals, data_trace, color=(darkness * color), linestyle=linestyle)
+        darkness += dark_step
+
+    if return_last_line:
+        return ax, last_line[-1]
+    else:
+        return ax
+
+
+def parse_colors(dict_names, colors):
+    """ Checks colors against expected number of names and returns a dictionary
+    with keys 'dict_names' corresponding to colors in 'colors'. """
+    if colors is None:
+        colors = {x: 'k' for x in dict_names}
+    if isinstance(colors, str):
+        colors = {x: colors for x in dict_names}
+    if isinstance(colors, list):
+        if isinstance(colors[0], str):
+            if len(colors) == 1:
+                colors = {x: 'k' for x in dict_names}
+            elif len(colors) != len(dict_names):
+                raise ValueError("Colors must be a single value or match the number of trial sets ({0}).".format(len(dict_names)))
+            else:
+                colors = {x: y for x,y in zip(dict_names, colors)}
+        else:
+            # Assume number specification
+            if len(colors) == 3:
+                colors = {x: colors for x in dict_names}
+            elif len(colors) != len(dict_names):
+                raise ValueError("Colors must be a single value or match the number of trial sets ({0}).".format(len(dict_names)))
+            else:
+                colors = {x: y for x,y in zip(dict_names, colors)}
+    if not isinstance(colors, dict):
+        raise ValueError("Colors input must be a string or list of strings or ints specifying valid matplotlib color values.")
+    if len(colors) != len(dict_names):
+        raise ValueError("Not enough colors specified for the {0} trial sets present.".format(len(dict_names)))
+
+    return colors
