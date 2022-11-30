@@ -404,6 +404,138 @@ def plot_instruction_firing_traces(ldp_sess, bin_edges, neuron_series_name,
     return inst_ax
 
 
+def plot_tuning_probe_firing_traces(ldp_sess, bin_edges, neuron_series_name,
+                                     time_window=None,
+                                     base_block="StabTunePre"):
+    """ """
+    if time_window is None:
+        time_window = ldp_sess.baseline_time_window
+    bin_fr_data = {}
+    fig = plt.figure()
+    learn_learn_ax = plt.axes()
+    fig = plt.figure()
+    learn_pursuit_ax = plt.axes()
+    time = np.arange(time_window[0], time_window[1])
+    p_col = {'pursuit': 'g', 'anti_pursuit': 'r', 'learning': 'g', 'anti_learning': 'r'}
+
+    for curr_set in ldp_sess.four_dir_trial_sets:
+        bin_fr_data[curr_set] = an.get_binned_mean_firing_trace(ldp_sess, bin_edges,
+                                        neuron_series_name,
+                                        time_window, blocks="Learning",
+                                        trial_sets=curr_set,
+                                        bin_basis="instructed", return_t_inds=False)
+
+        plot_axis = ldp_sess.trial_set_base_axis[curr_set]
+        if plot_axis == 0:
+            learn_pursuit_ax = binned_mean_traces(bin_fr_data[curr_set], t_vals=time,
+                                        ax=learn_pursuit_ax, color=p_col[curr_set], saturation=None)
+        elif plot_axis == 1:
+            learn_learn_ax = binned_mean_traces(bin_fr_data[curr_set], t_vals=time,
+                                        ax=learn_learn_ax, color=p_col[curr_set], saturation=None)
+        else:
+            raise ValueError("Unrecognized trial set {0}.".format(curr_set))
+
+    learn_learn_ax.set_ylabel("Learning axis firing rate (spk/s)")
+    learn_learn_ax.set_xlabel("Time from target motion (ms)")
+    learn_learn_ax.set_title("Pursuit axis probe tuning trials")
+    learn_pursuit_ax.set_ylabel("Pursuit axis firing rate (spk/s)")
+    learn_pursuit_ax.set_xlabel("Time from target motion (ms)")
+    learn_pursuit_ax.set_title("Learning axis probe tuning trials")
+
+    learn_pursuit_ax.axvline(0, color='b')
+    learn_pursuit_ax.axhline(0, color='b')
+    learn_pursuit_ax.axvline(250, color='r')
+    learn_learn_ax.axvline(0, color='b')
+    learn_learn_ax.axhline(0, color='b')
+    learn_learn_ax.axvline(250, color='r')
+
+    return learn_learn_ax, learn_pursuit_ax
+
+
+def plot_post_tuning_firing_traces(ldp_sess, neuron_series_name, time_window=None,
+                        base_block="StabTunePre"):
+    """ """
+    if time_window is None:
+        time_window = ldp_sess.baseline_time_window
+    blocks = ["StabTunePost", "StabTuneWash"]
+    p_col = {'StabTunePost': "r",
+              'StabTuneWash': "g"
+              }
+    p_style = {'pursuit': '-', 'anti_pursuit': '--', 'learning': '-', 'anti_learning': '--'}
+    p_b_labels = {'StabTunePost': "Post", 'StabTuneWash': 'Washout'}
+    p_s_labels = {'pursuit': 'pursuit', 'anti_pursuit': 'anti-pursuit', 'learning': 'learning', 'anti_learning': 'anti-learning'}
+    fig = plt.figure()
+    post_learn_ax = plt.axes()
+    fig = plt.figure()
+    post_pursuit_ax = plt.axes()
+    time = np.arange(time_window[0], time_window[1])
+
+    for block in blocks:
+        if ldp_sess.blocks[block] is None:
+            continue
+        for curr_set in ldp_sess.four_dir_trial_sets:
+            fr = an.get_mean_firing_trace(ldp_sess,
+                                                    neuron_series_name,
+                                                    time_window,
+                                                    block, curr_set)
+
+            plot_axis = ldp_sess.trial_set_base_axis[curr_set]
+            line_label = p_b_labels[block] + " " + p_s_labels[curr_set]
+            if plot_axis == 0:
+                post_pursuit_ax.plot(time, fr, color=p_col[block], linestyle=p_style[curr_set], label=line_label)
+            elif plot_axis == 1:
+                post_learn_ax.plot(time, fr, color=p_col[block], linestyle=p_style[curr_set], label=line_label)
+            else:
+                raise ValueError("Unrecognized trial set {0}.".format(curr_set))
+
+    post_learn_ax.set_ylabel("Learning axis velocity (deg/s)")
+    post_learn_ax.set_xlabel("Time from target motion (ms)")
+    post_learn_ax.set_title("Pursuit axis tuning trials")
+    post_learn_ax.legend()
+    post_pursuit_ax.set_ylabel("Pursuit axis velocity (deg/s)")
+    post_pursuit_ax.set_xlabel("Time from target motion (ms)")
+    post_pursuit_ax.set_title("Learning axis tuning trials")
+    post_pursuit_ax.legend()
+
+    post_pursuit_ax.axvline(0, color='k')
+    post_pursuit_ax.axhline(0, color='k')
+    post_pursuit_ax.axvline(250, color='r')
+    post_learn_ax.axvline(0, color='k')
+    post_learn_ax.axhline(0, color='k')
+    post_learn_ax.axvline(250, color='r')
+
+    return post_learn_ax, post_pursuit_ax
+
+
+def plot_washout_firing_traces(ldp_sess, bin_edges, neuron_series_name,
+                    time_window=None, base_block="StabTunePre"):
+    """ """
+    if time_window is None:
+        time_window = ldp_sess.baseline_time_window
+    fig = plt.figure()
+    wash_ax = plt.axes()
+    time = np.arange(time_window[0], time_window[1])
+
+    bin_fr_data = an.get_binned_mean_firing_trace(ldp_sess, bin_edges,
+                                    neuron_series_name,
+                                    time_window, blocks="Washout",
+                                    trial_sets="instruction",
+                                    bin_basis="raw", return_t_inds=False)
+
+    wash_ax = binned_mean_traces(bin_fr_data, t_vals=time,
+                                ax=wash_ax, color='k', saturation=None)
+
+    wash_ax.set_ylabel("Washout trial firing rate (spk/s)")
+    wash_ax.set_xlabel("Time from target motion (ms)")
+    wash_ax.set_title("Instruction trials")
+
+    wash_ax.axvline(0, color='b')
+    wash_ax.axhline(0, color='b')
+    wash_ax.axvline(250, color='r')
+
+    return wash_ax
+
+
 def binned_mean_traces(bin_data, t_vals=None, ax=None, color='k',
                        linestyle='-', saturation=None, return_last_line=False):
     """
