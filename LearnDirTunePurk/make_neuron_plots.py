@@ -8,9 +8,10 @@ import LearnDirTunePurk.analyze_neurons as an
 
 
 
-def show_all_eye_plots(ldp_sess, base_block="StabTunePre", exp_bins=False,
-                        rescale=False):
-    base_t_ax = baseline_tuning_2D(ldp_sess, base_block, "eye position", colors='k')
+def show_all_firing_plots(ldp_sess, neuron_series_name, base_block="StabTunePre",
+                            exp_bins=False, rescale=False, subtract_fixrate=False):
+    base_t_ax = baseline_firing_tuning_2D(ldp_sess, "StabTunePre", "eye position",
+                        neuron_series_name, use_map="Reds")
 
     learn_step_size = 10
     probe_step_size = 100
@@ -20,42 +21,55 @@ def show_all_eye_plots(ldp_sess, base_block="StabTunePre", exp_bins=False,
     bin_edges = np.arange(-1, t_max+step_size, step_size)
     if exp_bins:
         bin_edges = np.hstack((0, 2*np.exp(np.arange(1, np.log(t_max/2)+1, 1))))
-    learn_ax = plot_instruction_position_xy(ldp_sess, bin_edges, time_window=None, base_block=base_block)
+    learn_ax = plot_instruction_firing_position_xy(ldp_sess, bin_edges, neuron_series_name,
+                                time_window=None, base_block=base_block,
+                                rescale=False)
 
     t_max = 700
     step_size = probe_step_size
     bin_edges = np.arange(-1, t_max+step_size, step_size)
     if exp_bins:
         bin_edges = np.hstack((0, 2*np.exp(np.arange(1, np.log(t_max/2)+1, 1))))
-    learn_ax = plot_tuning_probe_position_xy(ldp_sess, bin_edges, time_window=None,
-                                      base_block=base_block, colors='k',
-                                      saturation=None)
+    learn_ax = plot_tuning_probe_firing_position_xy(ldp_sess, bin_edges,
+                                    neuron_series_name,
+                                    time_window=None, base_block=base_block,
+                                    trial_sets=None, rescale=False)
 
-    post_tune_ax = plot_post_tuning_position_xy(ldp_sess, time_window=None, base_block=base_block)
-
-    base_t_ax = baseline_tuning_2D(ldp_sess, base_block, "eye velocity", colors='k')
+    post_tune_ax = plot_post_tuning_firing_position_xy(ldp_sess, neuron_series_name,
+                            time_window=None, base_block=base_block,
+                            trial_sets=None, rescale=False)
 
     p_col = {'pursuit': 'g', 'anti_pursuit': 'r', 'learning': 'g', 'anti_learning': 'r'}
-    base_learn_ax, base_pursuit_ax = baseline_tuning(ldp_sess, base_block, "eye velocity", colors=p_col)
+    base_learn_ax, base_pursuit_ax = baseline_firing_tuning(ldp_sess,
+                                                neuron_series_name, base_block,
+                                                "eye velocity", colors=p_col,
+                                                subtract_fixrate=subtract_fixrate)
 
     t_max = 700
     step_size = learn_step_size
     bin_edges = np.arange(-1, t_max+step_size, step_size)
     if exp_bins:
         bin_edges = np.hstack((0, 2*np.exp(np.arange(1, np.log(t_max/2)+1, 1))))
-    inst_learn_ax, instr_pursuit_ax = plot_instruction_velocity_traces(ldp_sess, bin_edges, time_window=None,
-                                                        base_block=base_block, rescale=rescale)
+    inst_ax = plot_instruction_firing_traces(ldp_sess,
+                                        bin_edges, neuron_series_name,
+                                        time_window=None, base_block=base_block,
+                                        subtract_fixrate=subtract_fixrate)
 
     t_max = 700
     step_size = probe_step_size
     bin_edges = np.arange(-1, t_max+step_size, step_size)
     if exp_bins:
         bin_edges = np.hstack((0, 2*np.exp(np.arange(1, np.log(t_max/2)+1, 1))))
-    learn_learn_ax, learn_pursuit_ax = plot_tuning_probe_velocity_traces(ldp_sess, bin_edges, time_window=None,
-                                                            base_block=base_block, rescale=rescale)
+    learn_learn_ax, learn_pursuit_ax = plot_tuning_probe_firing_traces(ldp_sess,
+                                            bin_edges, neuron_series_name,
+                                            time_window=None, base_block=base_block,
+                                            subtract_fixrate=subtract_fixrate)
 
-    post_learn_ax, post_pursuit_ax = plot_post_tuning_velocity_traces(ldp_sess,
-                        time_window=None, base_block=base_block, rescale=rescale)
+    post_learn_ax, post_pursuit_ax = plot_post_tuning_firing_traces(ldp_sess,
+                                            neuron_series_name,
+                                            time_window=None,
+                                            base_block=base_block,
+                                            subtract_fixrate=subtract_fixrate)
 
     if ldp_sess.blocks['Washout'] is not None:
         t_max = ldp_sess.blocks['Washout'][1]
@@ -63,15 +77,20 @@ def show_all_eye_plots(ldp_sess, base_block="StabTunePre", exp_bins=False,
         bin_edges = np.arange(ldp_sess.blocks['Washout'][0], t_max+step_size, step_size)
         if exp_bins:
             bin_edges = np.hstack((0, 2*np.exp(np.arange(1, np.log(t_max/2)+1, 1))))
-        learn_ax = plot_washout_position_xy(ldp_sess, bin_edges, time_window=None, base_block=base_block)
+        learn_ax = plot_washout_firing_position_xy(ldp_sess, bin_edges,
+                                neuron_series_name,
+                                time_window=None, base_block=base_block,
+                                rescale=False)
 
         t_max = ldp_sess.blocks['Washout'][1]
         step_size = learn_step_size
         bin_edges = np.arange(ldp_sess.blocks['Washout'][0], t_max+step_size, step_size)
         if exp_bins:
             bin_edges = np.hstack((0, 2*np.exp(np.arange(1, np.log(t_max/2)+1, 1))))
-        inst_learn_ax, instr_pursuit_ax = plot_washout_velocity_traces(ldp_sess, bin_edges, time_window=None,
-                                                        base_block=base_block, rescale=rescale)
+        wash_ax = plot_washout_firing_traces(ldp_sess,
+                                                bin_edges, neuron_series_name,
+                                                time_window=None, base_block=base_block,
+                                                subtract_fixrate=subtract_fixrate)
 
     return None
 
@@ -108,7 +127,7 @@ def update_min_max_fr(fr, min_fr, max_fr):
     return min_fr, max_fr
 
 
-def baseline_tuning_2D(ldp_sess, base_block, base_data, neuron_series,
+def baseline_firing_tuning_2D(ldp_sess, base_block, base_data, neuron_series,
                         use_map="Reds"):
     """ Plots the 4 direction 2D tuning for the block and data sepcified from
     the baseline sets stored in ldp_sess. """
@@ -500,6 +519,8 @@ def plot_instruction_firing_traces(ldp_sess, bin_edges, neuron_series_name,
     if subtract_fixrate:
         fix_inds = time < 75
         for n_bin in range(0, len(bin_fr_data)):
+            if len(bin_fr_data[n_bin]) == 0:
+                continue
             fix_fr = np.nanmean(bin_fr_data[n_bin][fix_inds])
             bin_fr_data[n_bin] -= fix_fr
 
@@ -542,6 +563,8 @@ def plot_tuning_probe_firing_traces(ldp_sess, bin_edges, neuron_series_name,
         if subtract_fixrate:
             fix_inds = time < 75
             for n_bin in range(0, len(bin_fr_data[curr_set])):
+                if len(bin_fr_data[n_bin]) == 0:
+                    continue
                 fix_fr = np.nanmean(bin_fr_data[curr_set][n_bin][fix_inds])
                 bin_fr_data[curr_set][n_bin] -= fix_fr
 
@@ -693,6 +716,8 @@ def plot_washout_firing_traces(ldp_sess, bin_edges, neuron_series_name,
     if subtract_fixrate:
         fix_inds = time < 75
         for n_bin in range(0, len(bin_fr_data)):
+            if len(bin_fr_data[n_bin]) == 0:
+                continue
             fix_fr = np.nanmean(bin_fr_data[n_bin][fix_inds])
             bin_fr_data[n_bin] -= fix_fr
 
