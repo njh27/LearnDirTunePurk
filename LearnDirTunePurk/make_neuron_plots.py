@@ -7,6 +7,75 @@ import LearnDirTunePurk.analyze_behavior as ab
 import LearnDirTunePurk.analyze_neurons as an
 
 
+
+def show_all_eye_plots(ldp_sess, base_block="StabTunePre", exp_bins=False,
+                        rescale=False):
+    base_t_ax = baseline_tuning_2D(ldp_sess, base_block, "eye position", colors='k')
+
+    learn_step_size = 10
+    probe_step_size = 100
+
+    t_max = 700
+    step_size = learn_step_size
+    bin_edges = np.arange(-1, t_max+step_size, step_size)
+    if exp_bins:
+        bin_edges = np.hstack((0, 2*np.exp(np.arange(1, np.log(t_max/2)+1, 1))))
+    learn_ax = plot_instruction_position_xy(ldp_sess, bin_edges, time_window=None, base_block=base_block)
+
+    t_max = 700
+    step_size = probe_step_size
+    bin_edges = np.arange(-1, t_max+step_size, step_size)
+    if exp_bins:
+        bin_edges = np.hstack((0, 2*np.exp(np.arange(1, np.log(t_max/2)+1, 1))))
+    learn_ax = plot_tuning_probe_position_xy(ldp_sess, bin_edges, time_window=None,
+                                      base_block=base_block, colors='k',
+                                      saturation=None)
+
+    post_tune_ax = plot_post_tuning_position_xy(ldp_sess, time_window=None, base_block=base_block)
+
+    base_t_ax = baseline_tuning_2D(ldp_sess, base_block, "eye velocity", colors='k')
+
+    p_col = {'pursuit': 'g', 'anti_pursuit': 'r', 'learning': 'g', 'anti_learning': 'r'}
+    base_learn_ax, base_pursuit_ax = baseline_tuning(ldp_sess, base_block, "eye velocity", colors=p_col)
+
+    t_max = 700
+    step_size = learn_step_size
+    bin_edges = np.arange(-1, t_max+step_size, step_size)
+    if exp_bins:
+        bin_edges = np.hstack((0, 2*np.exp(np.arange(1, np.log(t_max/2)+1, 1))))
+    inst_learn_ax, instr_pursuit_ax = plot_instruction_velocity_traces(ldp_sess, bin_edges, time_window=None,
+                                                        base_block=base_block, rescale=rescale)
+
+    t_max = 700
+    step_size = probe_step_size
+    bin_edges = np.arange(-1, t_max+step_size, step_size)
+    if exp_bins:
+        bin_edges = np.hstack((0, 2*np.exp(np.arange(1, np.log(t_max/2)+1, 1))))
+    learn_learn_ax, learn_pursuit_ax = plot_tuning_probe_velocity_traces(ldp_sess, bin_edges, time_window=None,
+                                                            base_block=base_block, rescale=rescale)
+
+    post_learn_ax, post_pursuit_ax = plot_post_tuning_velocity_traces(ldp_sess,
+                        time_window=None, base_block=base_block, rescale=rescale)
+
+    if ldp_sess.blocks['Washout'] is not None:
+        t_max = ldp_sess.blocks['Washout'][1]
+        step_size = learn_step_size
+        bin_edges = np.arange(ldp_sess.blocks['Washout'][0], t_max+step_size, step_size)
+        if exp_bins:
+            bin_edges = np.hstack((0, 2*np.exp(np.arange(1, np.log(t_max/2)+1, 1))))
+        learn_ax = plot_washout_position_xy(ldp_sess, bin_edges, time_window=None, base_block=base_block)
+
+        t_max = ldp_sess.blocks['Washout'][1]
+        step_size = learn_step_size
+        bin_edges = np.arange(ldp_sess.blocks['Washout'][0], t_max+step_size, step_size)
+        if exp_bins:
+            bin_edges = np.hstack((0, 2*np.exp(np.arange(1, np.log(t_max/2)+1, 1))))
+        inst_learn_ax, instr_pursuit_ax = plot_washout_velocity_traces(ldp_sess, bin_edges, time_window=None,
+                                                        base_block=base_block, rescale=rescale)
+
+    return None
+
+
 # Set as global list for me to remember
 seq_colormaps = ['Greys', 'Purples', 'Blues', 'Greens', 'Oranges', 'Reds']
 def fr_to_colors(fr, use_map='Greys', vmin=None, vmax=None):
@@ -104,14 +173,13 @@ def binned_mean_firing_traces_2D(bin_fr_data, bin_x_data, bin_y_data, ax=None,
         fig = plt.figure()
         ax = plt.axes()
 
-    if min_fr is None:
-        min_fr = np.inf
-    if max_fr is None:
-        max_fr = 0.
     if (min_fr is None) or (max_fr is None):
+        if min_fr is None:
+            min_fr = np.inf
+        if max_fr is None:
+            max_fr = 0.
         for fr_trace in bin_fr_data:
             min_fr, max_fr = update_min_max_fr(fr_trace, min_fr, max_fr)
-
     for bin_ind in range(0, len(bin_fr_data)):
         colors, colorbar_sm = fr_to_colors(bin_fr_data[bin_ind], use_map,
                                              min_fr, max_fr)
@@ -241,19 +309,40 @@ def plot_post_tuning_firing_position_xy(ldp_sess, neuron_series_name, time_windo
         time_window = ldp_sess.baseline_time_window
     blocks = ["StabTunePost", "StabTuneWash"]
     colormaps = {'StabTunePost': "Reds",
-                 'StabTuneWash': "Greens"
+                 'StabTuneWash': "Greens",
+                 "FixTunePost": "Reds",
+                 "FixTuneWash": "Greens"
                  }
+    # Set all same colormap
+    for key in colormaps:
+        colormaps[key] = "Reds"
     p_b_labels = {'StabTunePost': "Post", 'StabTuneWash': 'Washout'}
     if trial_sets is None:
         trial_sets = ldp_sess.four_dir_trial_sets
     if not isinstance(trial_sets, list):
         trial_sets = [trial_sets]
+    fix_trial_sets = [key for key in ldp_sess.trial_sets.keys() if key[0:4] == "fix_"]
+    fix_time_window = [0, 600]
+    fix_blocks = ["FixTunePost", "FixTuneWash"]
     fig = plt.figure()
     post_tune_ax = plt.axes()
     # Get firing rate min and max for colors
     min_fr = np.inf
     max_fr = 0.
     fr_by_block_set = {} # And just save rates now instead of computing twice
+    # Get firing rate for each trial to find max and min for colormap
+    for block in fix_blocks:
+        fr_by_block_set[block] = {}
+        if ldp_sess.blocks[block] is None:
+            continue
+        for curr_set in fix_trial_sets:
+            fr_by_block_set[block][curr_set] = an.get_mean_firing_trace(ldp_sess,
+                                                    neuron_series_name,
+                                                    fix_time_window,
+                                                    block, curr_set)
+            min_fr, max_fr = update_min_max_fr(fr_by_block_set[block][curr_set], min_fr, max_fr)
+            if len(fr_by_block_set[block][curr_set]) > 0:
+                fr_by_block_set[block][curr_set] = np.nanmean(fr_by_block_set[block][curr_set])
     for block in blocks:
         fr_by_block_set[block] = {}
         if ldp_sess.blocks[block] is None:
@@ -292,6 +381,20 @@ def plot_post_tuning_firing_position_xy(ldp_sess, neuron_series_name, time_windo
             s_plot = post_tune_ax.scatter(x, y, color=colors)
         s_plot.set_label(p_b_labels[block])
 
+    for block in fix_blocks:
+        if ldp_sess.blocks[block] is None:
+            continue
+        for curr_set in fix_trial_sets:
+            colors, colorbar_sm = fr_to_colors(fr_by_block_set[block][curr_set], colormaps[block], min_fr, max_fr)
+            x, y = ab.get_mean_xy_traces(ldp_sess, "eye position", fix_time_window, blocks=block,
+                                    trial_sets=curr_set, rescale=False)
+            if len(x) > 0:
+                x = np.nanmean(x)
+                y = np.nanmean(y)
+            use_edge = None #"r" if block == "FixTunePost" else "g"
+            s_plot = post_tune_ax.scatter(x, y, color=colors, edgecolor=use_edge)
+            # print(block, curr_set, fr_by_block_set[block][curr_set])
+
     post_tune_ax.legend()
     post_tune_ax.set_ylabel("Learning axis eye position (deg)")
     post_tune_ax.set_xlabel("Pursuit axis eye position (deg)")
@@ -306,7 +409,8 @@ def plot_post_tuning_firing_position_xy(ldp_sess, neuron_series_name, time_windo
     return post_tune_ax
 
 
-def baseline_firing_tuning(ldp_sess, neuron_series_name, base_block, base_data, colors=None):
+def baseline_firing_tuning(ldp_sess, neuron_series_name, base_block, base_data,
+                           colors=None, subtract_fixrate=False):
     """ Plots the 4 direction 1D tuning vs. time for the block and data
     sepcified from the baseline sets stored in ldp_sess. """
 
@@ -329,8 +433,9 @@ def baseline_firing_tuning(ldp_sess, neuron_series_name, base_block, base_data, 
                                                 neuron_series_name,
                                                 ldp_sess.baseline_time_window,
                                                 base_block, curr_set)
-        fix_fr = np.nanmean(fr[time < 75])
-        fr -= fix_fr
+        if subtract_fixrate:
+            fix_fr = np.nanmean(fr[time < 75])
+            fr -= fix_fr
         if "learn" in curr_set:
             if 'anti' in curr_set:
                 line_label = "Anti-learning"
@@ -368,15 +473,18 @@ def baseline_firing_tuning(ldp_sess, neuron_series_name, base_block, base_data, 
     pursuit_ax.legend()
 
     learn_ax.axvline(0, color='k')
-    learn_ax.axhline(0, color='k')
+    if subtract_fixrate:
+        learn_ax.axhline(0, color='k')
     pursuit_ax.axvline(0, color='k')
-    pursuit_ax.axhline(0, color='k')
+    if subtract_fixrate:
+        pursuit_ax.axhline(0, color='k')
 
     return learn_ax, pursuit_ax
 
 
 def plot_instruction_firing_traces(ldp_sess, bin_edges, neuron_series_name,
-                    time_window=None, base_block="StabTunePre"):
+                    time_window=None, base_block="StabTunePre",
+                    subtract_fixrate=False):
     """ """
     if time_window is None:
         time_window = ldp_sess.baseline_time_window
@@ -389,6 +497,11 @@ def plot_instruction_firing_traces(ldp_sess, bin_edges, neuron_series_name,
                                     time_window, blocks="Learning",
                                     trial_sets="instruction",
                                     bin_basis="instructed", return_t_inds=False)
+    if subtract_fixrate:
+        fix_inds = time < 75
+        for n_bin in range(0, len(bin_fr_data)):
+            fix_fr = np.nanmean(bin_fr_data[n_bin][fix_inds])
+            bin_fr_data[n_bin] -= fix_fr
 
     inst_ax = binned_mean_traces(bin_fr_data, t_vals=time,
                                 ax=inst_ax, color='k', saturation=None)
@@ -398,7 +511,8 @@ def plot_instruction_firing_traces(ldp_sess, bin_edges, neuron_series_name,
     inst_ax.set_title("Instruction trials")
 
     inst_ax.axvline(0, color='b')
-    inst_ax.axhline(0, color='b')
+    if subtract_fixrate:
+        inst_ax.axhline(0, color='b')
     inst_ax.axvline(250, color='r')
 
     return inst_ax
@@ -406,7 +520,8 @@ def plot_instruction_firing_traces(ldp_sess, bin_edges, neuron_series_name,
 
 def plot_tuning_probe_firing_traces(ldp_sess, bin_edges, neuron_series_name,
                                      time_window=None,
-                                     base_block="StabTunePre"):
+                                     base_block="StabTunePre",
+                                     subtract_fixrate=False):
     """ """
     if time_window is None:
         time_window = ldp_sess.baseline_time_window
@@ -424,6 +539,11 @@ def plot_tuning_probe_firing_traces(ldp_sess, bin_edges, neuron_series_name,
                                         time_window, blocks="Learning",
                                         trial_sets=curr_set,
                                         bin_basis="instructed", return_t_inds=False)
+        if subtract_fixrate:
+            fix_inds = time < 75
+            for n_bin in range(0, len(bin_fr_data[curr_set])):
+                fix_fr = np.nanmean(bin_fr_data[curr_set][n_bin][fix_inds])
+                bin_fr_data[curr_set][n_bin] -= fix_fr
 
         plot_axis = ldp_sess.trial_set_base_axis[curr_set]
         if plot_axis == 0:
@@ -443,17 +563,19 @@ def plot_tuning_probe_firing_traces(ldp_sess, bin_edges, neuron_series_name,
     learn_pursuit_ax.set_title("Learning axis probe tuning trials")
 
     learn_pursuit_ax.axvline(0, color='b')
-    learn_pursuit_ax.axhline(0, color='b')
+    if subtract_fixrate:
+        learn_pursuit_ax.axhline(0, color='b')
     learn_pursuit_ax.axvline(250, color='r')
     learn_learn_ax.axvline(0, color='b')
-    learn_learn_ax.axhline(0, color='b')
+    if subtract_fixrate:
+        learn_learn_ax.axhline(0, color='b')
     learn_learn_ax.axvline(250, color='r')
 
     return learn_learn_ax, learn_pursuit_ax
 
 
 def plot_post_tuning_firing_traces(ldp_sess, neuron_series_name, time_window=None,
-                        base_block="StabTunePre"):
+                        base_block="StabTunePre", subtract_fixrate=False):
     """ """
     if time_window is None:
         time_window = ldp_sess.baseline_time_window
@@ -478,7 +600,9 @@ def plot_post_tuning_firing_traces(ldp_sess, neuron_series_name, time_window=Non
                                                     neuron_series_name,
                                                     time_window,
                                                     block, curr_set)
-
+            if subtract_fixrate:
+                fix_fr = np.nanmean(fr[time < 75])
+                fr -= fix_fr
             plot_axis = ldp_sess.trial_set_base_axis[curr_set]
             line_label = p_b_labels[block] + " " + p_s_labels[curr_set]
             if plot_axis == 0:
@@ -498,17 +622,62 @@ def plot_post_tuning_firing_traces(ldp_sess, neuron_series_name, time_window=Non
     post_pursuit_ax.legend()
 
     post_pursuit_ax.axvline(0, color='k')
-    post_pursuit_ax.axhline(0, color='k')
+    if subtract_fixrate:
+        post_pursuit_ax.axhline(0, color='k')
     post_pursuit_ax.axvline(250, color='r')
     post_learn_ax.axvline(0, color='k')
-    post_learn_ax.axhline(0, color='k')
+    if subtract_fixrate:
+        post_learn_ax.axhline(0, color='k')
     post_learn_ax.axvline(250, color='r')
 
     return post_learn_ax, post_pursuit_ax
 
 
+def plot_washout_firing_position_xy(ldp_sess, bin_edges, neuron_series_name,
+                                time_window=None, base_block="StabTunePre",
+                                rescale=False):
+
+    if time_window is None:
+        time_window = ldp_sess.baseline_time_window
+    # Blocks are hard coded for learning instruction trials binned by instructed
+    use_block = "Washout"
+    use_trial_set = "instruction"
+    use_bin_basis = "raw"
+    fig = plt.figure()
+    learn_ax = plt.axes()
+    bin_xy_out = ab.get_binned_mean_xy_traces(
+                ldp_sess, bin_edges, "eye position", time_window,
+                blocks=use_block, trial_sets=use_trial_set,
+                bin_basis=use_bin_basis, rescale=rescale)
+    if rescale:
+        bin_x_data, bin_y_data, alpha_bin = bin_xy_out
+    else:
+        bin_x_data, bin_y_data  = bin_xy_out
+        alpha_bin = None
+    bin_x_data, bin_y_data = ab.subtract_baseline_tuning_binned(
+                                ldp_sess, base_block, use_trial_set, "eye position",
+                                bin_x_data, bin_y_data,
+                                alpha_scale_factors=alpha_bin)
+    bin_fr_data = an.get_binned_mean_firing_trace(ldp_sess, bin_edges,
+                                    neuron_series_name,
+                                    time_window, blocks=use_block, trial_sets=use_trial_set,
+                                    bin_basis=use_bin_basis, return_t_inds=False)
+
+    learn_ax = binned_mean_firing_traces_2D(bin_fr_data, bin_x_data, bin_y_data,
+                                            ax=learn_ax, use_map="Reds")
+
+    learn_ax.set_ylabel("Learning axis eye position (deg)")
+    learn_ax.set_xlabel("Pursuit axis eye position (deg)")
+    learn_ax.set_title("Washout trials")
+    learn_ax.axvline(0, color='b')
+    learn_ax.axhline(0, color='b')
+
+    return learn_ax
+
+
 def plot_washout_firing_traces(ldp_sess, bin_edges, neuron_series_name,
-                    time_window=None, base_block="StabTunePre"):
+                    time_window=None, base_block="StabTunePre",
+                    subtract_fixrate=False):
     """ """
     if time_window is None:
         time_window = ldp_sess.baseline_time_window
@@ -521,6 +690,11 @@ def plot_washout_firing_traces(ldp_sess, bin_edges, neuron_series_name,
                                     time_window, blocks="Washout",
                                     trial_sets="instruction",
                                     bin_basis="raw", return_t_inds=False)
+    if subtract_fixrate:
+        fix_inds = time < 75
+        for n_bin in range(0, len(bin_fr_data)):
+            fix_fr = np.nanmean(bin_fr_data[n_bin][fix_inds])
+            bin_fr_data[n_bin] -= fix_fr
 
     wash_ax = binned_mean_traces(bin_fr_data, t_vals=time,
                                 ax=wash_ax, color='k', saturation=None)
@@ -530,7 +704,8 @@ def plot_washout_firing_traces(ldp_sess, bin_edges, neuron_series_name,
     wash_ax.set_title("Instruction trials")
 
     wash_ax.axvline(0, color='b')
-    wash_ax.axhline(0, color='b')
+    if subtract_fixrate:
+        wash_ax.axhline(0, color='b')
     wash_ax.axvline(250, color='r')
 
     return wash_ax
