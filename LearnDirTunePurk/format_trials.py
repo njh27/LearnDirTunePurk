@@ -22,12 +22,14 @@ def rename_stab_probe_trials(maestro_data):
             if not t['header']['UsedStab']:
                 raise ValueError("Trial name is {0} but 'UsedStab' is {1}.".format(t['header']['name'], t['header']['UsedStab']))
         if t['header']['name'] in ["0", "90", "180", "270"]:
-            try:
-                # This is only available in Maestro version >= 4.0
-                if t['header']['set_name'].lower() in learn_names:
-                    found_learn = True
-            except KeyError:
-                no_set_name = True
+            # try:
+            #     # This is only available in Maestro version >= 4.0
+            #     # print(t['header']['name'])
+            #     # print(t['header']['set_name'])
+            #     if t['header']['set_name'].lower() in learn_names:
+            #         found_learn = True
+            # except KeyError:
+            #     no_set_name = True
             if t['header']['UsedStab']:
                 t['header']['name'] = t['header']['name'] + "Stab"
                 if print_stab:
@@ -79,10 +81,10 @@ def rename_stab_probe_trials(maestro_data):
                         print("This file has old learning name {0} which was changed to {1}.".format(old_name, new_name))
                         print_learn = False
 
-    if no_set_name:
-        print("File does not have set name")
-    elif not found_learn:
-        raise ValueError("Could not find tuning trials within the learning set names provided")
+    # if no_set_name:
+    #     print("File does not have set name")
+    # elif not found_learn:
+    #     raise ValueError("Could not find learning trials within the learning set names provided")
 
     return None
 

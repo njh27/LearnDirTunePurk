@@ -166,16 +166,18 @@ def baseline_firing_tuning_2D(ldp_sess, base_block, base_data, neuron_series,
                    ldp_sess.baseline_tuning[base_block][base_data][curr_set][1, :],
                    color=colors)
     for curr_set in fix_trial_sets:
-        if len(fr_by_set[curr_set]) == 0:
-            # No data for this set
-            continue
-        colors, colorbar_sm = fr_to_colors(fr_by_set[curr_set], use_map, min_fr, max_fr)
-        x, y = ab.get_mean_xy_traces(ldp_sess, base_data, fix_time_window, blocks=fix_block,
-                                trial_sets=curr_set, rescale=False)
-        if len(x) > 0:
-            x = np.nanmean(x)
-            y = np.nanmean(y)
-        s_plot = ax.scatter(x, y, color=colors)
+        try:
+            if len(fr_by_set[curr_set]) == 0:
+                # No firing data for this block and set
+                continue
+        except TypeError:
+            colors, colorbar_sm = fr_to_colors(fr_by_set[curr_set], use_map, min_fr, max_fr)
+            x, y = ab.get_mean_xy_traces(ldp_sess, base_data, fix_time_window, blocks=fix_block,
+                                    trial_sets=curr_set, rescale=False)
+            if len(x) > 0:
+                x = np.nanmean(x)
+                y = np.nanmean(y)
+            s_plot = ax.scatter(x, y, color=colors)
 
     if "position" in base_data:
         units = " (deg)"

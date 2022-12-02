@@ -312,11 +312,21 @@ class LDPSession(Session):
                     break
         else:
             name_2 = ""
-        fix_set_name = fix_set_name + name_1 + name_2
+        # Need to ensure that pursuit direction name comes first
+        if "pursuit" in name_2:
+            fix_set_name = fix_set_name + name_2 + name_1
+        else:
+            fix_set_name = fix_set_name + name_1 + name_2
         if fix_set_name == "fix":
             # Was fixation only trial
             fix_set_name = "fix_fix_center"
-        self.trial_sets[fix_set_name][trial_index] = True
+        try:
+            self.trial_sets[fix_set_name][trial_index] = True
+        except:
+            print(trial_name)
+            print(fix_set_name)
+            print(t_dir)
+            raise
         return
 
     def add_default_trial_sets(self):
