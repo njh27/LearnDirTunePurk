@@ -509,6 +509,7 @@ def baseline_firing_tuning(ldp_sess, neuron_series_name, base_block, base_data,
                 raise ValueError("Unrecognized trial set {0}.".format(curr_set))
             use_ax.plot(0, 0, color=colors[curr_set], label=line_label)
             continue
+            
         if subtract_fixrate:
             fix_fr = np.nanmean(fr[time < 75])
             fr -= fix_fr

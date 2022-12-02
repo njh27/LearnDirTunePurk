@@ -320,13 +320,7 @@ class LDPSession(Session):
         if fix_set_name == "fix":
             # Was fixation only trial
             fix_set_name = "fix_fix_center"
-        try:
-            self.trial_sets[fix_set_name][trial_index] = True
-        except:
-            print(trial_name)
-            print(fix_set_name)
-            print(t_dir)
-            raise
+        self.trial_sets[fix_set_name][trial_index] = True
         return
 
     def add_default_trial_sets(self):
