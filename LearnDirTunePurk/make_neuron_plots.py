@@ -154,12 +154,21 @@ def baseline_firing_tuning_2D(ldp_sess, base_block, base_data, neuron_series,
                                                 ldp_sess.baseline_time_window,
                                                 base_block, curr_set)
         min_fr, max_fr = update_min_max_fr(fr_by_set[curr_set], min_fr, max_fr)
+    if min_fr > max_fr:
+        # No firing data found for any trial sets
+        return ax
     for curr_set in ldp_sess.four_dir_trial_sets:
+        if len(fr_by_set[curr_set]) == 0:
+            # No data for this set
+            continue
         colors, colorbar_sm = fr_to_colors(fr_by_set[curr_set], use_map, min_fr, max_fr)
         s_plot = ax.scatter(ldp_sess.baseline_tuning[base_block][base_data][curr_set][0, :],
                    ldp_sess.baseline_tuning[base_block][base_data][curr_set][1, :],
                    color=colors)
     for curr_set in fix_trial_sets:
+        if len(fr_by_set[curr_set]) == 0:
+            # No data for this set
+            continue
         colors, colorbar_sm = fr_to_colors(fr_by_set[curr_set], use_map, min_fr, max_fr)
         x, y = ab.get_mean_xy_traces(ldp_sess, base_data, fix_time_window, blocks=fix_block,
                                 trial_sets=curr_set, rescale=False)
@@ -199,7 +208,16 @@ def binned_mean_firing_traces_2D(bin_fr_data, bin_x_data, bin_y_data, ax=None,
             max_fr = 0.
         for fr_trace in bin_fr_data:
             min_fr, max_fr = update_min_max_fr(fr_trace, min_fr, max_fr)
+    if min_fr > max_fr:
+        # No firing found in any bins
+        if return_last_plot:
+            return ax, None
+        else:
+            return ax
     for bin_ind in range(0, len(bin_fr_data)):
+        if len(bin_fr_data[bin_ind]) == 0:
+            # No firing data in this bin so skip
+            continue
         colors, colorbar_sm = fr_to_colors(bin_fr_data[bin_ind], use_map,
                                              min_fr, max_fr)
         last_s_plot = ax.scatter(bin_x_data[bin_ind], bin_y_data[bin_ind],
@@ -372,12 +390,18 @@ def plot_post_tuning_firing_position_xy(ldp_sess, neuron_series_name, time_windo
                                                     time_window,
                                                     block, curr_set)
             min_fr, max_fr = update_min_max_fr(fr_by_block_set[block][curr_set], min_fr, max_fr)
-
+    if min_fr > max_fr:
+        # No data found in any bins
+        return post_tune_ax
 
     for block in blocks:
         if ldp_sess.blocks[block] is None:
             continue
+        set_block_label = False
         for curr_set in trial_sets:
+            if len(fr_by_block_set[block][curr_set]) == 0:
+                # No firing data for this block and set
+                continue
             xy_out = ab.get_mean_xy_traces(ldp_sess, "eye position", time_window,
                         blocks=block, trial_sets=curr_set,
                         rescale=rescale)
@@ -398,21 +422,29 @@ def plot_post_tuning_firing_position_xy(ldp_sess, neuron_series_name, time_windo
             colors, colorbar_sm = fr_to_colors(fr_by_block_set[block][curr_set],
                                                 colormaps[block], min_fr, max_fr)
             s_plot = post_tune_ax.scatter(x, y, color=colors)
-        s_plot.set_label(p_b_labels[block])
+            set_block_label = True
+        if set_block_label:
+            s_plot.set_label(p_b_labels[block])
 
     for block in fix_blocks:
         if ldp_sess.blocks[block] is None:
             continue
         for curr_set in fix_trial_sets:
-            colors, colorbar_sm = fr_to_colors(fr_by_block_set[block][curr_set], colormaps[block], min_fr, max_fr)
-            x, y = ab.get_mean_xy_traces(ldp_sess, "eye position", fix_time_window, blocks=block,
-                                    trial_sets=curr_set, rescale=False)
-            if len(x) > 0:
-                x = np.nanmean(x)
-                y = np.nanmean(y)
-            use_edge = None #"r" if block == "FixTunePost" else "g"
-            s_plot = post_tune_ax.scatter(x, y, color=colors, edgecolor=use_edge)
-            # print(block, curr_set, fr_by_block_set[block][curr_set])
+            # fixation points should be single scalar values
+            try:
+                if len(fr_by_block_set[block][curr_set]) == 0:
+                    # No firing data for this block and set
+                    continue
+            except TypeError:
+                colors, colorbar_sm = fr_to_colors(fr_by_block_set[block][curr_set], colormaps[block], min_fr, max_fr)
+                x, y = ab.get_mean_xy_traces(ldp_sess, "eye position", fix_time_window, blocks=block,
+                                        trial_sets=curr_set, rescale=False)
+                if len(x) > 0:
+                    x = np.nanmean(x)
+                    y = np.nanmean(y)
+                use_edge = None #"r" if block == "FixTunePost" else "g"
+                s_plot = post_tune_ax.scatter(x, y, color=colors, edgecolor=use_edge)
+                # print(block, curr_set, fr_by_block_set[block][curr_set])
 
     post_tune_ax.legend()
     post_tune_ax.set_ylabel("Learning axis eye position (deg)")
@@ -452,6 +484,29 @@ def baseline_firing_tuning(ldp_sess, neuron_series_name, base_block, base_data,
                                                 neuron_series_name,
                                                 ldp_sess.baseline_time_window,
                                                 base_block, curr_set)
+        if len(fr) == 0:
+            # No data this set plot dummy line
+            if "learn" in curr_set:
+                if 'anti' in curr_set:
+                    line_label = "Anti-learning"
+                else:
+                    line_label = "Learning"
+                eye_data = ldp_sess.baseline_tuning[base_block][base_data][curr_set][plot_axis, :]
+                use_ax = learn_ax
+            elif "pursuit" in curr_set:
+                if 'anti' in curr_set:
+                    line_label = "Anti-pursuit"
+                else:
+                    line_label = "Pursuit"
+                eye_data = ldp_sess.baseline_tuning[base_block][base_data][curr_set][plot_axis, :]
+                use_ax = pursuit_ax
+                # pursuit_ax.plot(time,
+                #         ,
+                #         color=colors[curr_set], label=line_label)
+            else:
+                raise ValueError("Unrecognized trial set {0}.".format(curr_set))
+            use_ax.plot(0, 0, color=colors[curr_set], label=line_label)
+            continue
         if subtract_fixrate:
             fix_fr = np.nanmean(fr[time < 75])
             fr -= fix_fr
@@ -623,6 +678,17 @@ def plot_post_tuning_firing_traces(ldp_sess, neuron_series_name, time_window=Non
                                                     neuron_series_name,
                                                     time_window,
                                                     block, curr_set)
+            if len(fr) == 0:
+                # No data for this block and trial set, plot dummy line
+                plot_axis = ldp_sess.trial_set_base_axis[curr_set]
+                line_label = p_b_labels[block] + " " + p_s_labels[curr_set]
+                if plot_axis == 0:
+                    post_pursuit_ax.plot(0, 0, color=p_col[block], linestyle=p_style[curr_set], label=line_label)
+                elif plot_axis == 1:
+                    post_learn_ax.plot(0, 0, color=p_col[block], linestyle=p_style[curr_set], label=line_label)
+                else:
+                    raise ValueError("Unrecognized trial set {0}.".format(curr_set))
+                continue
             if subtract_fixrate:
                 fix_fr = np.nanmean(fr[time < 75])
                 fr -= fix_fr

@@ -216,6 +216,9 @@ def bin_by_trial(t_inds, edges, inc_last_edge=True):
     spaced 'edges' number of bins are created. Output is a list for each
     bin specified by edges, containing a list of the indices of t_inds that
     fall within the bin. """
+    if len(t_inds) == 0:
+        # No data to bin so return all empty
+        return [[] for x in range(0, len(edges)-1)]
     t_args = np.argsort(t_inds)
     if len(edges) == 1:
         edges = np.linspace(np.amin(t_inds), np.amax(t_inds)+.001, edges)
