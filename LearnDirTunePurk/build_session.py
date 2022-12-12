@@ -97,18 +97,37 @@ def add_neuron_trials(ldp_sess, maestro_dir, neurons_file, PL2_dir=None,
         maestro_data = rm.utils.PL2_maestro.add_plexon_events(maestro_data,
                                                     PL2_dir + ldp_sess.fname + ".pl2",
                                                     maestro_pl2_chan_offset=3,
-                                                    save_name=save_maestro_name)
+                                                    remove_bad_inds=False)
+        # SAVED BEFORE POTENTIAL DELETING TRIALS!
+        if save_maestro_name is not None:
+            if isinstance(save_maestro_name, str):
+                if (save_maestro_name[-7:] != ".pickle") and (save_maestro_name[-4:] != ".pkl"):
+                    save_maestro_name = save_maestro_name + ".pickle"
+                print("Saving Maestro trial data as:", save_maestro_name)
+                with open(save_maestro_name, 'wb') as fp:
+                    pickle.dump(maestro_data, fp, protocol=-1)
+            else:
+                print("Unrecognized type {0} for save_name {1}, saving skipped!".format(type(save_maestro_name), save_maestro_name))
+
     with open(neurons_file, 'rb') as fp:
         neurons = pickle.load(fp)
-    print("HARD CODING SOME NEURON CLASSES!!! line 103 build_session")
-    for n, class_name in zip(neurons, ["PC", "Golgi", "CS"]):
-        n['type__'] = class_name
+    # print("HARD CODING SOME NEURON CLASSES!!! line 103 build_session")
+    # for n, class_name in zip(neurons, ["PC", "Golgi", "CS"]):
+    #     n['type__'] = class_name
 
     trial_list_nrn = sa.utils.format_trial_dicts.maestro_to_neuron_trial(
                                             maestro_data, neurons, dt_data=dt_data,
                                             start_data=0, default_name="n_",
                                             use_class_names=True, data_name='neurons')
     ldp_sess.add_neuron_trials(trial_list_nrn, meta_dict_name='meta_data')
+    # Delete unsynced trials after matching trials from joining above
+    bad_inds = []
+    for t_ind, t in enumerate(maestro_data):
+        if not t['pl2_synced']:
+            print("Adding trial {0} for deletion since it is not PL2 synced.".format(t_ind))
+            bad_inds.append(t_ind)
+    if len(bad_inds) > 0:
+        ldp_sess.delete_trials(bad_inds)
 
     return ldp_sess
 
