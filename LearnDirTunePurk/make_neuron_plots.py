@@ -10,7 +10,7 @@ import LearnDirTunePurk.analyze_neurons as an
 
 def show_all_firing_plots(ldp_sess, neuron_series_name, base_block="StabTunePre",
                             exp_bins=False, rescale=False, subtract_fixrate=False):
-    base_t_ax = baseline_firing_tuning_2D(ldp_sess, "StabTunePre", "eye position",
+    base_t_ax = baseline_firing_tuning_2D(ldp_sess, base_block, "eye position",
                         neuron_series_name, use_map="Reds")
 
     learn_step_size = 10
@@ -509,7 +509,7 @@ def baseline_firing_tuning(ldp_sess, neuron_series_name, base_block, base_data,
                 raise ValueError("Unrecognized trial set {0}.".format(curr_set))
             use_ax.plot(0, 0, color=colors[curr_set], label=line_label)
             continue
-            
+
         if subtract_fixrate:
             fix_fr = np.nanmean(fr[time < 75])
             fr -= fix_fr

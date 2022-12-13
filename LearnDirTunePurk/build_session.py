@@ -119,6 +119,9 @@ def add_neuron_trials(ldp_sess, maestro_dir, neurons_file, PL2_dir=None,
                                             maestro_data, neurons, dt_data=dt_data,
                                             start_data=0, default_name="n_",
                                             use_class_names=True, data_name='neurons')
+    # This is an annoying error better to catch before trying to add
+    if len(ldp_sess) != len(trial_list_nrn):
+        raise ValueError("List of neuron trials is {0} and not equal to the current session length {1}!".format(len(trial_list_nrn), len(ldp_sess)))
     ldp_sess.add_neuron_trials(trial_list_nrn, meta_dict_name='meta_data')
     # Delete unsynced trials after matching trials from joining above
     bad_inds = []
@@ -127,6 +130,7 @@ def add_neuron_trials(ldp_sess, maestro_dir, neurons_file, PL2_dir=None,
             print("Adding trial {0} for deletion since it is not PL2 synced.".format(t_ind))
             bad_inds.append(t_ind)
     if len(bad_inds) > 0:
+        print("Removing un-synced trials: ", bad_inds)
         ldp_sess.delete_trials(bad_inds)
 
     return ldp_sess
