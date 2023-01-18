@@ -115,14 +115,14 @@ def add_neuron_trials(ldp_sess, maestro_dir, neurons_file, PL2_dir=None,
     # for n, class_name in zip(neurons, ["PC", "Golgi", "CS"]):
     #     n['type__'] = class_name
 
-    trial_list_nrn = sa.utils.format_trial_dicts.maestro_to_neuron_trial(
+    trial_list_nrn, neuron_meta = sa.utils.format_trial_dicts.maestro_to_neuron_trial(
                                             maestro_data, neurons, dt_data=dt_data,
                                             start_data=0, default_name="n_",
                                             use_class_names=True, data_name='neurons')
     # This is an annoying error better to catch before trying to add
     if len(ldp_sess) != len(trial_list_nrn):
         raise ValueError("List of neuron trials is {0} and not equal to the current session length {1}!".format(len(trial_list_nrn), len(ldp_sess)))
-    ldp_sess.add_neuron_trials(trial_list_nrn, meta_dict_name='meta_data')
+    ldp_sess.add_neuron_trials(trial_list_nrn, neuron_meta, meta_dict_name='meta_data')
     # Delete unsynced trials after matching trials from joining above
     bad_inds = []
     for t_ind, t in enumerate(maestro_data):
