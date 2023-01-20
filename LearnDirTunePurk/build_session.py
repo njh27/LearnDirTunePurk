@@ -133,6 +133,11 @@ def add_neuron_trials(ldp_sess, maestro_dir, neurons_file, PL2_dir=None,
         print("Removing un-synced trials: ", bad_inds)
         ldp_sess.delete_trials(bad_inds)
 
+    # Add the neuron objects to this ldp session
+    for n_name in ldp_sess.neuron_info['neuron_names']:
+        ldp_sess.neuron_info[n_name]['Neuron'].join_session(ldp_sess)
+        ldp_sess.neuron_info[n_name]['Neuron'].compute_valid_trials()
+
     return ldp_sess
 
 
