@@ -736,7 +736,7 @@ class LDPSession(Session):
             for data_t in data_types:
                 self.baseline_tuning[block][data_t] = {}
                 for curr_set in self.four_dir_trial_sets:
-                    x, y = ab.get_xy_traces(self, data_t, time_window,
+                    x, y = self.get_xy_traces(data_t, time_window,
                                     blocks=block, trial_sets=curr_set,
                                     return_inds=False)
                     if x.shape[0] == 0:
@@ -814,6 +814,94 @@ class LDPSession(Session):
         t_inds_to_set = np.array(t_inds_to_set)
         self.sacc_and_err_trials[t_inds_to_set] = True
         return t_inds_to_set
+
+    def get_xy_traces(self , series_name, time_window, blocks=None,
+                     trial_sets=None, return_inds=False):
+        """ Simultaneously gets two traces for each dimension of either the eye
+        or target data only which sould reduce loops compared to
+        Session.get_data_array(). Output data are rotated as per the properties
+        of the LDP_Session.rotate.
+        """
+        # Parse data name to type and series xy
+        if "eye" in series_name:
+            if "position" in series_name:
+                x_name = "horizontal_eye_position"
+                y_name = "vertical_eye_position"
+            elif "velocity" in series_name:
+                x_name = "horizontal_eye_velocity"
+                y_name = "vertical_eye_velocity"
+            else:
+                raise InputError("Data name for 'eye' must also include either 'position' or 'velocity' to specify data type.")
+            data_name = "eye"
+        elif "target" in series_name:
+            if "position" in series_name:
+                x_name = "horizontal_target_position"
+                y_name = "vertical_target_position"
+            elif "velocity" in series_name:
+                if "comm" in series_name:
+                    x_name = "xvel_comm"
+                    y_name = "yvel_comm"
+                else:
+                    x_name = "horizontal_target_velocity"
+                    y_name = "vertical_target_velocity"
+            else:
+                raise InputError("Data name for 'eye' must also include either 'position' or 'velocity' to specify data type.")
+            data_name = "target0"
+        else:
+            raise InputError("Data name must include either 'eye' or 'target' to specify data type.")
+
+        data_out_x = []
+        data_out_y = []
+        t_inds_out = []
+        t_inds = self._parse_blocks_trial_sets(blocks, trial_sets)
+        for t in t_inds:
+            if not self._session_trial_data[t]['incl_align']:
+                # Trial is not aligned with others due to missing event
+                continue
+            trial_obj = self._trial_lists[data_name][t]
+            self._set_t_win(t, time_window)
+            valid_tinds = self._session_trial_data[t]['curr_t_win']['valid_tinds']
+            out_inds = self._session_trial_data[t]['curr_t_win']['out_inds']
+
+            t_data_x = np.full(out_inds.shape[0], np.nan)
+            t_data_y = np.full(out_inds.shape[0], np.nan)
+            t_data_x[out_inds] = trial_obj['data'][x_name][valid_tinds]
+            t_data_y[out_inds] = trial_obj['data'][y_name][valid_tinds]
+            if self.rotate:
+                rot_data = self.rotation_matrix @ np.vstack((t_data_x, t_data_y))
+                t_data_x = rot_data[0, :]
+                t_data_y = rot_data[1, :]
+            data_out_x.append(t_data_x)
+            data_out_y.append(t_data_y)
+            t_inds_out.append(t)
+
+        if return_inds:
+            if len(data_out_x) > 0:
+                # We found data to concatenate
+                return np.vstack(data_out_x), np.vstack(data_out_y), np.hstack(t_inds_out)
+            else:
+                return np.zeros((0, time_window[1]-time_window[0])), np.zeros((0, time_window[1]-time_window[0])), np.array([], dtype=np.int32)
+        else:
+            if len(data_out_x) > 0:
+                # We found data to concatenate
+                return np.vstack(data_out_x), np.vstack(data_out_y)
+            else:
+                return np.zeros((0, time_window[1]-time_window[0])), np.zeros((0, time_window[1]-time_window[0]))
+
+    def get_mean_xy_traces(self, series_name, time_window, blocks=None,
+                            trial_sets=None, rescale=False):
+        """ Calls get_xy_traces above and takes the mean over rows of the output. """
+
+        x, y, t = self.get_xy_traces(series_name, time_window, blocks=blocks,
+                         trial_sets=trial_sets, return_inds=True)
+        if x.shape[0] == 0:
+            # Found no matching data
+            return x, y
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", category=RuntimeWarning, message="Mean of empty slice")
+            x = np.nanmean(x, axis=0)
+            y = np.nanmean(y, axis=0)
+        return x, y
 
     """ SOME FUNCTIONS OVERWRITTING THE SESSION OBJECT FUNCTIONS """
     def _parse_blocks_trial_sets(self, blocks=None, trial_sets=None):
