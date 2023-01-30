@@ -693,7 +693,14 @@ class LDPSession(Session):
 
     def set_baseline_averages(self, time_window, rotate=True):
         """ Adds the position and velocity trials as baseline from the
-        info provided over the default 4 axes in trial_sets. """
+        info provided over the default 4 axes in trial_sets.
+        Will also check for the presence of neurons and set the baseline firing
+        rate for them to.
+
+        NOTE: Decided to put neuron tuning in here to make sure they are from
+        the identical trials as behavior instead of trying to match them
+        after the fact.
+        """
         # Hard coded default sets and axes
         self.four_dir_trial_sets = ["learning", "anti_learning", "pursuit", "anti_pursuit"]
 
@@ -747,6 +754,13 @@ class LDPSession(Session):
                         warnings.filterwarnings("ignore", category=RuntimeWarning, message="Mean of empty slice")
                         self.baseline_tuning[block][data_t][curr_set][0, :] = np.nanmean(x, axis=0)
                         self.baseline_tuning[block][data_t][curr_set][1, :] = np.nanmean(y, axis=0)
+                    if hasattr(self, neuron_info):
+                        for n_name in self.neuron_info['neuron_names']:
+                            n_data_t = self.neuron_info[n_name].use_series
+                            self.baseline_tuning[block][n_data_t][curr_set] = self.neuron_info[n_name].get_mean_firing_trace(
+                                                        time_window, blocks=block,
+                                                        trial_sets=curr_set,
+                                                        return_inds=False)
                 # Add the instructed set baseline to be same as pursuit!
                 self.baseline_tuning[block][data_t]['instruction'] = self.baseline_tuning[block][data_t]['pursuit']
         # Save the time window used for future reference
@@ -902,6 +916,15 @@ class LDPSession(Session):
             x = np.nanmean(x, axis=0)
             y = np.nanmean(y, axis=0)
         return x, y
+
+    def join_neurons(self, time_window=[0, 300], block='StandTunePre'):
+        """
+        """
+        # Add the neuron objects to this ldp session
+        for n_name in self.neuron_info['neuron_names']:
+            self.neuron_info[n_name].join_session(self)
+            self.neuron_info[n_name].set_optimal_pursuit_vector(time_window,
+                                                                block)
 
     """ SOME FUNCTIONS OVERWRITTING THE SESSION OBJECT FUNCTIONS """
     def _parse_blocks_trial_sets(self, blocks=None, trial_sets=None):
