@@ -162,8 +162,8 @@ def baseline_firing_tuning_2D(ldp_sess, base_block, base_data, neuron_series,
             # No data for this set
             continue
         colors, colorbar_sm = fr_to_colors(fr_by_set[curr_set], use_map, min_fr, max_fr)
-        s_plot = ax.scatter(ldp_sess.baseline_tuning[base_block][base_data][curr_set][0, :],
-                   ldp_sess.baseline_tuning[base_block][base_data][curr_set][1, :],
+        s_plot = ax.scatter(ldp_sess.baseline_tuning[base_block][curr_set][base_data][0, :],
+                   ldp_sess.baseline_tuning[base_block][curr_set][base_data][1, :],
                    color=colors)
     for curr_set in fix_trial_sets:
         try:
@@ -493,14 +493,14 @@ def baseline_firing_tuning(ldp_sess, neuron_series_name, base_block, base_data,
                     line_label = "Anti-learning"
                 else:
                     line_label = "Learning"
-                eye_data = ldp_sess.baseline_tuning[base_block][base_data][curr_set][plot_axis, :]
+                eye_data = ldp_sess.baseline_tuning[base_block][curr_set][base_data][plot_axis, :]
                 use_ax = learn_ax
             elif "pursuit" in curr_set:
                 if 'anti' in curr_set:
                     line_label = "Anti-pursuit"
                 else:
                     line_label = "Pursuit"
-                eye_data = ldp_sess.baseline_tuning[base_block][base_data][curr_set][plot_axis, :]
+                eye_data = ldp_sess.baseline_tuning[base_block][curr_set][base_data][plot_axis, :]
                 use_ax = pursuit_ax
                 # pursuit_ax.plot(time,
                 #         ,
@@ -518,14 +518,14 @@ def baseline_firing_tuning(ldp_sess, neuron_series_name, base_block, base_data,
                 line_label = "Anti-learning"
             else:
                 line_label = "Learning"
-            eye_data = ldp_sess.baseline_tuning[base_block][base_data][curr_set][plot_axis, :]
+            eye_data = ldp_sess.baseline_tuning[base_block][curr_set][base_data][plot_axis, :]
             use_ax = learn_ax
         elif "pursuit" in curr_set:
             if 'anti' in curr_set:
                 line_label = "Anti-pursuit"
             else:
                 line_label = "Pursuit"
-            eye_data = ldp_sess.baseline_tuning[base_block][base_data][curr_set][plot_axis, :]
+            eye_data = ldp_sess.baseline_tuning[base_block][curr_set][base_data][plot_axis, :]
             use_ax = pursuit_ax
             # pursuit_ax.plot(time,
             #         ,

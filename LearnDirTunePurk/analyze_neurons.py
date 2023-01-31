@@ -56,6 +56,7 @@ def subtract_baseline_firing_binned(ldp_sess, base_block, base_set, base_data,
 def get_mean_firing_trace(ldp_sess, series_name, time_window, blocks=None,
                         trial_sets=None, return_inds=False):
     """ Calls ldp_sess.get_data_array and takes the mean over rows of the output. """
+    warnings.filterwarnings("ignore", category=RuntimeWarning, message="Mean of empty slice")
     fr, t = ldp_sess.get_data_array(series_name, time_window, blocks=blocks,
                         trial_sets=trial_sets, return_inds=True)
     if len(fr) == 0:
@@ -65,7 +66,6 @@ def get_mean_firing_trace(ldp_sess, series_name, time_window, blocks=None,
         else:
             return fr
     with warnings.catch_warnings():
-        warnings.filterwarnings("ignore", category=RuntimeWarning, message="Mean of empty slice")
         fr = np.nanmean(fr, axis=0)
 
     if return_inds:
@@ -79,6 +79,7 @@ def get_binned_mean_firing_trace(ldp_sess, edges, series_name, time_window,
                               bin_basis="raw", return_t_inds=False):
     """ Calls get_data_array and then bin_by_trial. Returns the mean of each bin
     corresponding to 'edges'. """
+    warnings.filterwarnings("ignore", category=RuntimeWarning, message="Mean of empty slice")
     fr, t = ldp_sess.get_data_array(series_name, time_window, blocks=blocks,
                         trial_sets=trial_sets, return_inds=True)
 
@@ -114,7 +115,6 @@ def get_binned_mean_firing_trace(ldp_sess, edges, series_name, time_window,
         else:
             numpy_inds = np.array(inds)
             with warnings.catch_warnings():
-                warnings.filterwarnings("ignore", category=RuntimeWarning, message="Mean of empty slice")
                 fr_binned_traces.append(np.nanmean(fr[numpy_inds, :], axis=0))
             t_binned_inds.append(t[numpy_inds])
 

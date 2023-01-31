@@ -34,6 +34,9 @@ class LDPSession(Session):
         self.sacc_and_err_trials = np.zeros(len(self), dtype='bool')
         self.rem_sacc_errs = False
         self.verbose = True
+        # Hard coded default sets and axes
+        self.four_dir_trial_sets = ["learning", "anti_learning",
+                                    "pursuit", "anti_pursuit"]
 
     def verify_blocks(self):
         is_blocks_continuous, orphan_trials = self._verify_block_continuity()
@@ -701,9 +704,7 @@ class LDPSession(Session):
         the identical trials as behavior instead of trying to match them
         after the fact.
         """
-        # Hard coded default sets and axes
-        self.four_dir_trial_sets = ["learning", "anti_learning", "pursuit", "anti_pursuit"]
-
+        warnings.filterwarnings("ignore", category=RuntimeWarning, message="Mean of empty slice")
         # Set rotation according to whether baseline is rotated
         if self.rotate != rotate:
             warnings.warn("Input rotation value {0} does not match existing value {1}. Resetting rotation to {2} so previous analyses could be invalid!".format(rotate, self.rotate, rotate))
@@ -740,29 +741,32 @@ class LDPSession(Session):
                 self.baseline_tuning[block] = None
                 continue
             self.baseline_tuning[block] = {}
-            for data_t in data_types:
-                self.baseline_tuning[block][data_t] = {}
-                for curr_set in self.four_dir_trial_sets:
+            self.baseline_tuning[block]['instruction'] = {}
+            for curr_set in self.four_dir_trial_sets:
+                self.baseline_tuning[block][curr_set] = {}
+                for data_t in data_types:
                     x, y = self.get_xy_traces(data_t, time_window,
                                     blocks=block, trial_sets=curr_set,
                                     return_inds=False)
                     if x.shape[0] == 0:
                         # Found no matching data
+                        self.baseline_tuning[block][curr_set][data_t] = None
                         continue
-                    self.baseline_tuning[block][data_t][curr_set] = np.zeros((2, x.shape[1]))
+                    self.baseline_tuning[block][curr_set][data_t] = np.zeros((2, x.shape[1]))
                     with warnings.catch_warnings():
-                        warnings.filterwarnings("ignore", category=RuntimeWarning, message="Mean of empty slice")
-                        self.baseline_tuning[block][data_t][curr_set][0, :] = np.nanmean(x, axis=0)
-                        self.baseline_tuning[block][data_t][curr_set][1, :] = np.nanmean(y, axis=0)
-                    if hasattr(self, neuron_info):
+                        self.baseline_tuning[block][curr_set][data_t][0, :] = np.nanmean(x, axis=0)
+                        self.baseline_tuning[block][curr_set][data_t][1, :] = np.nanmean(y, axis=0)
+                    if curr_set == "pursuit":
+                        # Add the instructed set baseline to be same as pursuit!
+                        self.baseline_tuning[block]['instruction'][data_t] = self.baseline_tuning[block]['pursuit'][data_t]
+                    if hasattr(self, "neuron_info"):
                         for n_name in self.neuron_info['neuron_names']:
                             n_data_t = self.neuron_info[n_name].use_series
-                            self.baseline_tuning[block][n_data_t][curr_set] = self.neuron_info[n_name].get_mean_firing_trace(
+                            self.baseline_tuning[block][curr_set][n_data_t] = self.neuron_info[n_name].get_mean_firing_trace(
                                                         time_window, blocks=block,
                                                         trial_sets=curr_set,
                                                         return_inds=False)
-                # Add the instructed set baseline to be same as pursuit!
-                self.baseline_tuning[block][data_t]['instruction'] = self.baseline_tuning[block][data_t]['pursuit']
+
         # Save the time window used for future reference
         self.baseline_time_window = time_window
         return None
@@ -790,6 +794,7 @@ class LDPSession(Session):
                             max_pos_err=np.inf, blocks=None, trial_sets=None):
         """Time window will be deleted based on current alignment for the trials
         input in blocks and trial sets. """
+        warnings.filterwarnings(action="ignore", category=RuntimeWarning)
         # Get all eye data during initial fixation
         series_pos_data = {}
         # Hard coded names!
@@ -816,7 +821,6 @@ class LDPSession(Session):
             error_y = (targ_y - eye_y)
             error_tot = np.sqrt((error_x ** 2) + (error_y ** 2))
             with warnings.catch_warnings():
-                warnings.filterwarnings(action="ignore", category=RuntimeWarning)
                 max_err = np.nanmax(error_tot)
                 max_err = 0 if np.all(np.isnan(max_err)) else max_err
             if ( (max_sacc > max_sacc_amp) or (max_err > max_pos_err) ):
@@ -905,14 +909,13 @@ class LDPSession(Session):
     def get_mean_xy_traces(self, series_name, time_window, blocks=None,
                             trial_sets=None, rescale=False):
         """ Calls get_xy_traces above and takes the mean over rows of the output. """
-
+        warnings.filterwarnings("ignore", category=RuntimeWarning, message="Mean of empty slice")
         x, y, t = self.get_xy_traces(series_name, time_window, blocks=blocks,
                          trial_sets=trial_sets, return_inds=True)
         if x.shape[0] == 0:
             # Found no matching data
             return x, y
         with warnings.catch_warnings():
-            warnings.filterwarnings("ignore", category=RuntimeWarning, message="Mean of empty slice")
             x = np.nanmean(x, axis=0)
             y = np.nanmean(y, axis=0)
         return x, y
@@ -920,6 +923,10 @@ class LDPSession(Session):
     def join_neurons(self, time_window=[0, 300], block='StandTunePre'):
         """
         """
+        if ( ("neuron_names" not in self.neuron_info) or
+             (len(self.neuron_info['neuron_names']) == 0) ):
+             # Neurons not set for this session
+             raise ValueError("Session does not have any Neuron Metadata to join! Add neurons to neuron_info attribute.")
         # Add the neuron objects to this ldp session
         for n_name in self.neuron_info['neuron_names']:
             self.neuron_info[n_name].join_session(self)

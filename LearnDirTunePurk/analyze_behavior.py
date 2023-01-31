@@ -15,14 +15,14 @@ def subtract_baseline_tuning(ldp_sess, base_block, base_set, base_data, x, y,
     # print("NO SCALING IN BASELINE OFF!!!!!!")
     if ldp_sess.trial_set_base_axis[base_set] == 0:
         if alpha_scale_factors is None:
-            x = x - ldp_sess.baseline_tuning[base_block][base_data][base_set][0, :]
+            x = x - ldp_sess.baseline_tuning[base_block][base_set][base_data][0, :]
         else:
-            x = x - (alpha_scale_factors * ldp_sess.baseline_tuning[base_block][base_data][base_set][0, :])
+            x = x - (alpha_scale_factors * ldp_sess.baseline_tuning[base_block][base_set][base_data][0, :])
     elif ldp_sess.trial_set_base_axis[base_set] == 1:
         if alpha_scale_factors is None:
-            y = y - ldp_sess.baseline_tuning[base_block][base_data][base_set][1, :]
+            y = y - ldp_sess.baseline_tuning[base_block][base_set][base_data][1, :]
         else:
-            y = y - (alpha_scale_factors * ldp_sess.baseline_tuning[base_block][base_data][base_set][1, :])
+            y = y - (alpha_scale_factors * ldp_sess.baseline_tuning[base_block][base_set][base_data][1, :])
     else:
         raise ValueError("Could not match baseline for subtraction for block '{0}', set '{1}', and data '{2}'.".format(base_block, base_set, base_data))
 
@@ -54,7 +54,7 @@ def subtract_baseline_tuning_binned(ldp_sess, base_block, base_set, base_data,
 def get_mean_xy_traces(ldp_sess, series_name, time_window, blocks=None,
                         trial_sets=None, rescale=False):
     """ Calls get_xy_traces below and takes the mean over rows of the output. """
-
+    warnings.filterwarnings("ignore", category=RuntimeWarning, message="Mean of empty slice")
     x, y, t = get_xy_traces(ldp_sess, series_name, time_window, blocks=blocks,
                      trial_sets=trial_sets, return_inds=True)
     if rescale:
@@ -72,7 +72,6 @@ def get_mean_xy_traces(ldp_sess, series_name, time_window, blocks=None,
         else:
             return x, y
     with warnings.catch_warnings():
-        warnings.filterwarnings("ignore", category=RuntimeWarning, message="Mean of empty slice")
         x = np.nanmean(x, axis=0)
         y = np.nanmean(y, axis=0)
         alpha = np.nanmean(alpha, axis=0)
@@ -89,6 +88,7 @@ def get_binned_mean_xy_traces(ldp_sess, edges, series_name, time_window,
                               return_t_inds=False, rescale=False):
     """ Calls get_xy_traces and then bin_by_trial. Returns the mean of each bin
     corresponding to 'edges'. """
+    warnings.filterwarnings("ignore", category=RuntimeWarning, message="Mean of empty slice")
     x, y, t = get_xy_traces(ldp_sess, series_name, time_window, blocks=blocks,
                      trial_sets=trial_sets, return_inds=True)
     if rescale:
@@ -137,7 +137,6 @@ def get_binned_mean_xy_traces(ldp_sess, edges, series_name, time_window,
         else:
             numpy_inds = np.array(inds)
             with warnings.catch_warnings():
-                warnings.filterwarnings("ignore", category=RuntimeWarning, message="Mean of empty slice")
                 x_binned_traces.append(np.nanmean(x[numpy_inds, :], axis=0))
                 y_binned_traces.append(np.nanmean(y[numpy_inds, :], axis=0))
                 alpha_binned.append(np.nanmean(alpha[numpy_inds, :], axis=0))
