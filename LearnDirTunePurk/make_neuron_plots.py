@@ -13,8 +13,8 @@ def show_all_firing_plots(ldp_sess, neuron_series_name, base_block="StabTunePre"
     base_t_ax = baseline_firing_tuning_2D(ldp_sess, base_block, "eye position",
                         neuron_series_name, use_map="Reds")
 
-    learn_step_size = 10
-    probe_step_size = 100
+    learn_step_size = 100
+    probe_step_size = 200
 
     t_max = 700
     step_size = learn_step_size
