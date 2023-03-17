@@ -17,7 +17,7 @@ if __name__ == '__main__':
     maestro_dir = '/mnt/isilon/home/nathan/Data/LearnDirTunePurk/MaestroFiles/'
     PL2_dir = "/mnt/isilon/home/nathan/Data/LearnDirTunePurk/PL2FilesRaw/"
     skip = True
-    start_fnum = 31
+    start_fnum = 47
     for f in os.listdir(neurons_dir):
         fname = f
         fname = fname.split(".")[0]
