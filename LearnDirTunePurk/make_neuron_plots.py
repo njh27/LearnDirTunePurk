@@ -10,6 +10,8 @@ import LearnDirTunePurk.analyze_neurons as an
 
 def show_all_firing_plots(ldp_sess, neuron_series_name, base_block="StabTunePre",
                             exp_bins=False, rescale=False, subtract_fixrate=False):
+
+
     base_t_ax = baseline_firing_tuning_2D(ldp_sess, base_block, "eye position",
                         neuron_series_name, use_map="Reds")
 
@@ -21,7 +23,7 @@ def show_all_firing_plots(ldp_sess, neuron_series_name, base_block="StabTunePre"
     bin_edges = np.arange(-1, t_max+step_size, step_size)
     if exp_bins:
         bin_edges = np.hstack((0, 2*np.exp(np.arange(1, np.log(t_max/2)+1, 1))))
-    learn_ax = plot_instruction_firing_position_xy(ldp_sess, bin_edges, neuron_series_name,
+    learn_ax_inst = plot_instruction_firing_position_xy(ldp_sess, bin_edges, neuron_series_name,
                                 time_window=None, base_block=base_block,
                                 rescale=False)
 
@@ -30,7 +32,7 @@ def show_all_firing_plots(ldp_sess, neuron_series_name, base_block="StabTunePre"
     bin_edges = np.arange(-1, t_max+step_size, step_size)
     if exp_bins:
         bin_edges = np.hstack((0, 2*np.exp(np.arange(1, np.log(t_max/2)+1, 1))))
-    learn_ax = plot_tuning_probe_firing_position_xy(ldp_sess, bin_edges,
+    learn_ax_prb = plot_tuning_probe_firing_position_xy(ldp_sess, bin_edges,
                                     neuron_series_name,
                                     time_window=None, base_block=base_block,
                                     trial_sets=None, rescale=False)
@@ -77,7 +79,7 @@ def show_all_firing_plots(ldp_sess, neuron_series_name, base_block="StabTunePre"
         bin_edges = np.arange(ldp_sess.blocks['Washout'][0], t_max+step_size, step_size)
         if exp_bins:
             bin_edges = np.hstack((0, 2*np.exp(np.arange(1, np.log(t_max/2)+1, 1))))
-        learn_ax = plot_washout_firing_position_xy(ldp_sess, bin_edges,
+        learn_ax_wash = plot_washout_firing_position_xy(ldp_sess, bin_edges,
                                 neuron_series_name,
                                 time_window=None, base_block=base_block,
                                 rescale=False)
@@ -91,8 +93,11 @@ def show_all_firing_plots(ldp_sess, neuron_series_name, base_block="StabTunePre"
                                                 bin_edges, neuron_series_name,
                                                 time_window=None, base_block=base_block,
                                                 subtract_fixrate=subtract_fixrate)
-
-    return None
+    all_axes = (base_t_ax, learn_ax_inst, learn_ax_prb, post_tune_ax,
+                base_learn_ax, base_pursuit_ax, inst_ax, learn_learn_ax,
+                learn_pursuit_ax, post_learn_ax, post_pursuit_ax,
+                learn_ax_wash, wash_ax)
+    return all_axes
 
 
 # Set as global list for me to remember
