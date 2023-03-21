@@ -6,3 +6,4 @@ import LearnDirTunePurk.make_plots
 import LearnDirTunePurk.analyze_neurons
 import LearnDirTunePurk.make_neuron_plots
 import LearnDirTunePurk.combine_sessions
+import LearnDirTunePurk.load_directories
