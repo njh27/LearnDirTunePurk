@@ -456,12 +456,12 @@ class LDPSession(Session):
         return is_blocks_continuous, orphan_trials
 
     def _verify_block_overlap(self):
-        for b_name in self.block_names():
+        for b_name in self.get_block_names():
             if self.blocks[b_name] is None:
                 continue
             curr_start = self.blocks[b_name][0]
             curr_stop = self.blocks[b_name][1]
-            for b_name2 in self.block_names():
+            for b_name2 in self.get_block_names():
                 if self.blocks[b_name2] is None:
                     continue
                 if ( (self.blocks[b_name2][0] < curr_stop) and
@@ -920,7 +920,7 @@ class LDPSession(Session):
             y = np.nanmean(y, axis=0)
         return x, y
 
-    def join_neurons(self, time_window=[0, 300], block='StandTunePre'):
+    def join_neurons(self, time_window=[50, 300], block='StandTunePre'):
         """
         """
         if ( ("neuron_names" not in self.neuron_info) or

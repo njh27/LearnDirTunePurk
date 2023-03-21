@@ -287,7 +287,7 @@ def format_ldp_trials_blocks(ldp_sess, verbose=True):
     if verbose: print("Aligning trials on events and assigning default trial sets.")
     fixation_blocks = []
     pursuit_blocks = []
-    for b_name in ldp_sess.block_names():
+    for b_name in ldp_sess.get_block_names():
         if "Fix" in b_name:
             fixation_blocks.append(b_name)
         else:
