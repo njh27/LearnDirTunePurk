@@ -5,7 +5,7 @@ from LearnDirTunePurk.build_session import create_behavior_session, add_neuron_t
 
 
 def gather_neurons(neurons_dir, PL2_dir, maestro_dir, maestro_save_dir,
-                    cell_type=None, tune_t_win=[50, 300], tune_block='StandTunePre'):
+                    cell_type=None):
     """ Loads data according to the name of the files input in neurons dir.
     Creates a session from the maestro data and joins the corresponding
     neurons from the neurons file. Neuron objects with the desired matching
@@ -44,7 +44,7 @@ def gather_neurons(neurons_dir, PL2_dir, maestro_dir, maestro_save_dir,
 
             # Continue building session and neuron tuning
             ldp_sess = format_ldp_trials_blocks(ldp_sess, verbose=False)
-            ldp_sess.join_neurons(tune_t_win, tune_block)
+            ldp_sess.join_neurons()
             ldp_sess.set_baseline_averages([-100, 800], rotate=True)
 
             for n_name in ldp_sess.get_neuron_names():

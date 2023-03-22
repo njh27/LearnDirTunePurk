@@ -608,6 +608,7 @@ class LDPSession(Session):
                                             blocks, trial_sets, return_inds=True)
 
         # Find fixation eye offset for each trial, adjust its data, then nan saccades
+        self.saccade_ind_cushion = ind_cushion
         for ind, t_ind in enumerate(t_inds):
             try:
                 # Adjust to target position at -100 ms
@@ -920,7 +921,7 @@ class LDPSession(Session):
             y = np.nanmean(y, axis=0)
         return x, y
 
-    def join_neurons(self, time_window=[50, 300], block='StandTunePre'):
+    def join_neurons(self):
         """
         """
         if ( ("neuron_names" not in self.neuron_info) or
@@ -930,8 +931,6 @@ class LDPSession(Session):
         # Add the neuron objects to this ldp session
         for n_name in self.neuron_info['neuron_names']:
             self.neuron_info[n_name].join_session(self)
-            self.neuron_info[n_name].set_optimal_pursuit_vector(time_window,
-                                                                block)
 
     """ SOME FUNCTIONS OVERWRITTING THE SESSION OBJECT FUNCTIONS """
     def _parse_blocks_trial_sets(self, blocks=None, trial_sets=None):
