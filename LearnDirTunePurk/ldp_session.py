@@ -834,6 +834,24 @@ class LDPSession(Session):
         self.sacc_and_err_trials[t_inds_to_set] = True
         return t_inds_to_set
 
+    def add_retinal_slip_data(self, target_name="target0"):
+        """ Iterates over all trials and computes target velocity - eye velocity
+        and adds it to the underlying trial object data
+        """
+        for t in range(0, len(self)):
+            # Get each apparatus trial object
+            app_obj = self._trial_lists[target_name][t]
+            beh_obj = self._trial_lists['eye'][t]
+            x_slip = (app_obj['data']['horizontal_target_velocity'] -
+                        beh_obj['data']['horizontal_eye_velocity'])
+            y_slip = (app_obj['data']['vertical_target_velocity'] -
+                        beh_obj['data']['vertical_eye_velocity'])
+            beh_obj.add_data_series('horizontal_retinal_slip', x_slip)
+            beh_obj.add_data_series('vertical_retinal_slip', y_slip)
+        # Also need to update Session on new series
+        self.add_data_series("eye", "horizontal_retinal_slip")
+        self.add_data_series("eye", "vertical_retinal_slip")
+
     def get_xy_traces(self , series_name, time_window, blocks=None,
                      trial_sets=None, return_inds=False):
         """ Simultaneously gets two traces for each dimension of either the eye
@@ -866,8 +884,12 @@ class LDPSession(Session):
             else:
                 raise InputError("Data name for 'eye' must also include either 'position' or 'velocity' to specify data type.")
             data_name = "target0"
+        elif "slip" in series_name:
+            x_name = "horizontal_retinal_slip"
+            y_name = "vertical_retinal_slip"
+            data_name = "eye"
         else:
-            raise InputError("Data name must include either 'eye' or 'target' to specify data type.")
+            raise InputError("Data name must include either 'eye', 'target', or 'slip' to specify data type.")
 
         data_out_x = []
         data_out_y = []

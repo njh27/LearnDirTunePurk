@@ -63,6 +63,8 @@ def create_behavior_session(fname, maestro_dir, session_name=None, rotate=True,
     if verbose: print("Generating session and adding blocks.")
     ldp_sess = LDPSession(trial_list, session_name=session_name, rotate=rotate)
     ldp_sess.add_trial_data(trial_list_bhv, data_type=None)
+    # Can add slip data now that we have target and behavior
+    ldp_sess.add_retinal_slip_data()
     # Add fields characteristic to this session for future reference
     ldp_sess.is_weird_Yoda = is_weird_Yoda
     ldp_sess.is_stab_learning = is_stab_learning
