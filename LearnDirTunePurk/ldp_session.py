@@ -859,8 +859,9 @@ class LDPSession(Session):
         Session.get_data_array(). Output data are rotated as per the properties
         of the LDP_Session.rotate.
         """
+        series_name = series_name.lower()
         # Parse data name to type and series xy
-        if "eye" in series_name:
+        if (("eye" in series_name) and not ("slip" in series_name)):
             if "position" in series_name:
                 x_name = "horizontal_eye_position"
                 y_name = "vertical_eye_position"
@@ -908,10 +909,12 @@ class LDPSession(Session):
             t_data_y = np.full(out_inds.shape[0], np.nan)
             t_data_x[out_inds] = trial_obj['data'][x_name][valid_tinds]
             t_data_y[out_inds] = trial_obj['data'][y_name][valid_tinds]
+            print("NANS before", np.any(np.isnan(t_data_x)))
             if self.rotate:
                 rot_data = self.rotation_matrix @ np.vstack((t_data_x, t_data_y))
                 t_data_x = rot_data[0, :]
                 t_data_y = rot_data[1, :]
+            print("NANS after", np.any(np.isnan(t_data_x)))
             data_out_x.append(t_data_x)
             data_out_y.append(t_data_y)
             t_inds_out.append(t)
