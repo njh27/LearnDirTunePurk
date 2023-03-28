@@ -602,6 +602,8 @@ class LDPSession(Session):
                         'vertical_eye_position',
                         'horizontal_eye_velocity',
                         'vertical_eye_velocity']
+        slip_names = ['horizontal_retinal_slip',
+                      'vertical_retinal_slip']
         for sn in series_names:
             # t_inds should be the same for each data series
             series_fix_data[sn], t_inds = self.get_data_array(sn, time_window,
@@ -643,6 +645,13 @@ class LDPSession(Session):
                 for sn in series_names:
                     # NaN all this eye data
                     self._trial_lists['eye'][t_ind].data[sn][saccade_index] = np.nan
+                # Check if slip is added then nan saccades if so
+                for sn in slip_names:
+                    try:
+                        self._trial_lists['eye'][t_ind].data[sn][saccade_index] = np.nan
+                    except KeyError:
+                        # Should mean slip isn't found
+                        break
             except:
                 print(ind, t_ind)
                 raise
@@ -909,12 +918,10 @@ class LDPSession(Session):
             t_data_y = np.full(out_inds.shape[0], np.nan)
             t_data_x[out_inds] = trial_obj['data'][x_name][valid_tinds]
             t_data_y[out_inds] = trial_obj['data'][y_name][valid_tinds]
-            print("NANS before", np.any(np.isnan(t_data_x)))
             if self.rotate:
                 rot_data = self.rotation_matrix @ np.vstack((t_data_x, t_data_y))
                 t_data_x = rot_data[0, :]
                 t_data_y = rot_data[1, :]
-            print("NANS after", np.any(np.isnan(t_data_x)))
             data_out_x.append(t_data_x)
             data_out_y.append(t_data_y)
             t_inds_out.append(t)
