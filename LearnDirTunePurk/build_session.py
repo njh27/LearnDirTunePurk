@@ -300,7 +300,7 @@ def format_ldp_trials_blocks(ldp_sess, verbose=True):
 
     if verbose: print("Adjusting fixation offsets and getting saccades.")
     ldp_sess.add_saccades(time_window=[-200, 0], blocks=None,
-                          trial_sets=None, ind_cushion=20)
+                          trial_sets=None, ind_cushion=40)
 
     if verbose: print("Deleting large saccade and position error trials.")
     max_sacc_amp = 6.
