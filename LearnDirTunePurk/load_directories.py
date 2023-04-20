@@ -84,13 +84,14 @@ def gather_neurons(neurons_dir, PL2_dir, maestro_dir, maestro_save_dir,
             ldp_sess.set_baseline_averages([-100, 800], rotate=rotate)
 
             for n_name in ldp_sess.get_neuron_names():
-                if n_name[0:2] in cell_types:
+                n_type = n_name[0:2]
+                if n_type in cell_types:
                     # Call data function on this neuron and save to output
-                    if n_name in out_data:
-                        out_data[n_name].append(data_fun(ldp_sess.neuron_info[n_name], data_fun_t_win, **data_fun_kwargs))
+                    if n_type in out_data:
+                        out_data[n_type].append(data_fun(ldp_sess.neuron_info[n_name], data_fun_t_win, **data_fun_kwargs))
                     else:
-                        out_data[n_name] = [data_fun(ldp_sess.neuron_info[n_name], data_fun_t_win, **data_fun_kwargs )]
-                    print("Adding a neuron of type {0}".format(n_name))
+                        out_data[n_type] = [data_fun(ldp_sess.neuron_info[n_name], data_fun_t_win, **data_fun_kwargs )]
+                    print("Adding a neuron of type {0}".format(n_type))
                     # return out_data
         except:
             print("SKIPPING FILE {0} for some error!".format(fname))
