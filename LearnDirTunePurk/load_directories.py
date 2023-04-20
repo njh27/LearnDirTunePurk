@@ -81,6 +81,7 @@ def gather_neurons(neurons_dir, PL2_dir, maestro_dir, maestro_save_dir,
             for n_name in ldp_sess.get_neuron_names():
                 if n_name[0:2] in cell_types:
                     # Call data function on this neuron and save to output
+                    return ldp_sess.neuron_info[n_name], data_fun_args, data_fun_kwargs
                     if n_name in out_data:
                         out_data[n_name].append(data_fun(ldp_sess.neuron_info[n_name], *data_fun_args, **data_fun_kwargs))
                     else:
