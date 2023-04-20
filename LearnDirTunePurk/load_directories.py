@@ -2,6 +2,7 @@ import os
 import numpy as np
 from ReadMaestro.utils.PL2_maestro import NoEventsError
 from LearnDirTunePurk.build_session import create_behavior_session, add_neuron_trials, format_ldp_trials_blocks
+from NeuronAnalysis.general import Indexer
 
 
 
@@ -17,7 +18,7 @@ def get_eye_target_pos_and_rate(Neuron, time_window, blocks=None, trial_sets=Non
         # Pull data from this series
         Neuron.set_use_series(use_series)
 
-    epos_p, epos_l, t = Neuron.session.get_xy_traces("eye position", time_window, blocks=blocks,
+    epos_p, epos_l, t_inds = Neuron.session.get_xy_traces("eye position", time_window, blocks=blocks,
                              trial_sets=trial_sets, return_inds=True)
     tpos_p, tpos_l = Neuron.session.get_xy_traces("target position", time_window, blocks=blocks,
                              trial_sets=trial_sets, return_inds=False)
@@ -25,7 +26,11 @@ def get_eye_target_pos_and_rate(Neuron, time_window, blocks=None, trial_sets=Non
     fr = np.full(tpos_p.shape, np.nan)
     valid_fr, fr_tinds = Neuron.get_firing_traces(time_window, blocks=blocks,
                                     trial_sets=trial_sets, return_inds=True)
-    fr[fr_tinds, :] = valid_fr
+    match_t_inds = Indexer(t_inds)
+    for t_num, t in enumerate(fr_tinds):
+        # Match behavior trials to neurons in case any missing
+        match_ind = match_t_inds.move_index_next(t, '=')
+        fr[match_ind, :] = valid_fr[t_num, :]
     return np.stack((epos_p, epos_l, tpos_p, tpos_l, fr), axis=2)
 
 
