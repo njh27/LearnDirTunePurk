@@ -29,7 +29,7 @@ def get_eye_target_pos_and_rate(Neuron, time_window, blocks=None, trial_sets=Non
 
 
 def gather_neurons(neurons_dir, PL2_dir, maestro_dir, maestro_save_dir,
-                    cell_types, data_fun, *args, **kwargs):
+                    cell_types, data_fun, data_fun_args, data_fun_kwargs):
     """ Loads data according to the name of the files input in neurons dir.
     Creates a session from the maestro data and joins the corresponding
     neurons from the neurons file. Goes through all neurons and if their name
@@ -82,9 +82,9 @@ def gather_neurons(neurons_dir, PL2_dir, maestro_dir, maestro_save_dir,
                 if n_name[0:2] in cell_types:
                     # Call data function on this neuron and save to output
                     if n_name in out_data:
-                        out_data[n_name].append(data_fun(ldp_sess.neuron_info[n_name], *args, **kwargs))
+                        out_data[n_name].append(data_fun(ldp_sess.neuron_info[n_name], *data_fun_args, **data_fun_kwargs))
                     else:
-                        out_data[n_name] = [data_fun(ldp_sess.neuron_info[n_name], *args, **kwargs)]
+                        out_data[n_name] = [data_fun(ldp_sess.neuron_info[n_name], *data_fun_args, **data_fun_kwargs )]
                     print("Adding a neuron of type {0}".format(n_name))
                     # return out_data
         except:
