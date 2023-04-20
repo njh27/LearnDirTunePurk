@@ -8,6 +8,7 @@ def get_eye_target_pos_and_rate(Neuron, time_window, blocks=None, trial_sets=Non
                                 use_series=None):
     """
     """
+    print("calling datafun")
     if use_series is not None:
         if not isinstance(use_series, str):
             raise ValueError("use_series must be a string that follows the neuron's name.")
@@ -85,6 +86,7 @@ def gather_neurons(neurons_dir, PL2_dir, maestro_dir, maestro_save_dir,
                     print("Adding a neuron of type {0}".format(n_name))
                     # return out_data
         except:
+            raise
             print("SKIPPING FILE {0} for some error!".format(fname))
             continue
         print("Names found:", ldp_sess.get_neuron_names())
