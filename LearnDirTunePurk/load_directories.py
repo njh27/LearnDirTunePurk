@@ -4,14 +4,42 @@ from LearnDirTunePurk.build_session import create_behavior_session, add_neuron_t
 
 
 
+def get_eye_target_pos_and_rate(Neuron, time_window, blocks=None, trial_sets=None,
+                                use_series=None):
+    """
+    """
+    if use_series is not None:
+        if not isinstance(use_series, str):
+            raise ValueError("use_series must be a string that follows the neuron's name.")
+        use_series = Neuron.name + "_" + use_series
+        # Pull data from this series
+        Neuron.set_use_series(use_series)
+    
+    epos_p, epos_l, t = Neuron.session.get_xy_traces("eye position", time_window, blocks=blocks,
+                             trial_sets=trial_sets, return_inds=True)
+    tpos_p, tpos_l = Neuron.session.get_xy_traces("target position", time_window, blocks=blocks,
+                             trial_sets=trial_sets, return_inds=False)
+    # Unstable neurons can cause firing rate data to be missing so fill nans first
+    fr = np.full(tpos_p.shape, np.nan)
+    valid_fr, fr_tinds = Neuron.get_firing_traces(time_window, blocks=blocks,
+                                    trial_sets=trial_sets, return_inds=True)
+    fr[fr_tinds, :] = valid_fr
+    return np.stack((epos_p, epos_l, tpos_p, tpos_l, fr), axis=2)
+
+
 def gather_neurons(neurons_dir, PL2_dir, maestro_dir, maestro_save_dir,
-                    cell_type=None):
+                    cell_types, data_fun, *data_fun_args, **data_fun_kwargs):
     """ Loads data according to the name of the files input in neurons dir.
     Creates a session from the maestro data and joins the corresponding
-    neurons from the neurons file. Neuron objects with the desired matching
-    neuron type are output.
+    neurons from the neurons file. Goes through all neurons and if their name
+    is found in the list 'cell_types', then 'data_fun' is called on that neuron
+    and its output is appended to a list under the output dict key 'neuron_name'.
     """
-    neurons_out = []
+    rotate = False
+    print("Getting WITHOUT rotating data!!")
+    if not isinstance(cell_types, list):
+        cell_types = [cell_types]
+    out_data = {}
     for f in os.listdir(neurons_dir):
         fname = f
         fname = fname.split(".")[0]
@@ -27,7 +55,7 @@ def gather_neurons(neurons_dir, PL2_dir, maestro_dir, maestro_save_dir,
 
         try:
             ldp_sess = create_behavior_session(fname, maestro_dir,
-                                                session_name=fname, rotate=True,
+                                                session_name=fname, rotate=rotate,
                                                 check_existing_maestro=True,
                                                 save_maestro_data=True,
                                                 save_maestro_name=save_name)
@@ -45,18 +73,19 @@ def gather_neurons(neurons_dir, PL2_dir, maestro_dir, maestro_save_dir,
             # Continue building session and neuron tuning
             ldp_sess = format_ldp_trials_blocks(ldp_sess, verbose=False)
             ldp_sess.join_neurons()
-            ldp_sess.set_baseline_averages([-100, 800], rotate=True)
+            ldp_sess.set_baseline_averages([-100, 800], rotate=rotate)
 
             for n_name in ldp_sess.get_neuron_names():
-                if cell_type is None:
-                    neurons_out.append(ldp_sess.neuron_info[n_name])
-                elif cell_type.lower() == ldp_sess.neuron_info[n_name].cell_type.lower():
-                    neurons_out.append(ldp_sess.neuron_info[n_name])
-                else:
-                    # This neuron should not get added to final output
-                    pass
+                if n_name in cell_types:
+                    # Call data function on this neuron and save to output
+                    if n_name in out_data:
+                        out_data[n_name].append(data_fun(ldp_sess.neuron_info[n_name], data_fun_args, data_fun_kwargs))
+                    else:
+                        out_data[n_name] = [data_fun(ldp_sess.neuron_info[n_name], data_fun_args, data_fun_kwargs)]
+                    print("working?")
+                    return out_data
         except:
             print("SKIPPING FILE {0} for some error!".format(fname))
             continue
 
-    return neurons_out
+    return out_data

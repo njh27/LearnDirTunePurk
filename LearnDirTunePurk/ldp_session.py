@@ -24,7 +24,7 @@ def make_180(angle):
 class LDPSession(Session):
 
     def __init__(self, trial_data, session_name=None, data_type=None,
-                 rotate=False):
+                 rotate=False, nan_saccades=True):
         """
         """
         Session.__init__(self, trial_data, session_name, data_type)
@@ -33,6 +33,7 @@ class LDPSession(Session):
         self.rotate = rotate
         self.sacc_and_err_trials = np.zeros(len(self), dtype='bool')
         self.rem_sacc_errs = False
+        self.nan_saccades = nan_saccades
         self.verbose = True
         # Hard coded default sets and axes
         self.four_dir_trial_sets = ["learning", "anti_learning",
@@ -592,7 +593,8 @@ class LDPSession(Session):
                 ot_ind += 1
         return n_orphans_assigned
 
-    def add_saccades(self, time_window, blocks=None, trial_sets=None, ind_cushion=30):
+    def add_saccades(self, time_window, blocks=None, trial_sets=None,
+                        ind_cushion=30):
         """ Adds saccade windows to session and by default nan's these out in
         the current 'eye' data. """
         # Get all eye data during initial fixation
@@ -642,16 +644,17 @@ class LDPSession(Session):
                         x_vel, y_vel, ind_cushion=ind_cushion, acceleration_thresh=1, speed_thresh=30)
                 self._trial_lists['eye'][t_ind].saccade_windows = saccade_windows
                 self._trial_lists['eye'][t_ind].saccade_index = saccade_index
-                for sn in series_names:
-                    # NaN all this eye data
-                    self._trial_lists['eye'][t_ind].data[sn][saccade_index] = np.nan
-                # Check if slip is added then nan saccades if so
-                for sn in slip_names:
-                    try:
+                if self.nan_saccades:
+                    for sn in series_names:
+                        # NaN all this eye data
                         self._trial_lists['eye'][t_ind].data[sn][saccade_index] = np.nan
-                    except KeyError:
-                        # Should mean slip isn't found
-                        break
+                    # Check if slip is added then nan saccades if so
+                    for sn in slip_names:
+                        try:
+                            self._trial_lists['eye'][t_ind].data[sn][saccade_index] = np.nan
+                        except KeyError:
+                            # Should mean slip isn't found
+                            break
             except:
                 print(ind, t_ind)
                 raise
