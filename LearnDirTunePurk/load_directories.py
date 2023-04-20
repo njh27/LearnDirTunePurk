@@ -14,7 +14,7 @@ def get_eye_target_pos_and_rate(Neuron, time_window, blocks=None, trial_sets=Non
         use_series = Neuron.name + "_" + use_series
         # Pull data from this series
         Neuron.set_use_series(use_series)
-    
+
     epos_p, epos_l, t = Neuron.session.get_xy_traces("eye position", time_window, blocks=blocks,
                              trial_sets=trial_sets, return_inds=True)
     tpos_p, tpos_l = Neuron.session.get_xy_traces("target position", time_window, blocks=blocks,
@@ -79,13 +79,15 @@ def gather_neurons(neurons_dir, PL2_dir, maestro_dir, maestro_save_dir,
                 if n_name in cell_types:
                     # Call data function on this neuron and save to output
                     if n_name in out_data:
-                        out_data[n_name].append(data_fun(ldp_sess.neuron_info[n_name], data_fun_args, data_fun_kwargs))
+                        out_data[n_name].append(data_fun(ldp_sess.neuron_info[n_name], *data_fun_args, **data_fun_kwargs))
                     else:
-                        out_data[n_name] = [data_fun(ldp_sess.neuron_info[n_name], data_fun_args, data_fun_kwargs)]
+                        out_data[n_name] = [data_fun(ldp_sess.neuron_info[n_name], *data_fun_args, **data_fun_kwargs)]
                     print("working?")
                     return out_data
         except:
             print("SKIPPING FILE {0} for some error!".format(fname))
             continue
+        print("Names found:", ldp_sess.get_neuron_names())
+        raise ValueError("DUMB")
 
     return out_data
