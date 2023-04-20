@@ -82,12 +82,12 @@ def gather_neurons(neurons_dir, PL2_dir, maestro_dir, maestro_save_dir,
                         out_data[n_name].append(data_fun(ldp_sess.neuron_info[n_name], *data_fun_args, **data_fun_kwargs))
                     else:
                         out_data[n_name] = [data_fun(ldp_sess.neuron_info[n_name], *data_fun_args, **data_fun_kwargs)]
-                    print("working?")
-                    return out_data
+                    print("Adding a neuron of type {0}".format(n_name))
+                    # return out_data
         except:
             print("SKIPPING FILE {0} for some error!".format(fname))
             continue
         print("Names found:", ldp_sess.get_neuron_names())
-        raise ValueError("DUMB")
+        # raise ValueError("DUMB")
 
     return out_data
