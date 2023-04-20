@@ -76,7 +76,7 @@ def gather_neurons(neurons_dir, PL2_dir, maestro_dir, maestro_save_dir,
             ldp_sess.set_baseline_averages([-100, 800], rotate=rotate)
 
             for n_name in ldp_sess.get_neuron_names():
-                if n_name in cell_types:
+                if n_name[0:2] in cell_types:
                     # Call data function on this neuron and save to output
                     if n_name in out_data:
                         out_data[n_name].append(data_fun(ldp_sess.neuron_info[n_name], *data_fun_args, **data_fun_kwargs))
