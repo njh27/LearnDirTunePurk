@@ -58,9 +58,7 @@ def gather_neurons(neurons_dir, PL2_dir, maestro_dir, maestro_save_dir,
         fname_PL2 = fname + ".pl2"
         fname_neurons = "neurons_" + fname + "_viz.pkl"
         neurons_file = neurons_dir + fname_neurons
-        if fnum == 40:
-            print("!!!! skipping PC only file 40")
-            continue
+
         try:
             ldp_sess = create_behavior_session(fname, maestro_dir,
                                                 session_name=fname, rotate=rotate,
