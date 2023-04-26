@@ -8,6 +8,44 @@ import SessionAnalysis as sa
 
 
 
+def create_neuron_session(fname, neurons_dir, PL2_dir, maestro_dir,
+                        save_maestro=True, maestro_save_dir=None,
+                        rotate_eye_data=True):
+    """ Takes the input Maestro and PL2 files and generates the default LDP
+    session object using "builed_session" and joins it with the neurons
+    from the PL2/neuro_viz file. Returns the LDP session object with
+    neurons joined.
+    flag "save_maestro" will save the Maestro file if it was updated to be
+    synced with the PL2 file. """
+    # Get root fname
+    fname = fname.split(".")[0]
+    if fname[-4:].lower() == "_viz":
+        fname = fname.split("_viz")[0]
+    if fname[0:8].lower() == "neurons_":
+        fname = fname.split("neurons_")[1]
+    if maestro_save_dir is None:
+        maestro_save_dir = maestro_dir
+    save_name = maestro_save_dir + fname + "_maestro"
+    fname_PL2 = fname + ".pl2"
+    fname_neurons = "neurons_" + fname + "_viz.pkl"
+    neurons_file = neurons_dir + fname_neurons
+
+    ldp_sess = create_behavior_session(fname, maestro_dir,
+                                        session_name=fname, rotate=rotate_eye_data,
+                                        check_existing_maestro=True,
+                                        save_maestro_data=save_maestro,
+                                        save_maestro_name=save_name)
+
+    ldp_sess = add_neuron_trials(ldp_sess, maestro_dir, neurons_file,
+                                PL2_dir=PL2_dir, dt_data=1,
+                                save_maestro_name=save_name,
+                                save_maestro_data=save_maestro)
+    ldp_sess = format_ldp_trials_blocks(ldp_sess, verbose=False)
+    ldp_sess.join_neurons()
+
+    return ldp_sess
+
+
 def create_behavior_session(fname, maestro_dir, session_name=None, rotate=True,
             check_existing_maestro=True, save_maestro_data=True,
             save_maestro_name=None, verbose=True):
@@ -71,7 +109,6 @@ def create_behavior_session(fname, maestro_dir, session_name=None, rotate=True,
     ldp_sess.fname = fname
 
     return ldp_sess
-
 
 
 def add_neuron_trials(ldp_sess, maestro_dir, neurons_file, PL2_dir=None,
