@@ -10,7 +10,7 @@ import SessionAnalysis as sa
 
 def create_neuron_session(fname, neurons_dir, PL2_dir, maestro_dir,
                         save_maestro=True, maestro_save_dir=None,
-                        rotate_eye_data=True):
+                        rotate_eye_data=True, sac_ind_cushion=40):
     """ Takes the input Maestro and PL2 files and generates the default LDP
     session object using "builed_session" and joins it with the neurons
     from the PL2/neuro_viz file. Returns the LDP session object with
@@ -40,7 +40,7 @@ def create_neuron_session(fname, neurons_dir, PL2_dir, maestro_dir,
                                 PL2_dir=PL2_dir, dt_data=1,
                                 save_maestro_name=save_name,
                                 save_maestro_data=save_maestro)
-    ldp_sess = format_ldp_trials_blocks(ldp_sess, verbose=False)
+    ldp_sess = format_ldp_trials_blocks(ldp_sess, sac_ind_cushion=sac_ind_cushion, verbose=False)
     ldp_sess.join_neurons()
 
     return ldp_sess
@@ -176,7 +176,7 @@ def add_neuron_trials(ldp_sess, maestro_dir, neurons_file, PL2_dir=None,
 
 
 
-def format_ldp_trials_blocks(ldp_sess, verbose=True):
+def format_ldp_trials_blocks(ldp_sess, sac_ind_cushion=40, verbose=True):
 
     # Align all target related events with monitor refresh rate
     ldp_sess.shift_event_to_refresh('target_onset')
@@ -337,7 +337,7 @@ def format_ldp_trials_blocks(ldp_sess, verbose=True):
 
     if verbose: print("Adjusting fixation offsets and getting saccades.")
     ldp_sess.add_saccades(time_window=[-200, 0], blocks=None,
-                          trial_sets=None, ind_cushion=40)
+                          trial_sets=None, ind_cushion=sac_ind_cushion)
 
     if verbose: print("Deleting large saccade and position error trials.")
     max_sacc_amp = 6.
