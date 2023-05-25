@@ -20,7 +20,7 @@ def load_maestro_directory(fname, maestro_dir, check_existing_maestro=True,
             save_name = save_name + ".pickle"
     # Set save always False here. If we are saving, we will save at the end with
     # the compressed data and combined targets
-    maestro_data, l_exists = rm.maestro_read.load_directory(maestro_dir + fname,
+    maestro_data, l_exists = rm.maestro_read.load_directory(os.path.join(maestro_dir, fname),
                                         check_existing=check_existing_maestro,
                                         save_data=False,
                                         save_name=save_name,
