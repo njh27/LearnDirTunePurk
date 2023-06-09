@@ -26,7 +26,6 @@ def create_neuron_session(fname, neurons_dir, PL2_dir, maestro_dir,
     if maestro_save_dir is None:
         maestro_save_dir = maestro_dir
     save_name = maestro_save_dir + fname + "_maestro"
-    fname_PL2 = fname + ".pl2"
     fname_neurons = "neurons_" + fname + "_viz.pkl"
     neurons_file = neurons_dir + fname_neurons
 
