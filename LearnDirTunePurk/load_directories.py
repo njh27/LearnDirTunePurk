@@ -53,7 +53,6 @@ def gather_neurons(neurons_dir, PL2_dir, maestro_dir, maestro_save_dir,
             fname = fname.split("_viz")[0]
         if fname[0:8].lower() == "neurons_":
             fname = fname.split("neurons_")[1]
-        fnum = int(fname[-2:])
         save_name = maestro_save_dir + fname + "_maestro"
         fname_PL2 = fname + ".pl2"
         fname_neurons = "neurons_" + fname + "_viz.pkl"
