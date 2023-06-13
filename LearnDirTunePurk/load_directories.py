@@ -34,7 +34,8 @@ def get_eye_target_pos_and_rate(Neuron, time_window, blocks=None, trial_sets=Non
 
 
 def gather_neurons(neurons_dir, PL2_dir, maestro_dir, maestro_save_dir, cell_types, 
-                   data_fun, sess_fun=None, data_fun_args=(), data_fun_kwargs={}):
+                   data_fun, sess_fun=None, data_fun_args=(), data_fun_kwargs={},
+                   verbose=True):
     """ Loads data according to the name of the files input in neurons dir.
     Creates a session from the maestro data and joins the corresponding
     neurons from the neurons file. Goes through all neurons and if their name
@@ -52,6 +53,7 @@ def gather_neurons(neurons_dir, PL2_dir, maestro_dir, maestro_save_dir, cell_typ
         cell_types = [cell_types]
     out_data = {}
     n_total_units = 0
+    failed_files = []
     for f in os.listdir(neurons_dir):
         fname = f
         fname = fname.split(".")[0]
@@ -71,14 +73,15 @@ def gather_neurons(neurons_dir, PL2_dir, maestro_dir, maestro_save_dir, cell_typ
                                                 save_maestro_data=True,
                                                 save_maestro_name=save_name)
 
-            print("Loading neurons from file {0}.".format(fname_neurons))
+            if verbose: print("Loading neurons from file {0}.".format(fname_neurons))
             try:
                 ldp_sess = add_neuron_trials(ldp_sess, maestro_dir, neurons_file,
                                             PL2_dir=PL2_dir, dt_data=1,
                                             save_maestro_name=save_name,
                                             save_maestro_data=True)
             except NoEventsError:
-                print("!SKIPPING! file {0} because it has no PL2 events.".format(fname_PL2))
+                if verbose: print("!SKIPPING! file {0} because it has no PL2 events.".format(fname_PL2))
+                failed_files.append((fname, "No PL2 events found.")) # Store error text
                 continue
 
             # Continue building session and neuron tuning
@@ -99,14 +102,18 @@ def gather_neurons(neurons_dir, PL2_dir, maestro_dir, maestro_save_dir, cell_typ
                         out_data[n_type] = [data_fun(ldp_sess.neuron_info[n_name], 
                                                      *data_fun_args, 
                                                      **data_fun_kwargs)]
-                    print("Adding a neuron of type {0}".format(n_type))
+                    if verbose: print(f"Adding neuron {n_name}")
                     n_total_units += 1
                     # if n_total_units > 1:
                     #     return out_data
-        except:
+        except Exception as e: # Catch any error
             print("SKIPPING FILE {0} for some error!".format(fname))
+            failed_files.append((fname, str(e))) # Store error text
             continue
-        print("Names found:", ldp_sess.get_neuron_names())
-        # raise ValueError("DUMB")
-
+    if verbose: print(f"Successfully gathered data for {n_total_units} total neurons.")
+    if (len(failed_files) > 0) and (verbose):
+        print("The following files FAILED to load appropriately: ")
+        for ff in failed_files:
+            print(f"{ff[0]}...")
+            print(ff[1])
     return out_data

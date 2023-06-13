@@ -192,6 +192,7 @@ def plot_neuron_tuning_learning(neuron, blocks, trial_sets, fix_win, learn_win, 
     plot_handles['fig'].suptitle(f"Tuning and learning file: {neuron.session.fname}; unit: {neuron.name}", fontsize=12, y=.95)
     # First plot the basic tuning responses
     tune_trace_win = [-300, 1000]
+    tune_trace_block = "StandTunePre"
     t_vals = np.arange(tune_trace_win[0], tune_trace_win[1])
     pol_t_win = [100, 175]
     pol_t_inds = (t_vals >= pol_t_win[0]) & (t_vals < pol_t_win[1])
@@ -204,7 +205,10 @@ def plot_neuron_tuning_learning(neuron, blocks, trial_sets, fix_win, learn_win, 
     for tune_trial in ["learning", "anti_pursuit", "pursuit", "anti_learning"]:
         plot_handles[tune_trial].axvline(0., color='k', linestyle="--", linewidth=0.5, zorder=-1)
         # plot_handles[tune_trial].axvline(250., color='k', linestyle="--", linewidth=0.5, zorder=-1)
-        fr = neuron.get_mean_firing_trace(tune_trace_win, blocks="StandTunePre", trial_sets=tune_trial)
+        fr = neuron.get_mean_firing_trace(tune_trace_win, blocks=tune_trace_block, trial_sets=tune_trial)
+        if len(fr) == 0:
+            print(f"No tuning trials found for {tune_trial} in blocks {tune_trace_block}")
+            continue
         plot_handles[tune_trial].plot(t_vals, fr, color="k")
         curr_max_fr = np.nanmax(fr)
         curr_min_fr = np.nanmin(fr)
@@ -220,27 +224,28 @@ def plot_neuron_tuning_learning(neuron, blocks, trial_sets, fix_win, learn_win, 
     polar_vals[0:4, :] = polar_vals[0:4, :][p_order, :]
     polar_vals[4, :] = polar_vals[0, :]
     plot_handles['polar'].plot(polar_vals[:, 0], polar_vals[:, 1], color=[.2, .2, .2], zorder=9)
+    tune_fr_min = 0. if ~np.isfinite(tune_fr_min) else tune_fr_min
 
     # Add the tuning vectors
     # Define the vector's magnitude and angle
     if isinstance(neuron, PurkinjeCell):
-        neuron.set_optimal_pursuit_vector(pol_t_win, block='StandTunePre', cs_time_window=[30, 250])
-        pref_dir = neuron.optimal_cos_vectors['StandTunePre']
-        pref_mag = neuron.optimal_cos_funs['StandTunePre'](pref_dir)
+        neuron.set_optimal_pursuit_vector(pol_t_win, block=tune_trace_block, cs_time_window=[30, 250])
+        pref_dir = neuron.optimal_cos_vectors[tune_trace_block]
+        pref_mag = neuron.optimal_cos_funs[tune_trace_block](pref_dir)
         # Annotate the plot with an arrow at the CS angle and SS magnitude
         polar_arrow_and_annotate(plot_handles['polar'], 
-                                 neuron.optimal_cos_vectors_cs['StandTunePre'], pref_mag, 
+                                 neuron.optimal_cos_vectors_cs[tune_trace_block], pref_mag, 
                                  "CS pref", color='black')
     else:
-        neuron.set_optimal_pursuit_vector(pol_t_win, block='StandTunePre')
-        pref_dir = neuron.optimal_cos_vectors['StandTunePre']
-        pref_mag = neuron.optimal_cos_funs['StandTunePre'](pref_dir)
+        neuron.set_optimal_pursuit_vector(pol_t_win, block=tune_trace_block)
+        pref_dir = neuron.optimal_cos_vectors[tune_trace_block]
+        pref_mag = neuron.optimal_cos_funs[tune_trace_block](pref_dir)
     # Annotate the plot with an arrow at the preferred SS angle and magnitude
     polar_arrow_and_annotate(plot_handles['polar'], 
                                  pref_dir, pref_mag, 
                                  "SS pref", color='black', facecolor='none', linestyle="--")
     # Attach a header for top tuning section to the polar axes
-    plot_handles['polar'].text(np.radians(145), 4.5*pref_mag, "Four-direction Standard Tuning", color="black", fontsize=10,
+    plot_handles['polar'].text(np.radians(145), 3*pref_mag, "Four-direction Standard Tuning", color="black", fontsize=10,
                             ha="center", va="top", weight='bold', zorder=15)
         
     # Set all axes the same
@@ -429,7 +434,8 @@ def plot_neuron_tuning_learning(neuron, blocks, trial_sets, fix_win, learn_win, 
     plot_handles['behav_fun'].set_xlim([-1, len(neuron.session)+1])
     plot_handles['behav_fun'].axhline(0., color='k', linestyle="--", linewidth=0.5, zorder=-1)
     # # Add the labels that we found and the legend
-    plot_handles['behav_fun'].legend(fontsize='x-small', borderpad=0.2, labelspacing=0.2, bbox_to_anchor=(.05, .65))
+    plot_handles['behav_fun'].legend(fontsize='x-small', borderpad=0.2, labelspacing=0.2, 
+                                     bbox_to_anchor=(.15, .65))
     fix_mean /= fix_n
     fix_std /= fix_n
     fix_std = max(fix_std, 0.5) # Ensure not zero so plots aren't messed up
