@@ -1,7 +1,9 @@
 import pickle
 import re
 import os
-import ReadMaestro as rm
+from ReadMaestro.maestro_read import load_directory
+from ReadMaestro.format_trials import combine_targets
+from ReadMaestro.target import compress_target_data
 
 
 
@@ -20,7 +22,7 @@ def load_maestro_directory(fname, maestro_dir, check_existing_maestro=True,
             save_name = save_name + ".pickle"
     # Set save always False here. If we are saving, we will save at the end with
     # the compressed data and combined targets
-    maestro_data, l_exists = rm.maestro_read.load_directory(os.path.join(maestro_dir, fname),
+    maestro_data, l_exists = load_directory(os.path.join(maestro_dir, fname),
                                         check_existing=check_existing_maestro,
                                         save_data=False,
                                         save_name=save_name,
@@ -32,7 +34,7 @@ def load_maestro_directory(fname, maestro_dir, check_existing_maestro=True,
     if combine_targs:
         # Combining these two targets is hard coded for LearnDirTunePurk
         print("Combining targets 'rmfixation1'and 'rmpursuit1'.")
-        rm.format_trials.combine_targets(maestro_data, 'rmfixation1', 'rmpursuit1')
+        combine_targets(maestro_data, 'rmfixation1', 'rmpursuit1')
     if compress_data:
         print("Compressing target data for each trial.")
         rm.target.compress_target_data(maestro_data)
@@ -71,14 +73,14 @@ def maestro_to_pickle_batch(maestro_dir, existing_dir=None, save_dir=None,
         if maestro_dir[-1] != "/":
             maestro_dir = maestro_dir + "/"
         print("Loading directory", maestro_dir + maestro_file)
-        maestro_data = rm.maestro_read.load_directory(maestro_dir + maestro_file, check_existing=False, save_data=False)
+        maestro_data = load_directory(maestro_dir + maestro_file, check_existing=False, save_data=False)
 
         if combine_targs:
             # Combining these two targets is hard coded for LearnDirTunePurk
-            rm.format_trials.combine_targets(maestro_data, 'rmfixation1', 'rmpursuit1')
+            combine_targets(maestro_data, 'rmfixation1', 'rmpursuit1')
 
         if compress_data:
-            rm.target.compress_target_data(maestro_data)
+            compress_target_data(maestro_data)
 
         # Make default save name
         save_name = maestro_file + "_maestro.pickle"

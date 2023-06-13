@@ -33,19 +33,25 @@ def get_eye_target_pos_and_rate(Neuron, time_window, blocks=None, trial_sets=Non
     return np.stack((epos_p, epos_l, tpos_p, tpos_l, fr), axis=2)
 
 
-def gather_neurons(neurons_dir, PL2_dir, maestro_dir, maestro_save_dir,
-                    cell_types, data_fun, data_fun_args, data_fun_kwargs):
+def gather_neurons(neurons_dir, PL2_dir, maestro_dir, maestro_save_dir, cell_types, 
+                   data_fun, sess_fun=None, data_fun_args=(), data_fun_kwargs={}):
     """ Loads data according to the name of the files input in neurons dir.
     Creates a session from the maestro data and joins the corresponding
     neurons from the neurons file. Goes through all neurons and if their name
     is found in the list 'cell_types', then 'data_fun' is called on that neuron
     and its output is appended to a list under the output dict key 'neuron_name'.
+    Optionally the input function "sess_fun" can be called with a single input,
+    the single ldp_session object, and return a single output, the same single
+    ldp_session object, to perform any preprocessing before neurons
+    from that session are gathered and data_fun is called.
     """
-    rotate = False
-    print("Getting WITHOUT rotating data!!")
+    rotate = True
+    if not rotate:
+        print("Getting WITHOUT rotating data!!")
     if not isinstance(cell_types, list):
         cell_types = [cell_types]
     out_data = {}
+    n_total_units = 0
     for f in os.listdir(neurons_dir):
         fname = f
         fname = fname.split(".")[0]
@@ -78,18 +84,25 @@ def gather_neurons(neurons_dir, PL2_dir, maestro_dir, maestro_save_dir,
             # Continue building session and neuron tuning
             ldp_sess = format_ldp_trials_blocks(ldp_sess, verbose=False)
             ldp_sess.join_neurons()
-            ldp_sess.set_baseline_averages([-100, 800], rotate=rotate)
+            if sess_fun is not None:
+                ldp_sess = sess_fun(ldp_sess)
 
             for n_name in ldp_sess.get_neuron_names():
-                n_type = n_name[0:2]
+                n_type = n_name.split("_")[0]
                 if n_type in cell_types:
                     # Call data function on this neuron and save to output
                     if n_type in out_data:
-                        out_data[n_type].append(data_fun(ldp_sess.neuron_info[n_name], *data_fun_args, **data_fun_kwargs))
+                        out_data[n_type].append(data_fun(ldp_sess.neuron_info[n_name], 
+                                                         *data_fun_args, 
+                                                         **data_fun_kwargs))
                     else:
-                        out_data[n_type] = [data_fun(ldp_sess.neuron_info[n_name], *data_fun_args, **data_fun_kwargs )]
+                        out_data[n_type] = [data_fun(ldp_sess.neuron_info[n_name], 
+                                                     *data_fun_args, 
+                                                     **data_fun_kwargs)]
                     print("Adding a neuron of type {0}".format(n_type))
-                    # return out_data
+                    n_total_units += 1
+                    # if n_total_units > 1:
+                    #     return out_data
         except:
             print("SKIPPING FILE {0} for some error!".format(fname))
             continue

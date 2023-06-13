@@ -3,7 +3,6 @@ import re
 import warnings
 from SessionAnalysis.session import Session
 from SessionAnalysis.utils import eye_data_series
-from LearnDirTunePurk import analyze_behavior as ab
 
 
 

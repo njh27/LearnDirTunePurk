@@ -3,8 +3,10 @@ import pickle
 from LearnDirTunePurk.load_data import load_maestro_directory
 from LearnDirTunePurk import format_trials
 from LearnDirTunePurk.ldp_session import LDPSession
-import ReadMaestro as rm
-import SessionAnalysis as sa
+from ReadMaestro.format_trials import data_to_target
+from ReadMaestro.maestro_read import load_directory as rm_load_directory
+from ReadMaestro.utils.PL2_maestro import is_maestro_pl2_synced, add_plexon_events
+import SessionAnalysis.utils.format_trial_dicts as sa_format_dicts
 
 
 
@@ -66,7 +68,7 @@ def create_behavior_session(fname, maestro_dir, session_name=None, rotate=True,
         is_weird_Yoda = False
     # Sets trial targets as objects so probably want to do this after loading and not saved
     if verbose: print("Formatting target data and trials.")
-    rm.format_trials.data_to_target(maestro_data)
+    data_to_target(maestro_data)
 
     # Reformat the multi targets and names of trials into one and name events
     if verbose: print("Renaming trials and events.")
@@ -88,15 +90,14 @@ def create_behavior_session(fname, maestro_dir, session_name=None, rotate=True,
 
     # Create base list of ApparatusTrial trials from target0
     if verbose: print("Converting data to trial objects.")
-    trial_list = sa.utils.format_trial_dicts.maestro_to_apparatus_trial(
+    trial_list = sa_format_dicts.maestro_to_apparatus_trial(
                         maestro_data, 0, 1, start_data=0, data_name="target0")
 
     # Create a second list of BehaviorTrial trials from eye data
-    trial_list_bhv = sa.utils.format_trial_dicts.maestro_to_behavior_trial(
+    trial_list_bhv = sa_format_dicts.maestro_to_behavior_trial(
                         maestro_data, 1, start_data=0, data_name="eye")
 
     # Create base session from apparatus trials then add behavior
-    # ldp_sess = sa.session.Session(trial_list, session_name=session_name)
     if verbose: print("Generating session and adding blocks.")
     ldp_sess = LDPSession(trial_list, session_name=session_name, rotate=rotate)
     ldp_sess.add_trial_data(trial_list_bhv, data_type=None)
@@ -114,7 +115,7 @@ def add_neuron_trials(ldp_sess, maestro_dir, neurons_file, PL2_dir=None,
                       dt_data=1, save_maestro_name=None, save_maestro_data=True):
     """ Adds neuron trials to the LDPSession object from the neurons list
     of dictionaries in neurons. """
-    maestro_data = rm.maestro_read.load_directory(maestro_dir+ldp_sess.fname,
+    maestro_data = rm_load_directory(maestro_dir+ldp_sess.fname,
                                         check_existing=True,
                                         save_data=save_maestro_data,
                                         save_name=save_maestro_name)
@@ -127,12 +128,12 @@ def add_neuron_trials(ldp_sess, maestro_dir, neurons_file, PL2_dir=None,
         else:
             raise RuntimeError("Could not match trial names for trial {0} between maestro data {1} and session name {2}.".format(t_ind, maestro_data[t_ind]['header']['name'], ldp_sess[t_ind].name))
 
-    if not rm.utils.PL2_maestro.is_maestro_pl2_synced(maestro_data, ldp_sess.fname + ".pl2"):
+    if not is_maestro_pl2_synced(maestro_data, ldp_sess.fname + ".pl2"):
         if save_maestro_name is None:
             print("maestro_data not yet synced with PL2 file {0}. Syncing file but not saving because maestro_save_name not specified.".format(ldp_sess.fname + ".pl2"))
         else:
             print("maestro_data not yet synced with PL2 file {0}. Syncing.".format(ldp_sess.fname + ".pl2"))
-        maestro_data = rm.utils.PL2_maestro.add_plexon_events(maestro_data,
+        maestro_data = add_plexon_events(maestro_data,
                                                     PL2_dir + ldp_sess.fname + ".pl2",
                                                     maestro_pl2_chan_offset=3,
                                                     remove_bad_inds=False)
@@ -153,7 +154,7 @@ def add_neuron_trials(ldp_sess, maestro_dir, neurons_file, PL2_dir=None,
     # for n, class_name in zip(neurons, ["PC", "Golgi", "CS"]):
     #     n['type__'] = class_name
 
-    trial_list_nrn, neuron_meta = sa.utils.format_trial_dicts.maestro_to_neuron_trial(
+    trial_list_nrn, neuron_meta = sa_format_dicts.maestro_to_neuron_trial(
                                             maestro_data, neurons, dt_data=dt_data,
                                             start_data=0, default_name="n_",
                                             use_class_names=True, data_name='neurons')

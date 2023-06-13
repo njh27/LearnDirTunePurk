@@ -1,7 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.transforms as transforms
-from matplotlib.backends.backend_pdf import PdfPages
 from NeuronAnalysis.general import gauss_convolve
 from NeuronAnalysis.neurons import PurkinjeCell
 
@@ -247,6 +246,7 @@ def plot_neuron_tuning_learning(neuron, blocks, trial_sets, fix_win, learn_win, 
     # Set all axes the same
     tune_fr_max = 5 * int(np.ceil(tune_fr_max / 5))
     tune_fr_min = 5 * int(np.floor(tune_fr_min / 5))
+    tune_fr_max = max(1., tune_fr_max) # Ensure max != since it screws up scaling/labeling
     plot_handles['polar'].set_rlim(0, tune_fr_max)
     tick_round = 10 if tune_fr_max > 50 else 5
     tick_steps = tick_round * int(np.ceil((tune_fr_max / 5) / tick_round))
@@ -421,6 +421,7 @@ def plot_neuron_tuning_learning(neuron, blocks, trial_sets, fix_win, learn_win, 
 
     behav_mean /= behav_n
     behav_std /= behav_n
+    behav_std = max(behav_std, 0.5) # Ensure not zero so plots aren't messed up
     plot_handles['behav_fun'].set_title(f"Learning axis eye velocity by trial in time window {learn_win} ms", fontsize=8, pad=t_title_pad, weight='bold')
     plot_handles['behav_fun'].set_xlabel("Trial number in session")
     plot_handles['behav_fun'].set_ylabel("Learning axis eye \n velocity (deg/s)", fontsize=8)
@@ -431,6 +432,7 @@ def plot_neuron_tuning_learning(neuron, blocks, trial_sets, fix_win, learn_win, 
     plot_handles['behav_fun'].legend(fontsize='x-small', borderpad=0.2, labelspacing=0.2, bbox_to_anchor=(.05, .65))
     fix_mean /= fix_n
     fix_std /= fix_n
+    fix_std = max(fix_std, 0.5) # Ensure not zero so plots aren't messed up
     plot_handles['fix_fun'].text(.5, 1.18, "Responses Across Blocks and Trials", color="black", fontsize=10,
                                     ha="center", va="top", weight='bold', zorder=15, transform=plot_handles["fix_fun"].transAxes)
     plot_handles['fix_fun'].set_title(f"Fixation window rate by trial in time window {fix_win} ms", fontsize=8, pad=t_title_pad, weight='bold')
@@ -443,6 +445,7 @@ def plot_neuron_tuning_learning(neuron, blocks, trial_sets, fix_win, learn_win, 
     plot_handles['fix_fun'].axhline(fix_mean, color='k', linestyle="--", linewidth=0.5, zorder=-1)
     learn_mean /= fix_n
     learn_std /= fix_n
+    learn_std = max(learn_std, 0.5) # Ensure not zero so plots aren't messed up
     plot_handles['learn_fun'].set_title(f"Pursuit response by trial in time window {learn_win} ms", fontsize=8, pad=t_title_pad, weight='bold')
     plot_handles['learn_fun'].set_ylabel("Learning window firing rate \n fixation subtracted (Hz)", fontsize=8)
     plot_handles['learn_fun'].set_xticks([])
