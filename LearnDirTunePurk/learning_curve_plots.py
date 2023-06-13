@@ -244,9 +244,6 @@ def plot_neuron_tuning_learning(neuron, blocks, trial_sets, fix_win, learn_win, 
     polar_arrow_and_annotate(plot_handles['polar'], 
                                  pref_dir, pref_mag, 
                                  "SS pref", color='black', facecolor='none', linestyle="--")
-    # Attach a header for top tuning section to the polar axes
-    plot_handles['polar'].text(np.radians(145), 3*pref_mag, "Four-direction Standard Tuning", color="black", fontsize=10,
-                            ha="center", va="top", weight='bold', zorder=15)
         
     # Set all axes the same
     tune_fr_max = 5 * int(np.ceil(tune_fr_max / 5))
@@ -271,7 +268,10 @@ def plot_neuron_tuning_learning(neuron, blocks, trial_sets, fix_win, learn_win, 
         # Add in colored axes for polar plot
         plot_handles['polar'].plot([polar_map[tune_trial], polar_map[tune_trial]], [0, tune_fr_max], color=t_set_color_codes[tune_trial], alpha=1., linewidth=2, zorder=8)
         
-    # Add labels
+    # Add labels and annotations and headers
+    plot_handles['learning'].text(2., 1.7, "Four-direction Standard Tuning", color="black", fontsize=10,
+                                    ha="center", va="top", weight='bold', zorder=15, 
+                                    transform=plot_handles["learning"].transAxes)
     plot_handles['ax_inst_schem'].fill_between(learn_win, 0, 600, color=[.6, .6, .6], alpha=1., zorder=-10)
     plot_handles['anti_learning'].set_xlabel("Time from target onset (ms)", fontsize=8)
     plot_handles['anti_pursuit'].set_ylabel("Firing rate (Hz)", fontsize=8)
@@ -434,8 +434,10 @@ def plot_neuron_tuning_learning(neuron, blocks, trial_sets, fix_win, learn_win, 
     plot_handles['behav_fun'].set_xlim([-1, len(neuron.session)+1])
     plot_handles['behav_fun'].axhline(0., color='k', linestyle="--", linewidth=0.5, zorder=-1)
     # # Add the labels that we found and the legend
-    plot_handles['behav_fun'].legend(fontsize='x-small', borderpad=0.2, labelspacing=0.2, 
-                                     bbox_to_anchor=(.15, .65))
+    behav_legend = plot_handles['behav_fun'].legend(fontsize='x-small', borderpad=0.2, labelspacing=0.2, 
+                                     bbox_to_anchor=(0., 1.), loc='upper left', 
+                                     facecolor='white', framealpha=1.)
+    behav_legend.set_zorder(20)
     fix_mean /= fix_n
     fix_std /= fix_n
     fix_std = max(fix_std, 0.5) # Ensure not zero so plots aren't messed up
