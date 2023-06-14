@@ -1,6 +1,6 @@
 import argparse
 from matplotlib.backends.backend_pdf import PdfPages
-from LearnDirTunePurk.load_directories import gather_neurons
+from LearnDirTunePurk.load_directories import fun_all_neurons
 from LearnDirTunePurk.learning_curve_plots import plot_neuron_tuning_learning
 
 
@@ -15,7 +15,7 @@ learn_t_win = [200, 300]
 
 def sess_fun(ldp_sess):
     """ Defines a function used to process each ldp_session object within the call
-    to "gather_neurons". """
+    to "fun_all_neurons". """
     # Add the Gaussian smoothed firing rates to each neuron
     ldp_sess.gauss_convolved_FR(10, cutoff_sigma=4, series_name="_gauss")
 
@@ -42,16 +42,16 @@ if __name__ == "__main__":
             args.save_fname = args.save_fname + ".pdf"
     else:
         args.save_fname = args.save_fname + ".pdf"
-    print(f"Output figures will be saved to file {args.save_fname}")
+    print(f"Output figures will be saved to file {args.save_fname}", flush=True)
     pdf_pages = PdfPages(args.save_fname)
 
-    # Setup intputs for gather_neurons and tuning
+    # Setup intputs for fun_all_neurons and tuning
     cell_types = ["PC", "putPC"]
     n_tune_args = (fit_blocks, fit_trial_sets, fix_t_win, learn_t_win)
     n_tune_kwargs = {'sigma': 12.5, 
                      'cutoff_sigma': 4, 
                      'show_fig': False}
-    neuron_figs = gather_neurons(args.neurons_dir, args.PL2_dir, args.maestro_dir, 
+    neuron_figs = fun_all_neurons(args.neurons_dir, args.PL2_dir, args.maestro_dir, 
                                  args.maestro_save_dir, cell_types, 
                                  plot_neuron_tuning_learning, 
                                  sess_fun,
@@ -60,9 +60,13 @@ if __name__ == "__main__":
 
     # Add the figures to the PDF file
     for n_name in neuron_figs.keys():
-        # Need to loop keys since we have confirmed and putative PCs separate
-        for plot_handles in neuron_figs[n_name]:
-            pdf_pages.savefig(plot_handles['fig'])
+        # Add a filename number so we can sort these
+        file_num = int(n_name.split("_PC")[0][-2:])
+        neuron_figs[n_name] = (neuron_figs[n_name][0], neuron_figs[n_name][1], file_num)
+    # Now sort by file_num so output is sensible
+    sorted_plot_handles = [x[0] for x in sorted([neuron_figs[key] for key in neuron_figs.keys()], key=lambda x:x[2])]
+    for plot_handles in sorted_plot_handles:
+        pdf_pages.savefig(plot_handles['fig'])
     # Close the PDF file
     pdf_pages.close()
-    print(f"Output figures saved to {args.save_fname}")
+    print(f"Output figures saved to {args.save_fname}", flush=True)

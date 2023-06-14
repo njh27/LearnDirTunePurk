@@ -33,7 +33,7 @@ def get_eye_target_pos_and_rate(Neuron, time_window, blocks=None, trial_sets=Non
     return np.stack((epos_p, epos_l, tpos_p, tpos_l, fr), axis=2)
 
 
-def gather_neurons(neurons_dir, PL2_dir, maestro_dir, maestro_save_dir, cell_types, 
+def fun_all_neurons(neurons_dir, PL2_dir, maestro_dir, maestro_save_dir, cell_types, 
                    data_fun, sess_fun=None, data_fun_args=(), data_fun_kwargs={},
                    verbose=True):
     """ Loads data according to the name of the files input in neurons dir.
@@ -48,7 +48,7 @@ def gather_neurons(neurons_dir, PL2_dir, maestro_dir, maestro_save_dir, cell_typ
     """
     rotate = True
     if not rotate:
-        print("Getting WITHOUT rotating data!!")
+        print("Getting WITHOUT rotating data!!", flush=True)
     if not isinstance(cell_types, list):
         cell_types = [cell_types]
     out_data = {}
@@ -73,14 +73,14 @@ def gather_neurons(neurons_dir, PL2_dir, maestro_dir, maestro_save_dir, cell_typ
                                                 save_maestro_data=True,
                                                 save_maestro_name=save_name)
 
-            if verbose: print("Loading neurons from file {0}.".format(fname_neurons))
+            if verbose: print(f"Loading neurons from file {fname_neurons}.", flush=True)
             try:
                 ldp_sess = add_neuron_trials(ldp_sess, maestro_dir, neurons_file,
                                             PL2_dir=PL2_dir, dt_data=1,
                                             save_maestro_name=save_name,
                                             save_maestro_data=True)
             except NoEventsError:
-                if verbose: print("!SKIPPING! file {0} because it has no PL2 events.".format(fname_PL2))
+                if verbose: print(f"!SKIPPING! file {fname_PL2} because it has no PL2 events.", flush=True)
                 failed_files.append((fname, "No PL2 events found.")) # Store error text
                 continue
 
@@ -92,28 +92,26 @@ def gather_neurons(neurons_dir, PL2_dir, maestro_dir, maestro_save_dir, cell_typ
 
             for n_name in ldp_sess.get_neuron_names():
                 n_type = n_name.split("_")[0]
+                out_key = fname + "_" + n_name
                 if n_type in cell_types:
                     # Call data function on this neuron and save to output
-                    if n_type in out_data:
-                        out_data[n_type].append(data_fun(ldp_sess.neuron_info[n_name], 
-                                                         *data_fun_args, 
-                                                         **data_fun_kwargs))
-                    else:
-                        out_data[n_type] = [data_fun(ldp_sess.neuron_info[n_name], 
-                                                     *data_fun_args, 
-                                                     **data_fun_kwargs)]
-                    if verbose: print(f"Adding neuron {n_name}")
+                    out_data[out_key] = (data_fun(ldp_sess.neuron_info[n_name], 
+                                                    *data_fun_args, 
+                                                    **data_fun_kwargs),
+                                         n_total_units)
+                    if verbose: print(f"Adding neuron {n_name}", flush=True)
                     n_total_units += 1
-                    # if n_total_units > 1:
+                    # if n_total_units >= 2:
+                    #     Testing short circuit
                     #     return out_data
         except Exception as e: # Catch any error
-            print("SKIPPING FILE {0} for some error!".format(fname))
+            print(f"SKIPPING FILE {fname} for some error!", flush=True)
             failed_files.append((fname, str(e))) # Store error text
             continue
-    if verbose: print(f"Successfully gathered data for {n_total_units} total neurons.")
+    if verbose: print(f"Successfully gathered data for {n_total_units} total neurons.", flush=True)
     if (len(failed_files) > 0) and (verbose):
-        print("The following files FAILED to load appropriately: ")
+        print("The following files FAILED to load appropriately: ", flush=True)
         for ff in failed_files:
-            print(f"{ff[0]}...")
-            print(ff[1])
+            print(f"{ff[0]}...", flush=True)
+            print(f"{ff[1]}", flush=True)
     return out_data
