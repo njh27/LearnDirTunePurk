@@ -27,6 +27,9 @@ t_set_color_codes = {"learning": "green",
                     "anti_learning": "red",
                     "pursuit": "orange",
                     "anti_pursuit": "blue"}
+tune_adjust_blocks = ["Learning", "StabTunePost",
+                      "Washout", "StabTuneWash",
+                      "StandTuneWash"]
 
 
 def setup_axes():
@@ -193,6 +196,7 @@ def plot_neuron_tuning_learning(neuron, blocks, trial_sets, fix_win, learn_win, 
     # First plot the basic tuning responses
     tune_trace_win = [-300, 1000]
     tune_trace_block = "StandTunePre"
+    tune_adjust_block = "StabTunePre"
     t_vals = np.arange(tune_trace_win[0], tune_trace_win[1])
     pol_t_win = [100, 175]
     pol_t_inds = (t_vals >= pol_t_win[0]) & (t_vals < pol_t_win[1])
@@ -294,6 +298,30 @@ def plot_neuron_tuning_learning(neuron, blocks, trial_sets, fix_win, learn_win, 
                                                             arrowstyle="->",
                                                             linewidth=0.75))
     
+    # Get stabilized tuning adjustments for eye and firing rate
+    fr_stab_adjust = {}
+    eye_stab_adjust = {}
+    for tune_trial in ["learning", "anti_pursuit", "pursuit", "anti_learning"]:
+        plot_handles[tune_trial].axvline(0., color='k', linestyle="--", linewidth=0.5, zorder=-1)
+        # plot_handles[tune_trial].axvline(250., color='k', linestyle="--", linewidth=0.5, zorder=-1)
+        fr = neuron.get_mean_firing_trace(learn_win, blocks=tune_adjust_block, trial_sets=tune_trial)
+        fr = neuron.get_firing_traces_fix_adj(learn_win, tune_adjust_block, tune_trial, 
+                                              fix_time_window=fix_win, sigma=sigma, 
+                                              cutoff_sigma=cutoff_sigma, zscore_sigma=3.0, 
+                                              rate_offset=0., return_inds=False)
+        if len(fr) == 0:
+            print(f"No tuning trials found for {tune_trial} in blocks {tune_adjust_block}")
+            fr_stab_adjust[tune_trial] = 0.0
+        else:
+            fr_stab_adjust[tune_trial] = np.nanmean(fr)
+        _, eyev_l, eye_inds = neuron.session.get_xy_traces(
+                                        "eye velocity", learn_win, blocks=tune_adjust_block,
+                                        trial_sets=tune_trial, return_inds=True)
+        if len(eyev_l) == 0:
+            eye_stab_adjust[tune_trial] = 0.0
+        else:
+            eye_stab_adjust[tune_trial] = np.nanmean(np.nanmean(eyev_l, axis=1))
+        
     # Plot each block separte so there is discontinuity between blocks
     fix_mean = 0.
     fix_std = 0.
@@ -314,6 +342,7 @@ def plot_neuron_tuning_learning(neuron, blocks, trial_sets, fix_win, learn_win, 
                                         trial_sets="instruction", return_inds=True)
             if len(eyev_l) > 0:
                 eyev_l = np.nanmean(eyev_l, axis=1)
+                eyev_l -= eye_stab_adjust['pursuit']
                 curr_plot = plot_handles['behav_fun'].scatter(eye_inds, eyev_l, color=[.5, .5, .5], s=5)
                 if "instruction" not in labels_found:
                     curr_plot.set_label("instruction")
@@ -325,7 +354,7 @@ def plot_neuron_tuning_learning(neuron, blocks, trial_sets, fix_win, learn_win, 
                     smooth_eyev_l = gauss_convolve(eyev_l, sigma, cutoff_sigma, pad_data=True)
                 curr_plot = plot_handles['behav_fun'].plot(eye_inds, smooth_eyev_l, color='k', linewidth=1.5)
                 if "smooth" not in labels_found:
-                    curr_plot[0].set_label("smooth")
+                    curr_plot[0].set_label("smooth/mean")
                     labels_found.append("smooth")
                 behav_mean += np.nanmean(eyev_l) * eyev_l.shape[0]
                 behav_std += np.nanstd(eyev_l) * eyev_l.shape[0]
@@ -344,7 +373,17 @@ def plot_neuron_tuning_learning(neuron, blocks, trial_sets, fix_win, learn_win, 
                                                 trial_sets=trial_type, return_inds=True)
                 if len(eyev_l) > 0:
                     eyev_l = np.nanmean(eyev_l, axis=1)
-                    curr_plot = plot_handles['behav_fun'].scatter(eye_inds, eyev_l, color=t_set_color_codes[trial_type], s=5, zorder=10)
+                    if b_name in tune_adjust_blocks:
+                        eyev_l -= eye_stab_adjust[trial_type]
+                    curr_plot = plot_handles['behav_fun'].scatter(eye_inds, eyev_l, 
+                                                                  color=t_set_color_codes[trial_type], 
+                                                                  s=5, zorder=10)
+                    if ("StandTune" in b_name) or ("StabTune" in b_name):
+                        mean_value = np.nanmean(eyev_l)
+                        plot_handles['behav_fun'].plot([neuron.session.blocks[b_name][0], neuron.session.blocks[b_name][1]],
+                                                    [mean_value, mean_value], 
+                                                    color=t_set_color_codes[trial_type], 
+                                                    linewidth=1.5, zorder=11)
                     if trial_strings[trial_type] not in labels_found:
                         curr_plot.set_label(trial_strings[trial_type])
                         labels_found.append(trial_strings[trial_type])
@@ -373,6 +412,7 @@ def plot_neuron_tuning_learning(neuron, blocks, trial_sets, fix_win, learn_win, 
                                                         rate_offset=0., return_inds=True)
             if len(fr) > 0:
                 fr = np.nanmean(fr, axis=1)
+                fr -= fr_stab_adjust['pursuit']
                 if sigma*cutoff_sigma >= fr.shape[0]:
                     # Just use block mean if it's shorter than trial win
                     smooth_fr = np.full(fr.shape, np.nanmean(fr))
@@ -417,7 +457,15 @@ def plot_neuron_tuning_learning(neuron, blocks, trial_sets, fix_win, learn_win, 
                                                             rate_offset=0., return_inds=True)
                 if len(fr) > 0:
                     fr = np.nanmean(fr, axis=1)
+                    if b_name in tune_adjust_blocks:
+                        fr -= fr_stab_adjust[trial_type]
                     plot_handles['learn_fun'].scatter(inds, fr, color=t_set_color_codes[trial_type], s=5, zorder=10)
+                    if ("StandTune" in b_name) or ("StabTune" in b_name):
+                        mean_value = np.nanmean(fr)
+                        plot_handles['learn_fun'].plot([neuron.session.blocks[b_name][0], neuron.session.blocks[b_name][1]],
+                                                    [mean_value, mean_value], 
+                                                    color=t_set_color_codes[trial_type], 
+                                                    linewidth=1.5, zorder=11)
                     learn_mean += np.nanmean(fr) * fr.shape[0]
                     learn_std += np.nanstd(fr) * fr.shape[0]
                     learn_n += fr.shape[0]
@@ -438,6 +486,7 @@ def plot_neuron_tuning_learning(neuron, blocks, trial_sets, fix_win, learn_win, 
                                      bbox_to_anchor=(0., 1.), loc='upper left', 
                                      facecolor='white', framealpha=1.)
     behav_legend.set_zorder(20)
+    
     fix_mean /= fix_n
     fix_std /= fix_n
     fix_std = max(fix_std, 0.5) # Ensure not zero so plots aren't messed up
@@ -455,7 +504,7 @@ def plot_neuron_tuning_learning(neuron, blocks, trial_sets, fix_win, learn_win, 
     learn_std /= fix_n
     learn_std = max(learn_std, 0.5) # Ensure not zero so plots aren't messed up
     plot_handles['learn_fun'].set_title(f"Pursuit response by trial in time window {learn_win} ms", fontsize=8, pad=t_title_pad, weight='bold')
-    plot_handles['learn_fun'].set_ylabel("Learning window firing rate \n fixation subtracted (Hz)", fontsize=8)
+    plot_handles['learn_fun'].set_ylabel("Learning window adjusted \n firing rate (Hz)", fontsize=8)
     plot_handles['learn_fun'].set_xticks([])
     plot_handles['learn_fun'].set_ylim([learn_mean - y_std*learn_std, learn_mean + y_std*learn_std])
     plot_handles['learn_fun'].set_xlim([-1, len(neuron.session)+1])
@@ -494,6 +543,63 @@ def plot_neuron_tuning_learning(neuron, blocks, trial_sets, fix_win, learn_win, 
                                         "\n".join(label_text), ha=ha, va='center', 
                                         fontsize=5, color="black",
                                         transform=trans)
+            if (ax_h == "behav_fun") and (b_name == "Learning"):
+                # Mark region of tuning adjusted
+                trans = transforms.blended_transform_factory(plot_handles['behav_fun'].transData, 
+                                                             plot_handles['behav_fun'].transAxes)
+                y_position = 0.1
+                x_center = x_shade_win[0] + (len(neuron.session) - x_shade_win[0])/2
+                x_range = len(neuron.session) - x_shade_win[0]
+                x_mark = [x_shade_win[0] + 0.025*x_range, len(neuron.session) - 0.025*x_range]
+                plot_handles['behav_fun'].annotate('', xy=(x_mark[0], y_position), xycoords=trans,
+                                                    xytext=(x_mark[1], y_position), textcoords=trans,
+                                                    arrowprops={'arrowstyle': '-', 'lw': 1.5,
+                                                                'shrinkA': 0, 'shrinkB': 0})
+                plot_handles['behav_fun'].text(x_center, y_position - 0.08, 
+                                               'Stabilized tuning adjusted', ha='center', 
+                                               va='bottom', transform=trans,
+                                               fontsize=7)
+                # # Mark fixation adjusted
+                # x_center = (x_shade_win[0] - 0)/2
+                # x_range = x_shade_win[0]
+                # x_mark = [0. + 0.05*x_range, x_shade_win[0] - 0.05*x_range]
+                # plot_handles['behav_fun'].annotate('', xy=(x_mark[0], y_position), xycoords=trans,
+                #                                     xytext=(x_mark[1], y_position), textcoords=trans,
+                #                                     arrowprops={'arrowstyle': '-', 'lw': 1.5,
+                #                                                 'shrinkA': 0, 'shrinkB': 0})
+                # plot_handles['behav_fun'].text(x_center, y_position - 0.08, 
+                #                                'Fixation adjusted', ha='center', 
+                #                                va='bottom', transform=trans,
+                #                                fontsize=7)
+                
+            if (ax_h == "learn_fun") and (b_name == "Learning"):
+                # Mark region of tuning adjusted
+                trans = transforms.blended_transform_factory(plot_handles['learn_fun'].transData, 
+                                                            plot_handles['learn_fun'].transAxes)
+                y_position = 0.1
+                x_center = x_shade_win[0] + (len(neuron.session) - x_shade_win[0])/2
+                x_range = len(neuron.session) - x_shade_win[0]
+                x_mark = [x_shade_win[0] + 0.025*x_range, len(neuron.session) - 0.025*x_range]
+                plot_handles['learn_fun'].annotate('', xy=(x_mark[0], y_position), xycoords=trans,
+                                                    xytext=(x_mark[1], y_position), textcoords=trans,
+                                                    arrowprops={'arrowstyle': '-', 'lw': 1.5,
+                                                                'shrinkA': 0, 'shrinkB': 0})
+                plot_handles['learn_fun'].text(x_center, y_position - 0.08, 
+                                            'Stabilized tuning adjusted', ha='center', 
+                                            va='bottom', transform=trans,
+                                            fontsize=7)
+                # Mark fixation adjusted
+                x_center = (x_shade_win[0] - 0)/2
+                x_range = x_shade_win[0]
+                x_mark = [0. + 0.05*x_range, x_shade_win[0] - 0.05*x_range]
+                plot_handles['learn_fun'].annotate('', xy=(x_mark[0], y_position), xycoords=trans,
+                                                    xytext=(x_mark[1], y_position), textcoords=trans,
+                                                    arrowprops={'arrowstyle': '-', 'lw': 1.5,
+                                                                'shrinkA': 0, 'shrinkB': 0})
+                plot_handles['learn_fun'].text(x_center, y_position - 0.08, 
+                                            'Fixation adjusted', ha='center', 
+                                            va='bottom', transform=trans,
+                                            fontsize=7)
         n_block += 1
 
     if show_fig:
