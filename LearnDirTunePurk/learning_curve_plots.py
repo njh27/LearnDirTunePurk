@@ -3,6 +3,9 @@ import matplotlib.pyplot as plt
 import matplotlib.transforms as transforms
 from NeuronAnalysis.general import gauss_convolve
 from NeuronAnalysis.neurons import PurkinjeCell
+from NeuronAnalysis.fit_neuron_to_eye import FitNeuronToEye, piece_wise_eye_data
+from SessionAnalysis.utils import eye_data_series
+from NeuronAnalysis.neuron_tuning import get_fr_eye_data, quick_fit_piecewise_acc
 
 
 
@@ -195,7 +198,7 @@ def plot_neuron_tuning_learning(neuron, blocks, trial_sets, fix_win, learn_win, 
     plot_handles['fig'].suptitle(f"Tuning and learning file: {neuron.session.fname}; unit: {neuron.name}", fontsize=12, y=.95)
     # First plot the basic tuning responses
     tune_trace_win = [-300, 1000]
-    tune_trace_block = "StandTunePre"
+    tune_trace_block = "StabTunePre"
     tune_adjust_block = "StabTunePre"
     t_vals = np.arange(tune_trace_win[0], tune_trace_win[1])
     pol_t_win = [100, 175]
@@ -206,6 +209,12 @@ def plot_neuron_tuning_learning(neuron, blocks, trial_sets, fix_win, learn_win, 
     polar_vals = np.zeros((5, 2))
     n_tune = 0
     mean_fix_fr = 0.
+    # Perform linear fit on same data used for plotting tuning traces
+    fit_eye_model = FitNeuronToEye(neuron, tune_trace_win, tune_adjust_block, trial_sets=None,
+                                    lag_range_eye=[-50, 125])
+    fit_eye_model.fit_pcwise_lin_eye_kinematics(bin_width=10, bin_threshold=5,
+                                                fit_constant=False, fit_avg_data=False,
+                                                quick_lag_step=10, fit_fix_adj_fr=True)
     for tune_trial in ["learning", "anti_pursuit", "pursuit", "anti_learning"]:
         plot_handles[tune_trial].axvline(0., color='k', linestyle="--", linewidth=0.5, zorder=-1)
         # plot_handles[tune_trial].axvline(250., color='k', linestyle="--", linewidth=0.5, zorder=-1)
@@ -224,11 +233,30 @@ def plot_neuron_tuning_learning(neuron, blocks, trial_sets, fix_win, learn_win, 
         polar_vals[n_tune, 1] = np.nanmean(fr[pol_t_inds])
         n_tune += 1
         mean_fix_fr += np.nanmean(fr[(t_vals >= fix_win[0]) & (t_vals < fix_win[1])])
+
+        # Now plot fits to same data
+        X_predict = fit_eye_model.get_pcwise_lin_eye_kin_predict_data(tune_trace_block, tune_trial, verbose=False)
+        fr_hat = fit_eye_model.predict_pcwise_lin_eye_kinematics(X_predict)
+        plot_handles[tune_trial].plot(t_vals, fr_hat + np.nanmean(fr[0:300]), color=[.4, .4, .4], 
+                                      linestyle="--", dashes=(2, 1))
+
     p_order = np.argsort(polar_vals[0:4, 0])
     polar_vals[0:4, :] = polar_vals[0:4, :][p_order, :]
     polar_vals[4, :] = polar_vals[0, :]
     plot_handles['polar'].plot(polar_vals[:, 0], polar_vals[:, 1], color=[.2, .2, .2], zorder=9)
     tune_fr_min = 0. if ~np.isfinite(tune_fr_min) else tune_fr_min
+
+    # fit_fr_data = []
+    # fit_eye_data = []
+    # for tune_trial in ["learning", "anti_pursuit", "pursuit", "anti_learning"]:
+    #     fr, fr_inds = neuron.get_firing_traces_fix_adj(tune_trace_win, tune_adjust_block, tune_trial, 
+    #                                                     fix_time_window=fix_win, sigma=sigma, 
+    #                                                     cutoff_sigma=cutoff_sigma, zscore_sigma=3.0, 
+    #                                                     rate_offset=0., return_inds=True)
+    #     # Get eye data matching the firing rate data
+    #     _, eye_data = get_fr_eye_data(neuron, tune_adjust_block, fr_inds, 1, 1, tune_trace_win, 
+    #                                     lag=0, acc_filter_win=31, return_inds=False, fr_offsets_by_trial=None)
+    # coeffs, r2 = quick_fit_piecewise_acc(firing_rate, eye_data, fit_constant=True)
 
     # Add the tuning vectors
     # Define the vector's magnitude and angle
@@ -301,13 +329,10 @@ def plot_neuron_tuning_learning(neuron, blocks, trial_sets, fix_win, learn_win, 
     # Get stabilized tuning adjustments for eye and firing rate
     fr_stab_adjust = {}
     eye_stab_adjust = {}
-    # Default for dumb linear model
-    learn_ax_spk_deg_sec = 0.
-    anti_learn_ax_spk_deg_sec = 0.
     for tune_trial in ["learning", "anti_pursuit", "pursuit", "anti_learning"]:
         plot_handles[tune_trial].axvline(0., color='k', linestyle="--", linewidth=0.5, zorder=-1)
         # plot_handles[tune_trial].axvline(250., color='k', linestyle="--", linewidth=0.5, zorder=-1)
-        fr = neuron.get_mean_firing_trace(learn_win, blocks=tune_adjust_block, trial_sets=tune_trial)
+        # fr = neuron.get_mean_firing_trace(learn_win, blocks=tune_adjust_block, trial_sets=tune_trial)
         fr = neuron.get_firing_traces_fix_adj(learn_win, tune_adjust_block, tune_trial, 
                                               fix_time_window=fix_win, sigma=sigma, 
                                               cutoff_sigma=cutoff_sigma, zscore_sigma=3.0, 
@@ -324,10 +349,6 @@ def plot_neuron_tuning_learning(neuron, blocks, trial_sets, fix_win, learn_win, 
             eye_stab_adjust[tune_trial] = 0.0
         else:
             eye_stab_adjust[tune_trial] = np.nanmean(np.nanmean(eyev_l, axis=1))
-            # if tune_trial == "learning":
-            #     learn_ax_spk_deg_sec = fr_stab_adjust[tune_trial] / eye_stab_adjust[tune_trial]
-            # if tune_trial == "anti_learning":
-            #     anti_learn_ax_spk_deg_sec = fr_stab_adjust[tune_trial] / eye_stab_adjust[tune_trial]
         
     # Plot each block separte so there is discontinuity between blocks
     fix_mean = 0.
@@ -348,24 +369,36 @@ def plot_neuron_tuning_learning(neuron, blocks, trial_sets, fix_win, learn_win, 
         # First plot behavior for this block
         # Get instructiont trials in learning blocks
         if b_name in ["Learning", "Washout"]:
-            _, eyev_l, eye_inds = neuron.session.get_xy_traces(
+            eyev_p, eyev_l, eye_inds = neuron.session.get_xy_traces(
                                         "eye velocity", learn_win, blocks=b_name,
                                         trial_sets="instruction", return_inds=True)
             if len(eyev_l) > 0:
-                eyev_l = np.nanmean(eyev_l, axis=1)
-                eyev_l -= eye_stab_adjust['pursuit']
-                curr_plot = plot_handles['behav_fun'].scatter(eye_inds, eyev_l, color=[.5, .5, .5], s=5)
+                # eyev_l -= eye_stab_adjust['pursuit']
+                curr_plot = plot_handles['behav_fun'].scatter(eye_inds, np.nanmean(eyev_l, axis=1), color=[.5, .5, .5], s=5)
                 if "instruction" not in labels_found:
                     curr_plot.set_label("instruction")
                     labels_found.append("instruction")
                 if sigma*cutoff_sigma >= eyev_l.shape[0]:
                     # Just use block mean if it's shorter than trial win
-                    smooth_eyev_l = np.full(eyev_l.shape, np.nanmean(eyev_l))
+                    smooth_eyev_l = np.full(eyev_l.shape[0], np.nanmean(np.nanmean(eyev_l, axis=1)))
                 else:
-                    smooth_eyev_l = gauss_convolve(eyev_l, sigma, cutoff_sigma, pad_data=True)
+                    smooth_eyev_l = gauss_convolve(np.nanmean(eyev_l, axis=1), sigma, cutoff_sigma, pad_data=True)
                 curr_plot = plot_handles['behav_fun'].plot(eye_inds, smooth_eyev_l, color='k', linewidth=1.5)
-                predicted_rates[b_name]['instruction'] = (fr_stab_adjust[tune_trial] / eye_stab_adjust[tune_trial]) * smooth_eyev_l
+                # predicted_rates[b_name]['instruction'] = (fr_stab_adjust[tune_trial] / eye_stab_adjust[tune_trial]) * smooth_eyev_l
+                eyep_p, eyep_l, eye_inds = neuron.session.get_xy_traces(
+                                                                        "eye position", learn_win, blocks=b_name,
+                                                                        trial_sets="instruction", return_inds=True)
+                eyea_p = eye_data_series.acc_from_vel(eyev_p, filter_win=9, axis=0)
+                eyea_l = eye_data_series.acc_from_vel(eyev_l, filter_win=9, axis=0)
+                fit_eye_data = np.zeros((eyev_p.shape[0], 6))
+                for eye_dim, eye_dim_data in enumerate([eyep_p, eyep_l, eyev_p, eyev_l, eyea_p, eyea_l]):
+                    fit_eye_data[:, eye_dim] = np.nanmean(eye_dim_data, axis=1)
+                X_predict = piece_wise_eye_data(fit_eye_data, add_constant=False)
+                predicted_rates[b_name]['instruction'] = fit_eye_model.predict_pcwise_lin_eye_kinematics(X_predict)
                 predicted_inds[b_name]['instruction'] = eye_inds
+
+                # Only use mean from here on
+                eyev_l = np.nanmean(eyev_l, axis=1)
                 if "smooth" not in labels_found:
                     curr_plot[0].set_label("smooth/mean")
                     labels_found.append("smooth")
@@ -381,18 +414,31 @@ def plot_neuron_tuning_learning(neuron, blocks, trial_sets, fix_win, learn_win, 
         else:
             # Pursuit axis trials for all other block types
             for trial_type in ["anti_pursuit", "pursuit"]:
-                _, eyev_l, eye_inds = neuron.session.get_xy_traces(
+                eyev_p, eyev_l, eye_inds = neuron.session.get_xy_traces(
                                                 "eye velocity", learn_win, blocks=b_name,
                                                 trial_sets=trial_type, return_inds=True)
                 if len(eyev_l) > 0:
-                    eyev_l = np.nanmean(eyev_l, axis=1)
                     if b_name in tune_adjust_blocks:
-                        eyev_l -= eye_stab_adjust[trial_type]
-                    curr_plot = plot_handles['behav_fun'].scatter(eye_inds, eyev_l, 
+                        # eyev_l -= eye_stab_adjust[trial_type]
+                        pass
+                    curr_plot = plot_handles['behav_fun'].scatter(eye_inds, np.nanmean(eyev_l, axis=1), 
                                                                   color=t_set_color_codes[trial_type], 
                                                                   s=5, zorder=10)
-                    predicted_rates[b_name][trial_type] = (fr_stab_adjust[tune_trial] / eye_stab_adjust[tune_trial]) * eyev_l
+                    # predicted_rates[b_name][trial_type] = (fr_stab_adjust[tune_trial] / eye_stab_adjust[tune_trial]) * eyev_l
+                    eyep_p, eyep_l, eye_inds = neuron.session.get_xy_traces(
+                                                                        "eye position", learn_win, blocks=b_name,
+                                                                        trial_sets=trial_type, return_inds=True)
+                    eyea_p = eye_data_series.acc_from_vel(eyev_p, filter_win=9, axis=0)
+                    eyea_l = eye_data_series.acc_from_vel(eyev_l, filter_win=9, axis=0)
+                    fit_eye_data = np.zeros((eyev_p.shape[0], 6))
+                    for eye_dim, eye_dim_data in enumerate([eyep_p, eyep_l, eyev_p, eyev_l, eyea_p, eyea_l]):
+                        fit_eye_data[:, eye_dim] = np.nanmean(eye_dim_data, axis=1)
+                    X_predict = piece_wise_eye_data(fit_eye_data, add_constant=False)
+                    predicted_rates[b_name][trial_type] = fit_eye_model.predict_pcwise_lin_eye_kinematics(X_predict)
                     predicted_inds[b_name][trial_type] = eye_inds
+
+                    # only use mean from here on
+                    eyev_l = np.nanmean(eyev_l, axis=1)
                     if ("StandTune" in b_name) or ("StabTune" in b_name):
                         mean_value = np.nanmean(eyev_l)
                         plot_handles['behav_fun'].plot([neuron.session.blocks[b_name][0], neuron.session.blocks[b_name][1]],
@@ -427,16 +473,20 @@ def plot_neuron_tuning_learning(neuron, blocks, trial_sets, fix_win, learn_win, 
                                                         rate_offset=0., return_inds=True)
             if len(fr) > 0:
                 fr = np.nanmean(fr, axis=1)
-                fr -= fr_stab_adjust['pursuit']
+                # fr -= fr_stab_adjust['pursuit']
                 if sigma*cutoff_sigma >= fr.shape[0]:
                     # Just use block mean if it's shorter than trial win
                     smooth_fr = np.full(fr.shape, np.nanmean(fr))
+                    smooth_fr_hat = np.full(predicted_rates[b_name]['instruction'].shape, 
+                                            np.nanmean(predicted_rates[b_name]['instruction']))
                 else:
                     smooth_fr = gauss_convolve(fr, sigma, cutoff_sigma, pad_data=True)
+                    smooth_fr_hat = gauss_convolve(predicted_rates[b_name]['instruction'], 
+                                                   sigma, cutoff_sigma, pad_data=True)
                 plot_handles['learn_fun'].scatter(inds, fr, color=[.5, .5, .5], s=5)
                 plot_handles['learn_fun'].plot(inds, smooth_fr, color='k', linewidth=1.5)
-                plot_handles['learn_fun'].plot(predicted_inds[b_name]['instruction'], predicted_rates[b_name]['instruction'], 
-                                               color='k', linewidth=1.5, linestyle="--")
+                plot_handles['learn_fun'].plot(predicted_inds[b_name]['instruction'], smooth_fr_hat, 
+                                               color='k', linewidth=1.5, linestyle="--", dashes=(2, 1))
                 learn_mean += np.nanmean(fr) * fr.shape[0]
                 learn_std += np.nanstd(fr) * fr.shape[0]
                 learn_n += fr.shape[0]
@@ -475,7 +525,8 @@ def plot_neuron_tuning_learning(neuron, blocks, trial_sets, fix_win, learn_win, 
                 if len(fr) > 0:
                     fr = np.nanmean(fr, axis=1)
                     if b_name in tune_adjust_blocks:
-                        fr -= fr_stab_adjust[trial_type]
+                        # fr -= fr_stab_adjust[trial_type]
+                        pass
                     plot_handles['learn_fun'].scatter(inds, fr, color=t_set_color_codes[trial_type], s=5, zorder=10)
                     if ("StandTune" in b_name) or ("StabTune" in b_name):
                         mean_value = np.nanmean(fr)
@@ -483,11 +534,25 @@ def plot_neuron_tuning_learning(neuron, blocks, trial_sets, fix_win, learn_win, 
                                                     [mean_value, mean_value], 
                                                     color=t_set_color_codes[trial_type], 
                                                     linewidth=1.5, zorder=11)
-                        mean_value = np.nanmean(predicted_rates[b_name][trial_type])
-                        plot_handles['learn_fun'].plot([neuron.session.blocks[b_name][0], neuron.session.blocks[b_name][1]],
-                                                    [mean_value, mean_value], 
-                                                    color=t_set_color_codes[trial_type], 
-                                                    linewidth=1.5, linestyle="--", zorder=11)
+                        if sigma*cutoff_sigma >= fr.shape[0]:
+                            # Just use block mean if it's shorter than trial win
+                            smooth_fr_hat = np.full(predicted_rates[b_name][trial_type].shape, 
+                                                    np.nanmean(predicted_rates[b_name][trial_type]))
+                        else:
+                            smooth_fr_hat = gauss_convolve(predicted_rates[b_name][trial_type], 
+                                                        sigma, cutoff_sigma, pad_data=True)
+                        plot_handles['learn_fun'].plot(predicted_inds[b_name][trial_type], smooth_fr_hat, 
+                                                       color=t_set_color_codes[trial_type], 
+                                                       linewidth=1.5, linestyle="--", 
+                                                       dashes=(2, 1), zorder=11)
+                            
+
+                        # mean_value = np.nanmean(predicted_rates[b_name][trial_type])
+                        # plot_handles['learn_fun'].plot([neuron.session.blocks[b_name][0], neuron.session.blocks[b_name][1]],
+                        #                             [mean_value, mean_value], 
+                        #                             color=t_set_color_codes[trial_type], 
+                        #                             linewidth=1.5, linestyle="--", zorder=11)
+                        
                     learn_mean += np.nanmean(fr) * fr.shape[0]
                     learn_std += np.nanstd(fr) * fr.shape[0]
                     learn_n += fr.shape[0]
@@ -505,7 +570,7 @@ def plot_neuron_tuning_learning(neuron, blocks, trial_sets, fix_win, learn_win, 
     plot_handles['behav_fun'].axhline(0., color='k', linestyle="--", linewidth=0.5, zorder=-1)
     # Add dummy line for dashed label
     curr_plot = plot_handles['behav_fun'].plot([0], [np.nan], color='k', linewidth=1.5, linestyle="--")
-    curr_plot[0].set_label("Vel predicted")
+    curr_plot[0].set_label("Kinematic model")
     # # Add the labels that we found and the legend
     behav_legend = plot_handles['behav_fun'].legend(fontsize='x-small', borderpad=0.2, labelspacing=0.2, 
                                      bbox_to_anchor=(0., 1.), loc='upper left', 

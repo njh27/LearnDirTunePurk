@@ -61,7 +61,10 @@ if __name__ == "__main__":
     # Add the figures to the PDF file
     for n_name in neuron_figs.keys():
         # Add a filename number so we can sort these
-        file_num = int(n_name.split("_PC")[0][-2:])
+        if "_PC" in n_name:
+            file_num = int(n_name.split("_PC")[0][-2:])
+        else:
+            file_num = int(n_name.split("_put")[0][-2:])
         neuron_figs[n_name] = (neuron_figs[n_name][0], neuron_figs[n_name][1], file_num)
     # Now sort by file_num so output is sensible
     sorted_plot_handles = [x[0] for x in sorted([neuron_figs[key] for key in neuron_figs.keys()], key=lambda x:x[2])]
