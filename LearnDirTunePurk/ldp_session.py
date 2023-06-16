@@ -945,8 +945,8 @@ class LDPSession(Session):
                             trial_sets=None, rescale=False):
         """ Calls get_xy_traces above and takes the mean over rows of the output. """
         warnings.filterwarnings("ignore", category=RuntimeWarning, message="Mean of empty slice")
-        x, y, t = self.get_xy_traces(series_name, time_window, blocks=blocks,
-                         trial_sets=trial_sets, return_inds=True)
+        x, y = self.get_xy_traces(series_name, time_window, blocks=blocks,
+                         trial_sets=trial_sets, return_inds=False)
         if x.shape[0] == 0:
             # Found no matching data
             return x, y

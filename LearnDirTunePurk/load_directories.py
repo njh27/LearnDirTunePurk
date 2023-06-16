@@ -65,7 +65,9 @@ def fun_all_neurons(neurons_dir, PL2_dir, maestro_dir, maestro_save_dir, cell_ty
         fname_PL2 = fname + ".pl2"
         fname_neurons = "neurons_" + fname + "_viz.pkl"
         neurons_file = neurons_dir + fname_neurons
-
+        # fnum = int(fname[-2:])
+        # if fnum not in [28, 46, 27, 33, 25]:
+        #     continue
         try:
             ldp_sess = create_behavior_session(fname, maestro_dir,
                                                 session_name=fname, rotate=rotate,
@@ -91,19 +93,24 @@ def fun_all_neurons(neurons_dir, PL2_dir, maestro_dir, maestro_save_dir, cell_ty
                 ldp_sess = sess_fun(ldp_sess)
 
             for n_name in ldp_sess.get_neuron_names():
-                n_type = n_name.split("_")[0]
-                out_key = fname + "_" + n_name
-                if n_type in cell_types:
-                    # Call data function on this neuron and save to output
-                    out_data[out_key] = (data_fun(ldp_sess.neuron_info[n_name], 
-                                                    *data_fun_args, 
-                                                    **data_fun_kwargs),
-                                         n_total_units)
-                    if verbose: print(f"Adding neuron {n_name}", flush=True)
-                    n_total_units += 1
-                    # if n_total_units >= 2:
-                    #     Testing short circuit
-                    #     return out_data
+                try:
+                    n_type = n_name.split("_")[0]
+                    out_key = fname + "_" + n_name
+                    if n_type in cell_types:
+                        # Call data function on this neuron and save to output
+                        out_data[out_key] = (data_fun(ldp_sess.neuron_info[n_name], 
+                                                        *data_fun_args, 
+                                                        **data_fun_kwargs),
+                                            n_total_units)
+                        if verbose: print(f"Adding neuron {n_name}", flush=True)
+                        n_total_units += 1
+                        # if n_total_units >= 2:
+                        #     Testing short circuit
+                        #     return out_data
+                except Exception as e: # Catch any error
+                    print(f"SKIPPING UNIT {n_name} in file {fname} for some error!", flush=True)
+                    failed_files.append((fname + "_" + n_name, str(e))) # Store error text
+                    continue
         except Exception as e: # Catch any error
             print(f"SKIPPING FILE {fname} for some error!", flush=True)
             failed_files.append((fname, str(e))) # Store error text
