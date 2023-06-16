@@ -211,10 +211,13 @@ def plot_neuron_tuning_learning(neuron, blocks, trial_sets, fix_win, learn_win, 
     mean_fix_fr = 0.
     # Perform linear fit on same data used for plotting tuning traces
     fit_eye_model = FitNeuronToEye(neuron, tune_trace_win, tune_adjust_block, trial_sets=None,
-                                    lag_range_eye=[-50, 125])
+                                    lag_range_eye=[-75, 150])
     fit_eye_model.fit_pcwise_lin_eye_kinematics(bin_width=10, bin_threshold=5,
                                                 fit_constant=False, fit_avg_data=False,
                                                 quick_lag_step=10, fit_fix_adj_fr=True)
+    fr_learn_win = [learn_win[0] - fit_eye_model.fit_results['pcwise_lin_eye_kinematics']['eye_lag'],
+                    learn_win[1] - fit_eye_model.fit_results['pcwise_lin_eye_kinematics']['eye_lag']]
+    
     for tune_trial in ["learning", "anti_pursuit", "pursuit", "anti_learning"]:
         plot_handles[tune_trial].axvline(0., color='k', linestyle="--", linewidth=0.5, zorder=-1)
         # plot_handles[tune_trial].axvline(250., color='k', linestyle="--", linewidth=0.5, zorder=-1)
@@ -291,7 +294,7 @@ def plot_neuron_tuning_learning(neuron, blocks, trial_sets, fix_win, learn_win, 
         plot_handles[tune_trial].axhline(mean_fix_fr/4, color='k', linestyle="--", linewidth=0.5, zorder=-1)
         plot_handles[tune_trial].set_ylim([tune_fr_min, tune_fr_max])
         plot_handles[tune_trial].fill_between(pol_t_win, tune_fr_min, tune_fr_max, color=[.8, .8, .8], alpha=1., zorder=-10)
-        plot_handles[tune_trial].fill_between(learn_win, tune_fr_min, tune_fr_max, color=[.6, .6, .6], alpha=1., zorder=-10)
+        plot_handles[tune_trial].fill_between(fr_learn_win, tune_fr_min, tune_fr_max, color=[.6, .6, .6], alpha=1., zorder=-10)
         plot_handles[tune_trial].set_title(f"{trial_strings[tune_trial]}", color=t_set_color_codes[tune_trial], fontsize=8, pad=t_title_pad)
         plot_handles[tune_trial].spines['top'].set_color(t_set_color_codes[tune_trial])
         plot_handles[tune_trial].spines['bottom'].set_color(t_set_color_codes[tune_trial])
@@ -307,7 +310,8 @@ def plot_neuron_tuning_learning(neuron, blocks, trial_sets, fix_win, learn_win, 
     plot_handles['ax_inst_schem'].fill_between(learn_win, 0, 600, color=[.6, .6, .6], alpha=1., zorder=-10)
     plot_handles['anti_learning'].set_xlabel("Time from target onset (ms)", fontsize=8)
     plot_handles['anti_pursuit'].set_ylabel("Firing rate (Hz)", fontsize=8)
-    plot_handles['anti_pursuit'].annotate(f"Trial \n analysis \n window \n {learn_win}", xy=(learn_win[1], .05), xytext=(0.9*learn_win[1], -1.15), 
+    plot_handles['anti_pursuit'].annotate(f"Trial \n analysis \n window \n {fr_learn_win}", 
+                                          xy=(fr_learn_win[1], .05), xytext=(0.9*fr_learn_win[1], -1.15), 
                                           textcoords=('data', 'axes fraction'),
                                           xycoords=('data', 'axes fraction'),
                                           fontsize=6,
@@ -332,8 +336,8 @@ def plot_neuron_tuning_learning(neuron, blocks, trial_sets, fix_win, learn_win, 
     for tune_trial in ["learning", "anti_pursuit", "pursuit", "anti_learning"]:
         plot_handles[tune_trial].axvline(0., color='k', linestyle="--", linewidth=0.5, zorder=-1)
         # plot_handles[tune_trial].axvline(250., color='k', linestyle="--", linewidth=0.5, zorder=-1)
-        # fr = neuron.get_mean_firing_trace(learn_win, blocks=tune_adjust_block, trial_sets=tune_trial)
-        fr = neuron.get_firing_traces_fix_adj(learn_win, tune_adjust_block, tune_trial, 
+        # fr = neuron.get_mean_firing_trace(fr_learn_win, blocks=tune_adjust_block, trial_sets=tune_trial)
+        fr = neuron.get_firing_traces_fix_adj(fr_learn_win, tune_adjust_block, tune_trial, 
                                               fix_time_window=fix_win, sigma=sigma, 
                                               cutoff_sigma=cutoff_sigma, zscore_sigma=3.0, 
                                               rate_offset=0., return_inds=False)
@@ -385,8 +389,7 @@ def plot_neuron_tuning_learning(neuron, blocks, trial_sets, fix_win, learn_win, 
                     smooth_eyev_l = gauss_convolve(np.nanmean(eyev_l, axis=1), sigma, cutoff_sigma, pad_data=True)
                 curr_plot = plot_handles['behav_fun'].plot(eye_inds, smooth_eyev_l, color='k', linewidth=1.5)
                 # predicted_rates[b_name]['instruction'] = (fr_stab_adjust[tune_trial] / eye_stab_adjust[tune_trial]) * smooth_eyev_l
-                eyep_p, eyep_l, eye_inds = neuron.session.get_xy_traces(
-                                                                        "eye position", learn_win, blocks=b_name,
+                eyep_p, eyep_l, eye_inds = neuron.session.get_xy_traces("eye position", learn_win, blocks=b_name,
                                                                         trial_sets="instruction", return_inds=True)
                 eyea_p = eye_data_series.acc_from_vel(eyev_p, filter_win=9, axis=1)
                 eyea_l = eye_data_series.acc_from_vel(eyev_l, filter_win=9, axis=1)
@@ -425,9 +428,8 @@ def plot_neuron_tuning_learning(neuron, blocks, trial_sets, fix_win, learn_win, 
                                                                   color=t_set_color_codes[trial_type], 
                                                                   s=5, zorder=10)
                     # predicted_rates[b_name][trial_type] = (fr_stab_adjust[tune_trial] / eye_stab_adjust[tune_trial]) * eyev_l
-                    eyep_p, eyep_l, eye_inds = neuron.session.get_xy_traces(
-                                                                        "eye position", learn_win, blocks=b_name,
-                                                                        trial_sets=trial_type, return_inds=True)
+                    eyep_p, eyep_l, eye_inds = neuron.session.get_xy_traces("eye position", learn_win, blocks=b_name,
+                                                                            trial_sets=trial_type, return_inds=True)
                     eyea_p = eye_data_series.acc_from_vel(eyev_p, filter_win=9, axis=1)
                     eyea_l = eye_data_series.acc_from_vel(eyev_l, filter_win=9, axis=1)
                     fit_eye_data = np.zeros((eyev_p.shape[0], 6))
@@ -468,9 +470,13 @@ def plot_neuron_tuning_learning(neuron, blocks, trial_sets, fix_win, learn_win, 
             print(f"No neuron trials found for block {b_name}", flush=True)
 
         if b_name in ["Learning", "Washout"]:
-            fr, inds = neuron.get_firing_traces_fix_adj(learn_win, b_name, "instruction", fix_time_window=fix_win, 
+            fr, inds = neuron.get_firing_traces_fix_adj(fr_learn_win, b_name, "instruction", fix_time_window=fix_win, 
                                                         sigma=sigma, cutoff_sigma=cutoff_sigma, zscore_sigma=3.0, 
                                                         rate_offset=0., return_inds=True)
+            # Get some eye data just to find saccades to nan in FR
+            temp_eyep = neuron.session.get_data_array("horizontal_eye_position", fr_learn_win,
+                                            blocks=b_name, trial_sets=inds, return_inds=False)
+            fr[np.isnan(temp_eyep)] = np.nan
             if len(fr) > 0:
                 fr = np.nanmean(fr, axis=1)
                 # fr -= fr_stab_adjust['pursuit']
@@ -493,25 +499,6 @@ def plot_neuron_tuning_learning(neuron, blocks, trial_sets, fix_win, learn_win, 
             else:
                 print(f"No instruction trials for block {b_name}", flush=True)
 
-            # fr, inds = neuron.get_firing_traces(learn_win, b_name, "instruction", return_inds=True)
-            # fr_fix, _ = neuron.get_firing_traces(fix_win, b_name, "instruction", return_inds=True)
-            # if len(fr) > 0:
-            #     fr = np.nanmean(fr, axis=1)
-            #     fr_fix = np.nanmean(fr_fix, axis=1)
-            #     fr -= fr_fix
-            #     if sigma*cutoff_sigma >= fr.shape[0]:
-            #         # Just use block mean if it's shorter than trial win
-            #         smooth_fr = np.full(fr.shape, np.nanmean(fr))
-            #     else:
-            #         smooth_fr = gauss_convolve(fr, sigma, cutoff_sigma, pad_data=True)
-            #     plot_handles['learn_fun'].scatter(inds, fr, color=[.75, .0, .1], s=5)
-            #     plot_handles['learn_fun'].plot(inds, smooth_fr, color='r', linewidth=3)
-            #     learn_mean += np.nanmean(fr) * fr.shape[0]
-            #     learn_std += np.nanstd(fr) * fr.shape[0]
-            #     learn_n += fr.shape[0]
-            # else:
-            #     print(f"No instruction trials for block {b_name}", flush=True)
-
         if "fix" in b_name.lower():
             # So no fixation trials
             pass
@@ -519,9 +506,13 @@ def plot_neuron_tuning_learning(neuron, blocks, trial_sets, fix_win, learn_win, 
             # Pursuit axis trials for all other block types
             for trial_type in ["anti_pursuit", "pursuit"]:
                 # Scatter pursuit axis trials in different colors
-                fr, inds = neuron.get_firing_traces_fix_adj(learn_win, b_name, trial_type, fix_time_window=fix_win, 
+                fr, inds = neuron.get_firing_traces_fix_adj(fr_learn_win, b_name, trial_type, fix_time_window=fix_win, 
                                                             sigma=sigma, cutoff_sigma=cutoff_sigma, zscore_sigma=3.0, 
                                                             rate_offset=0., return_inds=True)
+                # Get some eye data just to find saccades to nan in FR
+                temp_eyep = neuron.session.get_data_array("horizontal_eye_position", fr_learn_win,
+                                                blocks=b_name, trial_sets=inds, return_inds=False)
+                fr[np.isnan(temp_eyep)] = np.nan
                 if len(fr) > 0:
                     fr = np.nanmean(fr, axis=1)
                     if b_name in tune_adjust_blocks:
@@ -593,7 +584,7 @@ def plot_neuron_tuning_learning(neuron, blocks, trial_sets, fix_win, learn_win, 
     learn_mean /= fix_n
     learn_std /= fix_n
     learn_std = max(learn_std, 0.5) # Ensure not zero so plots aren't messed up
-    plot_handles['learn_fun'].set_title(f"Pursuit response by trial in time window {learn_win} ms", fontsize=8, pad=t_title_pad, weight='bold')
+    plot_handles['learn_fun'].set_title(f"Pursuit response by trial in time window {fr_learn_win} ms", fontsize=8, pad=t_title_pad, weight='bold')
     plot_handles['learn_fun'].set_ylabel("Learning window adjusted \n firing rate (Hz)", fontsize=8)
     plot_handles['learn_fun'].set_xticks([])
     plot_handles['learn_fun'].set_ylim([learn_mean - y_std*learn_std, learn_mean + y_std*learn_std])
