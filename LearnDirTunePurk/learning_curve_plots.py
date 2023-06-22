@@ -188,6 +188,14 @@ def plot_neuron_tuning_learning(neuron, blocks, trial_sets, fix_win, learn_win, 
                                 cutoff_sigma=4, show_fig=False):
     """
     """
+    # Some currently hard coded variables
+    use_smooth_fix = True
+    plot_pursuit_axis = True
+    tune_trace_win = [-300, 1000]
+    tune_trace_block = "StabTunePre"
+    tune_adjust_block = "StabTunePre"
+    t_vals = np.arange(tune_trace_win[0], tune_trace_win[1])
+    pol_t_win = [100, 175]
     # Append valid neuron trials to input trial_sets
     trial_sets = neuron.append_valid_trial_set(trial_sets)
     # Number of STDs of plotted values to set ylims by
@@ -197,12 +205,6 @@ def plot_neuron_tuning_learning(neuron, blocks, trial_sets, fix_win, learn_win, 
     plot_handles = setup_axes()
     plot_handles['fig'].suptitle(f"Tuning and learning file: {neuron.session.fname}; unit: {neuron.name}", fontsize=12, y=.95)
     # First plot the basic tuning responses
-    tune_trace_win = [-300, 1000]
-    tune_trace_block = "StabTunePre"
-    tune_adjust_block = "StabTunePre"
-    use_smooth_fix = False
-    t_vals = np.arange(tune_trace_win[0], tune_trace_win[1])
-    pol_t_win = [100, 175]
     pol_t_inds = (t_vals >= pol_t_win[0]) & (t_vals < pol_t_win[1])
     tune_fr_max = 0.
     tune_fr_min = np.inf
@@ -354,6 +356,7 @@ def plot_neuron_tuning_learning(neuron, blocks, trial_sets, fix_win, learn_win, 
     behav_mean = 0.
     behav_std = 0.
     behav_n = 0.
+    learn_pursuit_fr_range = [0, 0]
     labels_found = []
     predicted_rates = {}
     predicted_inds = {}
@@ -368,16 +371,20 @@ def plot_neuron_tuning_learning(neuron, blocks, trial_sets, fix_win, learn_win, 
                                         trial_sets="instruction", return_inds=True)
             if len(eyev_l) > 0:
                 # eyev_l -= eye_stab_adjust['pursuit']
-                curr_plot = plot_handles['behav_fun'].scatter(eye_inds, np.nanmean(eyev_l, axis=1), color=[.5, .5, .5], s=5)
+                if plot_pursuit_axis:
+                    plot_eyev = eyev_p
+                else:
+                    plot_eyev = eyev_l
+                curr_plot = plot_handles['behav_fun'].scatter(eye_inds, np.nanmean(plot_eyev, axis=1), color=[.5, .5, .5], s=5)
                 if "instruction" not in labels_found:
                     curr_plot.set_label("instruction")
                     labels_found.append("instruction")
-                if sigma*cutoff_sigma >= eyev_l.shape[0]:
+                if sigma*cutoff_sigma >= plot_eyev.shape[0]:
                     # Just use block mean if it's shorter than trial win
-                    smooth_eyev_l = np.full(eyev_l.shape[0], np.nanmean(np.nanmean(eyev_l, axis=1)))
+                    smooth_plot_eyev = np.full(plot_eyev.shape[0], np.nanmean(np.nanmean(plot_eyev, axis=1)))
                 else:
-                    smooth_eyev_l = gauss_convolve(np.nanmean(eyev_l, axis=1), sigma, cutoff_sigma, pad_data=True)
-                curr_plot = plot_handles['behav_fun'].plot(eye_inds, smooth_eyev_l, color='k', linewidth=1.5)
+                    smooth_plot_eyev = gauss_convolve(np.nanmean(plot_eyev, axis=1), sigma, cutoff_sigma, pad_data=True)
+                curr_plot = plot_handles['behav_fun'].plot(eye_inds, smooth_plot_eyev, color='k', linewidth=1.5)
                 # predicted_rates[b_name]['instruction'] = (fr_stab_adjust[tune_trial] / eye_stab_adjust[tune_trial]) * smooth_eyev_l
                 eyep_p, eyep_l, eye_inds = neuron.session.get_xy_traces("eye position", learn_win, blocks=b_name,
                                                                         trial_sets="instruction", return_inds=True)
@@ -391,13 +398,13 @@ def plot_neuron_tuning_learning(neuron, blocks, trial_sets, fix_win, learn_win, 
                 predicted_inds[b_name]['instruction'] = eye_inds
 
                 # Only use mean from here on
-                eyev_l = np.nanmean(eyev_l, axis=1)
+                plot_eyev = np.nanmean(plot_eyev, axis=1)
                 if "smooth" not in labels_found:
                     curr_plot[0].set_label("smooth/mean")
                     labels_found.append("smooth")
-                behav_mean += np.nanmean(eyev_l) * eyev_l.shape[0]
-                behav_std += np.nanstd(eyev_l) * eyev_l.shape[0]
-                behav_n += eyev_l.shape[0]
+                behav_mean += np.nanmean(plot_eyev) * plot_eyev.shape[0]
+                behav_std += np.nanstd(plot_eyev) * plot_eyev.shape[0]
+                behav_n += plot_eyev.shape[0]
             else:
                 print(f"No instruction trials for block {b_name}", flush=True)
 
@@ -406,7 +413,7 @@ def plot_neuron_tuning_learning(neuron, blocks, trial_sets, fix_win, learn_win, 
             pass
         else:
             # Pursuit axis trials for all other block types
-            for trial_type in ["anti_pursuit", "pursuit"]:
+            for trial_type in ["anti_pursuit", "pursuit", "anti_learning", "learning"]:
                 eyev_p, eyev_l, eye_inds = neuron.session.get_xy_traces(
                                                 "eye velocity", learn_win, blocks=b_name,
                                                 trial_sets=trial_type, return_inds=True)
@@ -414,10 +421,17 @@ def plot_neuron_tuning_learning(neuron, blocks, trial_sets, fix_win, learn_win, 
                     if b_name in tune_adjust_blocks:
                         # eyev_l -= eye_stab_adjust[trial_type]
                         pass
-                    curr_plot = plot_handles['behav_fun'].scatter(eye_inds, np.nanmean(eyev_l, axis=1), 
+                    if plot_pursuit_axis:
+                        if trial_type in ["anti_pursuit", "pursuit"]:
+                            continue
+                        plot_eyev = eyev_p
+                    else:
+                        if trial_type in ["anti_learning", "learning"]:
+                            continue
+                        plot_eyev = eyev_l
+                    curr_plot = plot_handles['behav_fun'].scatter(eye_inds, np.nanmean(plot_eyev, axis=1), 
                                                                   color=t_set_color_codes[trial_type], 
                                                                   s=5, zorder=10)
-                    # predicted_rates[b_name][trial_type] = (fr_stab_adjust[tune_trial] / eye_stab_adjust[tune_trial]) * eyev_l
                     eyep_p, eyep_l, eye_inds = neuron.session.get_xy_traces("eye position", learn_win, blocks=b_name,
                                                                             trial_sets=trial_type, return_inds=True)
                     eyea_p = eye_data_series.acc_from_vel(eyev_p, filter_win=9, axis=1)
@@ -430,9 +444,9 @@ def plot_neuron_tuning_learning(neuron, blocks, trial_sets, fix_win, learn_win, 
                     predicted_inds[b_name][trial_type] = eye_inds
 
                     # only use mean from here on
-                    eyev_l = np.nanmean(eyev_l, axis=1)
+                    plot_eyev = np.nanmean(plot_eyev, axis=1)
                     if ("StandTune" in b_name) or ("StabTune" in b_name):
-                        mean_value = np.nanmean(eyev_l)
+                        mean_value = np.nanmean(plot_eyev)
                         plot_handles['behav_fun'].plot([neuron.session.blocks[b_name][0], neuron.session.blocks[b_name][1]],
                                                     [mean_value, mean_value], 
                                                     color=t_set_color_codes[trial_type], 
@@ -440,9 +454,9 @@ def plot_neuron_tuning_learning(neuron, blocks, trial_sets, fix_win, learn_win, 
                     if trial_strings[trial_type] not in labels_found:
                         curr_plot.set_label(trial_strings[trial_type])
                         labels_found.append(trial_strings[trial_type])
-                    behav_mean += np.nanmean(eyev_l) * eyev_l.shape[0]
-                    behav_std += np.nanstd(eyev_l) * eyev_l.shape[0]
-                    behav_n += eyev_l.shape[0]
+                    behav_mean += np.nanmean(plot_eyev) * plot_eyev.shape[0]
+                    behav_std += np.nanstd(plot_eyev) * plot_eyev.shape[0]
+                    behav_n += plot_eyev.shape[0]
                 else:
                     print(f"No {trial_type} trials for block {b_name}", flush=True)       
 
@@ -502,12 +516,22 @@ def plot_neuron_tuning_learning(neuron, blocks, trial_sets, fix_win, learn_win, 
             pass
         else:
             # Pursuit axis trials for all other block types
-            for trial_type in ["anti_pursuit", "pursuit"]:
+            for trial_type in ["anti_pursuit", "pursuit", "anti_learning", "learning"]:
                 # Scatter pursuit axis trials in different colors
                 fr, inds = neuron.get_firing_traces_fix_adj(fr_learn_win, b_name, trial_type, fix_time_window=fix_win, 
                                                             sigma=sigma, cutoff_sigma=cutoff_sigma, zscore_sigma=3.0, 
                                                             rate_offset=0., use_smooth_fix=use_smooth_fix, 
                                                             return_inds=True)
+                if plot_pursuit_axis:
+                    if trial_type in ["anti_pursuit", "pursuit"]:
+                        continue
+                    total_mean = np.nanmean(np.nanmean(fr))
+                    if np.isfinite(total_mean):
+                        learn_pursuit_fr_range[0] = min(total_mean, learn_pursuit_fr_range[0])
+                        learn_pursuit_fr_range[1] = max(total_mean, learn_pursuit_fr_range[1])
+                else:
+                    if trial_type in ["anti_learning", "learning"]:
+                        continue
                 if len(fr) > 0:
                     # Get some eye data just to find saccades to nan in FR
                     temp_eyep = neuron.session.get_data_array("horizontal_eye_position", fr_learn_win,
@@ -552,10 +576,17 @@ def plot_neuron_tuning_learning(neuron, blocks, trial_sets, fix_win, learn_win, 
     behav_mean /= behav_n
     behav_std /= behav_n
     behav_std = max(behav_std, 0.5) # Ensure not zero so plots aren't messed up
-    plot_handles['behav_fun'].set_title(f"Learning axis eye velocity by trial in time window {learn_win} ms", fontsize=8, pad=t_title_pad, weight='bold')
     plot_handles['behav_fun'].set_xlabel("Trial number in session")
-    plot_handles['behav_fun'].set_ylabel("Learning axis eye \n velocity (deg/s)", fontsize=8)
-    plot_handles['behav_fun'].set_ylim([-y_std * behav_std, y_std * behav_std])
+    if plot_pursuit_axis:
+        plot_handles['behav_fun'].set_title(f"Pursuit axis eye velocity by trial in time window {learn_win} ms", 
+                                            fontsize=8, pad=t_title_pad, weight='bold')
+        plot_handles['behav_fun'].set_ylabel("Pursuit axis eye \n velocity (deg/s)", fontsize=8)
+        plot_handles['behav_fun'].set_ylim([-y_std * behav_std, 20])
+    else:
+        plot_handles['behav_fun'].set_title(f"Learning axis eye velocity by trial in time window {learn_win} ms", 
+                                            fontsize=8, pad=t_title_pad, weight='bold')
+        plot_handles['behav_fun'].set_ylabel("Learning axis eye \n velocity (deg/s)", fontsize=8)
+        plot_handles['behav_fun'].set_ylim([-y_std * behav_std, y_std * behav_std])
     plot_handles['behav_fun'].set_xlim([-1, len(neuron.session)+1])
     plot_handles['behav_fun'].axhline(0., color='k', linestyle="-", linewidth=1., zorder=-1)
     # Add dummy line for dashed label
@@ -586,7 +617,13 @@ def plot_neuron_tuning_learning(neuron, blocks, trial_sets, fix_win, learn_win, 
     plot_handles['learn_fun'].set_title(f"Pursuit response by trial in time window {fr_learn_win} ms", fontsize=8, pad=t_title_pad, weight='bold')
     plot_handles['learn_fun'].set_ylabel("Learning window adjusted \n firing rate (Hz)", fontsize=8)
     plot_handles['learn_fun'].set_xticks([])
-    plot_handles['learn_fun'].set_ylim([learn_mean - y_std*learn_std, learn_mean + y_std*learn_std])
+    if plot_pursuit_axis:
+        learn_pursuit_fr_range[0] = min(learn_pursuit_fr_range[0], learn_mean)
+        learn_pursuit_fr_range[1] = max(learn_pursuit_fr_range[1], learn_mean)
+        plot_handles['learn_fun'].set_ylim([learn_pursuit_fr_range[0] - y_std*learn_std, 
+                                            learn_pursuit_fr_range[1] + y_std*learn_std])
+    else:
+        plot_handles['learn_fun'].set_ylim([learn_mean - y_std*learn_std, learn_mean + y_std*learn_std])
     plot_handles['learn_fun'].set_xlim([-1, len(neuron.session)+1])
     plot_handles['learn_fun'].axhline(0., color='k', linestyle="-", linewidth=1., zorder=-1)
 
