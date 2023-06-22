@@ -1,17 +1,28 @@
 import argparse
-from matplotlib.backends.backend_pdf import PdfPages
+import pickle
 from LearnDirTunePurk.load_directories import fun_all_neurons
-from LearnDirTunePurk.learning_curve_plots import plot_neuron_tuning_learning
+from LearnDirTunePurk.learning_scatterplots import get_neuron_scatter_data
 
 
+# Hard code some windows here
+fix_win = [-300, 0]
+learn_win = [200, 300]
 
-# Some hard coded blocks and windows for analysis
-fit_blocks = ["FixTunePre", "RandVPTunePre", "StandTunePre", "StabTunePre", "Learning", 
-              "FixTunePost", "StabTunePost", "Washout", "FixTuneWash", "StabTuneWash", 
-              "StandTuneWash"]
-fit_trial_sets = None
-fix_t_win = [-300, 0]
-learn_t_win = [200, 300]
+ax_inds_to_names = {0: "Learn_ax",
+                    1: "Linear_model",
+                    2: "Fixation",
+                    3: "Washout",
+                    }
+
+def setup_axes():
+    plot_handles = {}
+    plot_handles['fig'], ax_handles = plt.subplots(2, 2, figsize=(8, 11))
+    ax_handles = ax_handles.ravel()
+    for ax_ind in range(0, ax_handles.size):
+        plot_handles[ax_inds_to_names[ax_ind]] = ax_handles[ax_ind]
+
+    return plot_handles
+
 
 def sess_fun(ldp_sess):
     """ Defines a function used to process each ldp_session object within the call
@@ -32,44 +43,25 @@ if __name__ == "__main__":
     parser.add_argument("--maestro_save_dir", default="/home/nate/Documents/MaestroPickles/")
     args = parser.parse_args()
 
-    # Create a new PDF file
-    if len(args.save_fname) > 4:
-        if args.save_fname[-4:].lower() == ".pdf":
-            sf_list = list(args.save_fname)
-            sf_list[-4:] = ".pdf"
-            args.save_fname = "".join(sf_list)
-        else:
-            args.save_fname = args.save_fname + ".pdf"
-    else:
-        args.save_fname = args.save_fname + ".pdf"
-    print(f"Output figures will be saved to file {args.save_fname}", flush=True)
-    pdf_pages = PdfPages(args.save_fname)
+    # # Setup figure layout
+    # plot_handles = setup_axes()
+    # plot_handles['fig'].suptitle(f"Firing rate changes as a function of tuning", fontsize=12, y=.95)
 
     # Setup intputs for fun_all_neurons and tuning
     cell_types = ["PC", "putPC"]
-    n_tune_args = (fit_blocks, fit_trial_sets, fix_t_win, learn_t_win)
+    n_tune_args = (fix_win, learn_win)
     n_tune_kwargs = {'sigma': 12.5, 
                      'cutoff_sigma': 4, 
                      'show_fig': False}
-    neuron_figs = fun_all_neurons(args.neurons_dir, args.PL2_dir, args.maestro_dir, 
-                                 args.maestro_save_dir, cell_types, 
-                                 plot_neuron_tuning_learning, 
-                                 sess_fun,
-                                 n_tune_args, 
-                                 n_tune_kwargs)
+    neuron_fr_win_means = fun_all_neurons(args.neurons_dir, args.PL2_dir, args.maestro_dir, 
+                                            args.maestro_save_dir, cell_types, 
+                                            get_neuron_scatter_data, 
+                                            sess_fun,
+                                            n_tune_args, 
+                                            n_tune_kwargs,
+                                            n_break=2)
 
-    # Add the figures to the PDF file
-    for n_name in neuron_figs.keys():
-        # Add a filename number so we can sort these
-        if "_PC" in n_name:
-            file_num = int(n_name.split("_PC")[0][-2:])
-        else:
-            file_num = int(n_name.split("_put")[0][-2:])
-        neuron_figs[n_name] = (neuron_figs[n_name][0], neuron_figs[n_name][1], file_num)
-    # Now sort by file_num so output is sensible
-    sorted_plot_handles = [x[0] for x in sorted([neuron_figs[key] for key in neuron_figs.keys()], key=lambda x:x[2])]
-    for plot_handles in sorted_plot_handles:
-        pdf_pages.savefig(plot_handles['fig'])
-    # Close the PDF file
-    pdf_pages.close()
-    print(f"Output figures saved to {args.save_fname}", flush=True)
+    # Save all the data
+    with open(args.save_fname, 'wb') as fp:
+        pickle.dump(neuron_fr_win_means, fp)
+    print(f"Output data means saved to {args.save_fname}", flush=True)

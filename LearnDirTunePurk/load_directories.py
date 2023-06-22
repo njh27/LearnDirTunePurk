@@ -35,7 +35,7 @@ def get_eye_target_pos_and_rate(Neuron, time_window, blocks=None, trial_sets=Non
 
 def fun_all_neurons(neurons_dir, PL2_dir, maestro_dir, maestro_save_dir, cell_types, 
                    data_fun, sess_fun=None, data_fun_args=(), data_fun_kwargs={},
-                   verbose=True):
+                   verbose=True, n_break=np.inf):
     """ Loads data according to the name of the files input in neurons dir.
     Creates a session from the maestro data and joins the corresponding
     neurons from the neurons file. Goes through all neurons and if their name
@@ -104,9 +104,9 @@ def fun_all_neurons(neurons_dir, PL2_dir, maestro_dir, maestro_save_dir, cell_ty
                                             n_total_units)
                         if verbose: print(f"Adding neuron {n_name}", flush=True)
                         n_total_units += 1
-                        # if n_total_units >= 2:
-                        #     Testing short circuit
-                        #     return out_data
+                        if n_total_units >= n_break:
+                            print(f"Hit n break of {n_break}")
+                            return out_data
                 except Exception as e: # Catch any error
                     print(f"SKIPPING UNIT {n_name} in file {fname} for some error!", flush=True)
                     failed_files.append((fname + "_" + n_name, str(e))) # Store error text

@@ -190,7 +190,7 @@ def plot_neuron_tuning_learning(neuron, blocks, trial_sets, fix_win, learn_win, 
     """
     # Some currently hard coded variables
     use_smooth_fix = True
-    plot_pursuit_axis = True
+    plot_pursuit_axis = False
     tune_trace_win = [-300, 1000]
     tune_trace_block = "StabTunePre"
     tune_adjust_block = "StabTunePre"
