@@ -8,21 +8,6 @@ from LearnDirTunePurk.learning_scatterplots import get_neuron_scatter_data
 fix_win = [-300, 0]
 learn_win = [200, 300]
 
-ax_inds_to_names = {0: "Learn_ax",
-                    1: "Linear_model",
-                    2: "Fixation",
-                    3: "Washout",
-                    }
-
-def setup_axes():
-    plot_handles = {}
-    plot_handles['fig'], ax_handles = plt.subplots(2, 2, figsize=(8, 11))
-    ax_handles = ax_handles.ravel()
-    for ax_ind in range(0, ax_handles.size):
-        plot_handles[ax_inds_to_names[ax_ind]] = ax_handles[ax_ind]
-
-    return plot_handles
-
 
 def sess_fun(ldp_sess):
     """ Defines a function used to process each ldp_session object within the call
@@ -43,10 +28,6 @@ if __name__ == "__main__":
     parser.add_argument("--maestro_save_dir", default="/home/nate/Documents/MaestroPickles/")
     args = parser.parse_args()
 
-    # # Setup figure layout
-    # plot_handles = setup_axes()
-    # plot_handles['fig'].suptitle(f"Firing rate changes as a function of tuning", fontsize=12, y=.95)
-
     # Setup intputs for fun_all_neurons and tuning
     cell_types = ["PC", "putPC"]
     n_tune_args = (fix_win, learn_win)
@@ -58,9 +39,11 @@ if __name__ == "__main__":
                                             get_neuron_scatter_data, 
                                             sess_fun,
                                             n_tune_args, 
-                                            n_tune_kwargs,
-                                            n_break=2)
-
+                                            n_tune_kwargs)
+    # Remove any empty
+    for fname in neuron_fr_win_means.keys():
+        if len(neuron_fr_win_means[fname]) == 0:
+            del neuron_fr_win_means[fname]
     # Save all the data
     with open(args.save_fname, 'wb') as fp:
         pickle.dump(neuron_fr_win_means, fp)
