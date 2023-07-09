@@ -6,7 +6,7 @@ from LearnDirTunePurk.velocity_vs_position import get_vel_pos_data
 
 # Hard code some windows here
 pos_win = [-300, 0]
-vel_win = [150, 500]
+vel_win = [150, 350]
 
 
 def sess_fun(ldp_sess):
