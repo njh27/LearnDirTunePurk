@@ -1,7 +1,7 @@
 import numpy as np
 import pickle
 import matplotlib.pyplot as plt
-from NeuronAnalysis.fit_neuron_to_eye import FitNeuronToEye, piece_wise_eye_data
+from NeuronAnalysis.fit_neuron_to_eye import FitNeuronToEye
 
 
 ax_inds_to_names = {0: "learn_100",
