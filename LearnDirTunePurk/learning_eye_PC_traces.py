@@ -9,7 +9,7 @@ def get_neuron_trace_data(neuron, trace_win, sigma=12.5, cutoff_sigma=4):
     # Some currently hard coded variables
     fix_win = [-300, 0]
     use_smooth_fix = True
-    use_baseline_block = "StandTunePre"
+    use_baseline_block = "StabTunePre"
 
     if neuron.session.blocks['Learning'] is None:
         # No learning data so nothing to do here
@@ -42,9 +42,9 @@ def get_neuron_trace_data(neuron, trace_win, sigma=12.5, cutoff_sigma=4):
             if neuron.name[0:2] == "PC":
                 # This is a PC with CS so get them
                 out_traces[tune_block][trial_type]['cs'] = neuron.get_CS_dataseries_by_trial(trace_win, tune_block, None)
-            X_eye, x_shape = fit_eye_model.get_pcwise_lin_eye_kin_predict_data_by_trial(tune_block, t_inds, 
+            X_eye, x_shape = fit_eye_model.get_pcwise_lin_eye_kin_predict_data_by_trial_acc_x_vel(tune_block, t_inds, 
                                                                                         return_shape=True, return_inds=False)
-            out_traces[tune_block][trial_type]['y_hat'] = fit_eye_model.predict_pcwise_lin_eye_kinematics_by_trial(X_eye, x_shape)
+            out_traces[tune_block][trial_type]['y_hat'] = fit_eye_model.predict_pcwise_lin_eye_kinematics_by_trial_acc_x_vel(X_eye, x_shape)
             eyev_p, eyev_l = neuron.session.get_xy_traces("eye velocity", trace_win, blocks=tune_block,
                                                             trial_sets=t_inds, return_inds=False)
             out_traces[tune_block][trial_type]['eyev_p'] = eyev_p
@@ -69,9 +69,9 @@ def get_neuron_trace_data(neuron, trace_win, sigma=12.5, cutoff_sigma=4):
         if neuron.name[0:2] == "PC":
             # This is a PC with CS so get them
             out_traces['Learning'][trial_type]['cs'] = neuron.get_CS_dataseries_by_trial(trace_win, "Learning", t_inds)
-        X_eye, x_shape = fit_eye_model.get_pcwise_lin_eye_kin_predict_data_by_trial("Learning", t_inds, 
+        X_eye, x_shape = fit_eye_model.get_pcwise_lin_eye_kin_predict_data_by_trial_acc_x_vel("Learning", t_inds, 
                                                                                         return_shape=True, return_inds=False)
-        out_traces['Learning'][trial_type]['y_hat'] = fit_eye_model.predict_pcwise_lin_eye_kinematics_by_trial(X_eye, x_shape)
+        out_traces['Learning'][trial_type]['y_hat'] = fit_eye_model.predict_pcwise_lin_eye_kinematics_by_trial_acc_x_vel(X_eye, x_shape)
         n_inst = np.array([neuron.session.n_instructed[t_ind] for t_ind in t_inds], dtype=np.int64)
         out_traces['Learning'][trial_type]['n_inst'] = n_inst
         eyev_p, eyev_l = neuron.session.get_xy_traces("eye velocity", trace_win, blocks="Learning",
@@ -97,9 +97,9 @@ def get_neuron_trace_data(neuron, trace_win, sigma=12.5, cutoff_sigma=4):
         if neuron.name[0:2] == "PC":
             # This is a PC with CS so get them
             out_traces['Washout']["instruction"]['cs'] = neuron.get_CS_dataseries_by_trial(trace_win, "Washout", t_inds)
-        X_eye, x_shape = fit_eye_model.get_pcwise_lin_eye_kin_predict_data_by_trial("Washout", t_inds, 
+        X_eye, x_shape = fit_eye_model.get_pcwise_lin_eye_kin_predict_data_by_trial_acc_x_vel("Washout", t_inds, 
                                                                                         return_shape=True, return_inds=False)
-        out_traces['Washout']["instruction"]['y_hat'] = fit_eye_model.predict_pcwise_lin_eye_kinematics_by_trial(X_eye, x_shape)
+        out_traces['Washout']["instruction"]['y_hat'] = fit_eye_model.predict_pcwise_lin_eye_kinematics_by_trial_acc_x_vel(X_eye, x_shape)
         n_inst = np.array([neuron.session.n_instructed[t_ind] for t_ind in t_inds], dtype=np.int64)
         out_traces['Washout']["instruction"]['n_inst'] = n_inst
         eyev_p, eyev_l = neuron.session.get_xy_traces("eye velocity", trace_win, blocks="Washout",
