@@ -18,8 +18,8 @@ def get_neuron_trace_data(neuron, trace_win, sigma=12.5, cutoff_sigma=4):
     # Get linear model fit
     fit_eye_model = FitNeuronToEye(neuron, trace_win, use_baseline_block, trial_sets=None,
                                     lag_range_eye=[-75, 150])
-    fit_eye_model.fit_pcwise_lin_eye_kinematics(bin_width=10, bin_threshold=5,
-                                                fit_constant=False, fit_avg_data=False,
+    fit_eye_model.fit_pcwise_lin_eye_kinematics_acc_x_vel(bin_width=1, bin_threshold=1,
+                                                fit_constant=False, fit_avg_data=True,
                                                 quick_lag_step=10, fit_fix_adj_fr=True)
     
     # Get 4 direction tuning block traces
