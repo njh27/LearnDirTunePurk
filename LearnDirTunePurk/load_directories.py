@@ -35,7 +35,7 @@ def get_eye_target_pos_and_rate(Neuron, time_window, blocks=None, trial_sets=Non
 
 def fun_all_neurons(neurons_dir, PL2_dir, maestro_dir, maestro_save_dir, cell_types, 
                    data_fun, sess_fun=None, data_fun_args=(), data_fun_kwargs={},
-                   verbose=True, n_break=np.inf):
+                   verbose=True, n_break=np.inf, sac_ind_cushion=40):
     """ Loads data according to the name of the files input in neurons dir.
     Creates a session from the maestro data and joins the corresponding
     neurons from the neurons file. Goes through all neurons and if their name
@@ -87,7 +87,7 @@ def fun_all_neurons(neurons_dir, PL2_dir, maestro_dir, maestro_save_dir, cell_ty
                 continue
 
             # Continue building session and neuron tuning
-            ldp_sess = format_ldp_trials_blocks(ldp_sess, verbose=False)
+            ldp_sess = format_ldp_trials_blocks(ldp_sess, sac_ind_cushion=sac_ind_cushion, verbose=False)
             ldp_sess.join_neurons()
             if sess_fun is not None:
                 ldp_sess = sess_fun(ldp_sess)

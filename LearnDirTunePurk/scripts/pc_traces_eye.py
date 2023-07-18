@@ -7,6 +7,7 @@ from LearnDirTunePurk.learning_eye_PC_traces import get_neuron_trace_data
 
 # Hard code some windows here
 trace_win = [-100, 800]
+sac_ind_cushion = 50
 
 
 def sess_fun(ldp_sess):
@@ -38,7 +39,7 @@ if __name__ == "__main__":
                                             get_neuron_trace_data, 
                                             sess_fun,
                                             n_tune_args, 
-                                            n_tune_kwargs)
+                                            n_tune_kwargs, sac_ind_cushion=sac_ind_cushion)
     # Remove any empty
     for fname in neuron_fr_win_means.keys():
         if len(neuron_fr_win_means[fname]) == 0:

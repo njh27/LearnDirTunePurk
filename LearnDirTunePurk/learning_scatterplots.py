@@ -11,16 +11,6 @@ ax_inds_to_names = {0: "learn_100",
                     4: "learn_500-100",
                     5: "learn_500-100_hat",
                     }
-# ax_inds_to_names = {0: "learn_100",
-#                     1: "learn_100_hat",
-#                     2: "act-exp_100",
-#                     3: "learn_500",
-#                     4: "learn_500_hat",
-#                     5: "act-exp_500",
-#                     6: "learn_500-100",
-#                     7: "learn_500-100_hat",
-#                     8: "Nothing",
-#                     }
 t_title_pad = 0
 
 def setup_axes():
