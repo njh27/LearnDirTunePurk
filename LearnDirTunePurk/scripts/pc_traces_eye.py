@@ -6,7 +6,7 @@ from LearnDirTunePurk.learning_eye_PC_traces import get_neuron_trace_data
 
 
 # Hard code some windows here
-trace_win = [-100, 800]
+trace_win = [-300, 1000]
 sac_ind_cushion = 50
 
 
