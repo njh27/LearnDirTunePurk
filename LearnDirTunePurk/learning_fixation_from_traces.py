@@ -15,7 +15,7 @@ ax_inds_to_names = {0: "scatter_raw",
 # Hard coded used globally rightnow
 t_title_pad = 0
 tuning_block = "StandTunePre"
-tuning_win = [200, 300]
+tuning_win = [800, 1000]
 fixation_win = [-300, 50]
 
 def setup_axes():

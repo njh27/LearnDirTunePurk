@@ -17,7 +17,7 @@ ax_inds_to_names = {0: "scatter_raw",
 # Hard coded used globally rightnow
 t_title_pad = 0
 tuning_block = "StandTunePre"
-tuning_win = [200, 300]
+tuning_win = [800, 1000]
 
 def round_to_nearest_five_greatest(n, round_n=5):
     if n > 0:
@@ -92,16 +92,27 @@ def plot_95_CI(ax, xvals, mean_trace, sem_trace, mean_color="black", ci_color=[.
                 alpha=plot_params['alpha'])
     ax.fill_between(xvals, mean_trace-ci, mean_trace+ci, color=plot_params['ci_color'], alpha=plot_params['alpha'])
 
+def find_block_start_t_ind(neuron_dict, blockname):
+    """ Iterates through the data in blockname to find the earliest t_ind to indicate block start
+    """
+    b_start_ind = np.inf
+    for t_set in neuron_dict[blockname].keys():
+        if neuron_dict[blockname][t_set]['t_inds'][0] < b_start_ind:
+            b_start_ind = neuron_dict[blockname][t_set]['t_inds'][0]
+    return b_start_ind
+
 def get_traces_win(neuron_dict, blockname, trial_type, data_type, win, trial_win=None):
     if neuron_dict[blockname][trial_type][data_type].shape[0] == 0:
         return np.array([])
     if trial_win is None:
         trial_inds = np.ones(neuron_dict[blockname][trial_type][data_type].shape[0], dtype='bool')
     else:
-        if "n_inst" in neuron_dict[blockname][trial_type].keys():
-            trial_inds = neuron_dict[blockname][trial_type]['n_inst']
+        if blockname == "Learning":
+            trial_inds = np.copy(neuron_dict[blockname][trial_type]['n_inst'])
         else:
-            trial_inds = np.arange(0, neuron_dict[blockname][trial_type][data_type].shape[0])
+            trial_inds = np.copy(neuron_dict[blockname][trial_type]['t_inds'])
+            b_start_ind = find_block_start_t_ind(neuron_dict, blockname)
+            trial_inds -= b_start_ind
         trial_inds = np.logical_and(trial_inds >= trial_win[0], trial_inds < trial_win[1])
     t_inds = np.arange(neuron_dict['trace_win'][0], neuron_dict['trace_win'][1])
     time_inds = np.logical_and(t_inds >= win[0], t_inds < win[1])
