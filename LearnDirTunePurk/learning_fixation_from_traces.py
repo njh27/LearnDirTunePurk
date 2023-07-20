@@ -10,7 +10,7 @@ ax_inds_to_names = {0: "scatter_raw",
                     2: "fix_baseline",
                     3: "fix_learn",
                     4: "learn_500-100",
-                    5: "learn_500-100_hat",
+                    5: "fix_learn_500",
                     }
 # Hard coded used globally rightnow
 t_title_pad = 0
@@ -73,39 +73,34 @@ def set_all_axis_same(ax_list, round_n=5):
         ax.set_xlim(lims_x)
         ax.set_ylim(lims_y)
 
+def remove_empty_traces(traces):
+    no_empty_traces = [t for t in traces if t.size != 0]
+    return no_empty_traces
         
 def get_all_neuron_traces(all_traces, trial_win=None):
     """ This is like select_neuron_traces except it does not choose according to modulation, right, wrong,
     it just gets all the data for all units.
     """
     mean_traces = lept.get_mean_traces(all_traces, nan_fr_sac=True, y_hat_from_avg=True, trial_win=trial_win)
-    
-    sel_learn_eye = []
-    sel_base_learn_eye = []
-    sel_learn_fr = []
-    sel_learn_hat = []
-    sel_base_learn_fr = []
-    sel_base_learn_hat = []
-    sel_base_pursuit_fr = []
-    sel_base_pursuit_hat = []
-    plotted_fnames = []
+    sel_traces = {
+        'sel_learn_eye': [],
+        'sel_base_learn_eye': [],
+        'sel_learn_fr': [],
+        'sel_learn_hat': [],
+        'sel_base_learn_fr': [],
+        'sel_base_learn_hat': [],
+        'sel_base_pursuit_fr': [],
+        'sel_base_pursuit_hat': [],
+        'plotted_fnames': [],
+        'sel_learn_fr_raw': [],
+        'sel_base_learn_fr_raw': [],
+        'sel_base_pursuit_fr_raw': [],
+    }
     for fname in mean_traces.keys():
-        # Get response change from baseline
-        try:
-            outs = lept.gather_traces(mean_traces, fname)
-        except:
-            print(fname)
-            raise
-        sel_learn_eye.append(outs[0])
-        sel_base_learn_eye.append(outs[1])
-        sel_learn_fr.append(outs[2])
-        sel_learn_hat.append(outs[3])
-        sel_base_learn_fr.append(outs[4])
-        sel_base_learn_hat.append(outs[5])
-        sel_base_pursuit_fr.append(outs[6])
-        sel_base_pursuit_hat.append(outs[7])
-        plotted_fnames.append(fname)
-    return sel_learn_eye, sel_base_learn_eye, sel_learn_fr, sel_learn_hat, sel_base_learn_fr, sel_base_learn_hat, sel_base_pursuit_fr, sel_base_pursuit_hat, plotted_fnames
+        traces = lept.gather_traces(mean_traces, fname)
+        lept.copy_sel_traces(traces, sel_traces)
+        sel_traces['plotted_fnames'].append(fname)
+    return sel_traces
 
 def make_fixation_scatter_figs(traces_fname, savename, modulation_threshold, way="right", trial_win=[80, 100]):
     """ Loads the all traces data file "fname" and makes plots for all the different neuron conditions
@@ -125,15 +120,13 @@ def make_fixation_scatter_figs(traces_fname, savename, modulation_threshold, way
     plot_handles = setup_axes()
     with open(traces_fname, 'rb') as fp:
         all_traces = pickle.load(fp)
-    scatter_data, scatter_xy = lept.get_scatter_data(all_traces, trial_win=trial_win)
-    sel_traces = lept.select_neuron_traces(all_traces, scatter_data, modulation_threshold, way, trial_win=trial_win)
-    _, _, _, _, _, _, _, _, plotted_fnames = sel_traces
-    sel_traces = get_all_neuron_traces(all_traces, trial_win=trial_win)
-    sel_learn_eye, sel_base_learn_eye, sel_learn_fr, sel_learn_hat, sel_base_learn_fr, sel_base_learn_hat, sel_base_pursuit_fr, sel_base_pursuit_hat, _ = sel_traces
-    
+    scatter_data, scatter_xy = lept.get_scatter_data(all_traces, trial_win=[80, 100])
+    sel_traces = lept.select_neuron_traces(all_traces, scatter_data, modulation_threshold, way, trial_win=[80, 100])
+    plotted_fnames = sel_traces['plotted_fnames']
+    sel_traces = get_all_neuron_traces(all_traces, trial_win=trial_win)    
 
     # Make plots
-    plot_handles['fig'].suptitle(f"{way.capitalize()} way learning SS-{learn_dir.upper()} >= {modulation_threshold} spk/s baseline pursuit learning axis modulation({len(sel_learn_fr)} PCs)", 
+    plot_handles['fig'].suptitle(f"{way.capitalize()} way learning SS-{learn_dir.upper()} >= {modulation_threshold} spk/s baseline pursuit learning axis modulation({len(sel_traces['plotted_fnames'])} PCs)", 
                                  fontsize=11, y=.99)
     # Get scatterplot indices for the files we kept
     plotted_inds = np.zeros(scatter_xy.shape[0], dtype='bool')
@@ -154,7 +147,7 @@ def make_fixation_scatter_figs(traces_fname, savename, modulation_threshold, way
     plot_handles['scatter_raw'].set_xlabel("Baseline learning axis respone (spk/s)", fontsize=8)
     plot_handles['scatter_raw'].set_ylabel("Learning response (spk/s) \n [instruction trial - baseline pursuit]", fontsize=8)
     plot_handles['scatter_raw'].tick_params(axis='both', which='major', labelsize=9)
-    plot_handles['scatter_raw'].set_title(f"Learning vs. tuning PC firing rates from \n 200-300 ms after target onset", 
+    plot_handles['scatter_raw'].set_title(f"Learning vs. tuning pre-learning PC firing rates from \n 200-300 ms after target onset", 
                                           fontsize=9, y=1.01)
     
 
@@ -172,13 +165,16 @@ def make_fixation_scatter_figs(traces_fname, savename, modulation_threshold, way
     plot_handles['scatter_learned'].set_ylabel("Observed minus expected \n learning response (spk/s)", fontsize=8)
     plot_handles['scatter_learned'].tick_params(axis='both', which='major', labelsize=9)
     plot_handles['scatter_learned'].set_yticklabels([])
-    plot_handles['scatter_learned'].set_title(f"Observed - predicted learning vs. tuning PC firing rates \n from 200-300 ms after target onset",
+    plot_handles['scatter_learned'].set_title(f"80-100 instruction trial observed - predicted learning vs. tuning PC firing rates \n from 200-300 ms after target onset",
                                               fontsize=9, y=1.01)
 
     set_all_axis_same([plot_handles[x] for x in ["scatter_raw", "scatter_learned"]])
 
+    print("Current fixation is for all baseline learning blocks only not second half of all trial types!")
     time_inds = np.logical_and(t_inds >= fixation_win[0], t_inds < fixation_win[1])
-    sel_base_learn_fr_scatter = np.nanmean(np.vstack(sel_base_learn_fr)[:, time_inds], axis=1)
+    sel_base_learn_fr_scatter = np.nanmean(np.vstack(remove_empty_traces(sel_traces['sel_base_learn_fr_raw']))[:, time_inds],
+                                            axis=1)
+    y_max = round_to_nearest_five_greatest(np.nanmax(sel_base_learn_fr_scatter)+5)
     plot_handles['fix_baseline'].scatter(scatter_xy[~plotted_inds, 0], sel_base_learn_fr_scatter[~plotted_inds],
                                            color=light_gray, s=base_dot_size, zorder=1)
     plot_handles['fix_baseline'].scatter(scatter_xy[plotted_inds, 0], sel_base_learn_fr_scatter[plotted_inds],
@@ -186,22 +182,63 @@ def make_fixation_scatter_figs(traces_fname, savename, modulation_threshold, way
     plot_handles['fix_baseline'].axvline(0, color=dark_gray, zorder=0)
     plot_handles['fix_baseline'].axhline(0, color=dark_gray, zorder=0)
     plot_handles['fix_baseline'].set_xticks(np.arange(-75, 76, 25))
-    plot_handles['fix_baseline'].set_yticks(np.arange(-30, 31, 10))
+    plot_handles['fix_baseline'].set_yticks(np.arange(0, y_max, 20))
     plot_handles['fix_baseline'].set_xlim([-80, 80])
-    plot_handles['fix_baseline'].set_ylim([-30, 30])
+    plot_handles['fix_baseline'].set_ylim([0, y_max])
     plot_handles['fix_baseline'].set_xlabel("Baseline learning axis respone (spk/s)", fontsize=8)
-    plot_handles['fix_baseline'].set_ylabel("Observed minus expected \n learning response (spk/s)", fontsize=8)
+    plot_handles['fix_baseline'].set_ylabel("Raw baseline fixation firing rate (spk/s)", fontsize=8)
     plot_handles['fix_baseline'].tick_params(axis='both', which='major', labelsize=9)
-    plot_handles['fix_baseline'].set_yticklabels([])
-    plot_handles['fix_baseline'].set_title(f"Observed - predicted learning vs. tuning PC firing rates \n from 200-300 ms after target onset",
+    plot_handles['fix_baseline'].set_title(f"Baseline fixation vs. tuning PC firing rates",
                                               fontsize=9, y=1.01)
     
-    # time_inds = np.logical_and(t_inds >= win[0], t_inds < win[1])
-    # sel_learn_fr_scatter = np.nanmean(sel_learn_fr[:, time_inds], axis=1)
-    # plot_handles['fix_learn'].scatter(scatter_xy[~plotted_inds, 0], scatter_xy[~plotted_inds, 2],
-    #                                        color=light_gray, s=base_dot_size, zorder=1)
-    # plot_handles['fix_learn'].scatter(scatter_xy[plotted_inds, 0], scatter_xy[plotted_inds, 2],
-    #                                        edgecolors=plotted_col, facecolors='none', s=base_dot_size, zorder=1)
+    time_inds = np.logical_and(t_inds >= fixation_win[0], t_inds < fixation_win[1])
+    sel_learn_fr_scatter = np.nanmean(np.vstack(remove_empty_traces(sel_traces['sel_learn_fr_raw']))[:, time_inds], axis=1)
+    y_max = round_to_nearest_five_greatest(np.nanmax(sel_learn_fr_scatter))
+    y_min = round_to_nearest_five_greatest(np.nanmin(sel_learn_fr_scatter))
+    ylim = max(np.abs(y_max), np.abs(y_min))
+    y_max, y_min = ylim, -1*ylim
+    plot_handles['fix_learn'].scatter(scatter_xy[~plotted_inds, 0], sel_learn_fr_scatter[~plotted_inds],
+                                           color=light_gray, s=base_dot_size, zorder=1)
+    plot_handles['fix_learn'].scatter(scatter_xy[plotted_inds, 0], sel_learn_fr_scatter[plotted_inds],
+                                           edgecolors=plotted_col, facecolors='none', s=base_dot_size, zorder=1)
+    plot_handles['fix_learn'].axvline(0, color=dark_gray, zorder=0)
+    plot_handles['fix_learn'].axhline(0, color=dark_gray, zorder=0)
+    plot_handles['fix_learn'].set_xticks(np.arange(-75, 76, 25))
+    plot_handles['fix_learn'].set_yticks(np.arange(y_min, y_max+10, 10))
+    plot_handles['fix_learn'].set_xlim([-80, 80])
+    plot_handles['fix_learn'].set_ylim([y_min, y_max])
+    plot_handles['fix_learn'].set_xlabel("Baseline learning axis respone (spk/s)", fontsize=8)
+    plot_handles['fix_learn'].set_ylabel("Baseline - 80 instruction trial fixation rate (spk/s)", fontsize=8)
+    plot_handles['fix_learn'].tick_params(axis='both', which='major', labelsize=9)
+    plot_handles['fix_learn'].set_title(f"Change in fixation firing rate from 80-100 instruction trials \n relative to baseline",
+                                              fontsize=9, y=1.01)
+    
+    sel_traces_500 = get_all_neuron_traces(all_traces, trial_win=[500, 520])
+    time_inds = np.logical_and(t_inds >= fixation_win[0], t_inds < fixation_win[1])
+    sel_learn_fr_500_scatter = np.nanmean(np.vstack(remove_empty_traces(sel_traces_500['sel_learn_fr_raw']))[:, time_inds], axis=1)
+    y_max500 = round_to_nearest_five_greatest(np.nanmax(sel_learn_fr_500_scatter))
+    y_min500 = round_to_nearest_five_greatest(np.nanmin(sel_learn_fr_500_scatter))
+    ylim = max(np.abs(y_max500), np.abs(y_min500), ylim)
+    y_max, y_min = ylim, -1*ylim
+    plot_handles['fix_learn_500'].scatter(scatter_xy[~plotted_inds, 0], sel_learn_fr_500_scatter[~plotted_inds],
+                                           color=light_gray, s=base_dot_size, zorder=1)
+    plot_handles['fix_learn_500'].scatter(scatter_xy[plotted_inds, 0], sel_learn_fr_500_scatter[plotted_inds],
+                                           edgecolors=plotted_col, facecolors='none', s=base_dot_size, zorder=1)
+    plot_handles['fix_learn_500'].axvline(0, color=dark_gray, zorder=0)
+    plot_handles['fix_learn_500'].axhline(0, color=dark_gray, zorder=0)
+    plot_handles['fix_learn_500'].set_xticks(np.arange(-75, 76, 25))
+    plot_handles['fix_learn_500'].set_yticks(np.arange(y_min, y_max+10, 10))
+    plot_handles['fix_learn_500'].set_xlim([-80, 80])
+    plot_handles['fix_learn_500'].set_ylim([y_min, y_max])
+    plot_handles['fix_learn_500'].set_xlabel("Baseline learning axis respone (spk/s)", fontsize=8)
+    plot_handles['fix_learn_500'].set_ylabel("Baseline - 500 instruction trial fixation rate (spk/s)", fontsize=8)
+    plot_handles['fix_learn_500'].tick_params(axis='both', which='major', labelsize=9)
+    plot_handles['fix_learn_500'].set_title(f"Change in fixation firing rate from 500-520 instruction trials \n relative to baseline",
+                                              fontsize=9, y=1.01)
+    # Set these the same now that we know the total max
+    plot_handles['fix_learn'].set_yticks(np.arange(y_min, y_max+10, 10))
+    plot_handles['fix_learn'].set_ylim([y_min, y_max])
+    set_all_axis_same([plot_handles[x] for x in ["fix_learn", "fix_learn_500"]])
 
     plt.tight_layout()
     plot_handles['fig'].savefig(savename)

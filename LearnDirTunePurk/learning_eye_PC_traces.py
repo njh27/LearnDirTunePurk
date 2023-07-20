@@ -285,10 +285,11 @@ def gather_traces(mean_traces, fname):
     traces = {}
     # Get response change from baseline
     if mean_traces[fname]['learn_eye_raw'].size == 0:
-        traces['sel_learn_eye'] = np.array([])
-        traces['sel_learn_fr'] = np.array([])
-        traces['sel_learn_fr_raw'] = np.array([])
-        traces['sel_learn_hat'] = np.array([])
+        nan_out = np.full((mean_traces[fname]['base_learn_eye'].shape[0], ), np.nan)
+        traces['sel_learn_eye'] = nan_out
+        traces['sel_learn_fr'] = nan_out
+        traces['sel_learn_fr_raw'] = nan_out
+        traces['sel_learn_hat'] = nan_out
     else:
         traces['sel_learn_eye'] = mean_traces[fname]['learn_eye_raw'] - mean_traces[fname]['base_pursuit_eye']
         traces['sel_learn_fr'] = mean_traces[fname]['learn_fr_raw'] - mean_traces[fname]['base_pursuit_fr']
@@ -357,7 +358,7 @@ def select_neuron_traces(all_traces, scatter_data, modulation_threshold, way, tr
                         # Get response change from baseline
                         traces = gather_traces(mean_traces, fname)
                         copy_sel_traces(traces, sel_traces)
-                        plotted_fnames.append(fname)
+                        sel_traces['plotted_fnames'].append(fname)
         if learn_dir == "on":
             if scatter_data[fname][0][0] >= modulation_threshold:
                 # Learning on direction
@@ -367,14 +368,14 @@ def select_neuron_traces(all_traces, scatter_data, modulation_threshold, way, tr
                         # Get response change from baseline
                         traces = gather_traces(mean_traces, fname)
                         copy_sel_traces(traces, sel_traces)
-                        plotted_fnames.append(fname)
+                        sel_traces['plotted_fnames'].append(fname)
                 else:
                     # Look for wrong-way learners
                     if np.sign(scatter_data[fname][0][1]) < 0:
                         # Get response change from baseline
                         traces = gather_traces(mean_traces, fname)
                         copy_sel_traces(traces, sel_traces)
-                        plotted_fnames.append(fname)
+                        sel_traces['plotted_fnames'].append(fname)
     return sel_traces
 
 def make_trace_data_figs(traces_fname, savename, modulation_threshold, way="right", trial_win=[80, 100]):
@@ -399,11 +400,11 @@ def make_trace_data_figs(traces_fname, savename, modulation_threshold, way="righ
     sel_traces = select_neuron_traces(all_traces, scatter_data, modulation_threshold, way, trial_win=trial_win)
 
     # Make plots
-    plot_handles['fig'].suptitle(f"{way.capitalize()} way learning SS-{learn_dir.upper()} >= {modulation_threshold} spk/s baseline pursuit learning axis modulation({len(plotted_fnames)} PCs)", 
+    plot_handles['fig'].suptitle(f"{way.capitalize()} way learning SS-{learn_dir.upper()} >= {modulation_threshold} spk/s baseline pursuit learning axis modulation({len(sel_traces['plotted_fnames'])} PCs)", 
                                  fontsize=11, y=.99)
     # Get scatterplot indices for the files we kept
     plotted_inds = np.zeros(scatter_xy.shape[0], dtype='bool')
-    for fname in plotted_fnames:
+    for fname in sel_traces['plotted_fnames']:
         plotted_inds[scatter_data[fname][1]] = True
         trace_win = all_traces[fname][0]['trace_win']
     plot_handles['scatter_raw'].scatter(scatter_xy[~plotted_inds, 0], scatter_xy[~plotted_inds, 1],
@@ -574,6 +575,7 @@ def get_neuron_trace_data(neuron, trace_win, sigma=12.5, cutoff_sigma=4):
                                                         rate_offset=0., use_smooth_fix=use_smooth_fix, 
                                                         return_inds=True)
             out_traces[tune_block][trial_type]['fr'] = fr
+            out_traces[tune_block][trial_type]['t_inds'] = t_inds
             if fr.shape[0] == 0:
                 out_traces[tune_block][trial_type]['fr_raw'] = fr
                 out_traces[tune_block][trial_type]['y_hat'] = fr
@@ -609,6 +611,7 @@ def get_neuron_trace_data(neuron, trace_win, sigma=12.5, cutoff_sigma=4):
                                                     rate_offset=0., use_smooth_fix=use_smooth_fix, 
                                                     return_inds=True)
         out_traces['Learning'][trial_type]['fr'] = fr
+        out_traces['Learning'][trial_type]['t_inds'] = t_inds
         if len(t_inds) == 0:
             out_traces['Learning'][trial_type]['fr_raw'] = fr
             out_traces['Learning'][trial_type]['y_hat'] = fr
@@ -646,6 +649,7 @@ def get_neuron_trace_data(neuron, trace_win, sigma=12.5, cutoff_sigma=4):
                                                 rate_offset=0., use_smooth_fix=use_smooth_fix, 
                                                 return_inds=True)
     out_traces['Washout']["instruction"]['fr'] = fr
+    out_traces['Washout']["instruction"]['t_inds'] = t_inds
     if len(t_inds) == 0:
         out_traces['Washout']["instruction"]['fr_raw'] = fr
         out_traces['Washout']["instruction"]['y_hat'] = fr

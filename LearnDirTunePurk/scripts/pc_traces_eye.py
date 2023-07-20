@@ -30,7 +30,8 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # Setup intputs for fun_all_neurons and tuning
-    cell_types = ["PC", "putPC"]
+    # cell_types = ["PC", "putPC"]
+    cell_types = ["MF"]
     n_tune_args = (trace_win, )
     n_tune_kwargs = {'sigma': 12.5, 
                      'cutoff_sigma': 4}
