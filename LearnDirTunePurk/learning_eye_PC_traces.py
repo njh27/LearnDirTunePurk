@@ -17,7 +17,6 @@ ax_inds_to_names = {0: "scatter_raw",
 # Hard coded used globally rightnow
 t_title_pad = 0
 tuning_block = "StandTunePre"
-tuning_win = [800, 1000]
 
 def round_to_nearest_five_greatest(n, round_n=5):
     if n > 0:
@@ -97,13 +96,17 @@ def find_block_start_t_ind(neuron_dict, blockname):
     """
     b_start_ind = np.inf
     for t_set in neuron_dict[blockname].keys():
+        if neuron_dict[blockname][t_set]['t_inds'].size == 0:
+            continue
         if neuron_dict[blockname][t_set]['t_inds'][0] < b_start_ind:
             b_start_ind = neuron_dict[blockname][t_set]['t_inds'][0]
+    if not np.isfinite(b_start_ind):
+        b_start_ind = 0
     return b_start_ind
 
-def get_traces_win(neuron_dict, blockname, trial_type, data_type, win, trial_win=None):
-    if neuron_dict[blockname][trial_type][data_type].shape[0] == 0:
-        return np.array([])
+def get_traces_win(neuron_dict, blockname, trial_type, data_type, win, trial_win=None, nansac=False):
+    """
+    """
     if trial_win is None:
         trial_inds = np.ones(neuron_dict[blockname][trial_type][data_type].shape[0], dtype='bool')
     else:
@@ -116,12 +119,22 @@ def get_traces_win(neuron_dict, blockname, trial_type, data_type, win, trial_win
         trial_inds = np.logical_and(trial_inds >= trial_win[0], trial_inds < trial_win[1])
     t_inds = np.arange(neuron_dict['trace_win'][0], neuron_dict['trace_win'][1])
     time_inds = np.logical_and(t_inds >= win[0], t_inds < win[1])
+    if neuron_dict[blockname][trial_type][data_type].shape[0] == 0:
+        return np.full((1, np.count_nonzero(time_inds)), np.nan)
     traces_win = neuron_dict[blockname][trial_type][data_type][trial_inds, :][:, time_inds]
+    if traces_win.shape[0] == 0:
+        return np.full((1, np.count_nonzero(time_inds)), np.nan)
+    if nansac:
+        # Get saccade nans from eye velocity data and apply to current
+        sac_nans = get_traces_win(neuron_dict, blockname, trial_type, "eyev_l", 
+                                  win, trial_win=trial_win, nansac=False)
+        sac_nans = np.isnan(sac_nans)
+        traces_win[sac_nans] = np.nan
 
     return traces_win
 
-def get_mean_win(neuron_dict, blockname, trial_type, data_type, win, trial_win=None, min_trials=10):
-    traces_win = get_traces_win(neuron_dict, blockname, trial_type, data_type, win, trial_win=trial_win)
+def get_mean_win(neuron_dict, blockname, trial_type, data_type, win, trial_win=None, min_trials=10, nansac=False):
+    traces_win = get_traces_win(neuron_dict, blockname, trial_type, data_type, win, trial_win=trial_win, nansac=nansac)
     if traces_win.shape[0] < min_trials:
         return np.nan
     mean_trace = np.nanmean(traces_win, axis=0)
@@ -129,18 +142,18 @@ def get_mean_win(neuron_dict, blockname, trial_type, data_type, win, trial_win=N
 
     return mean_win
 
-def get_learn_response_inst_probe_traces_win(neuron_dict, data_type, win=None, trial_win=None):
+def get_learn_response_inst_probe_traces_win(neuron_dict, data_type, win=None, trial_win=None, nansac=False):
     if win is None:
         win = neuron_dict['trace_win']
-    learn_80_trace = get_traces_win(neuron_dict, "Learning", "pursuit", data_type, win, trial_win=trial_win)
-    learn_80_inst_trace = get_traces_win(neuron_dict, "Learning", "instruction", data_type, win, trial_win=trial_win)
+    learn_80_trace = get_traces_win(neuron_dict, "Learning", "pursuit", data_type, win, trial_win=trial_win, nansac=nansac)
+    learn_80_inst_trace = get_traces_win(neuron_dict, "Learning", "instruction", data_type, win, trial_win=trial_win, nansac=nansac)
     all_learn = np.vstack((learn_80_trace, learn_80_inst_trace))
 
     return all_learn
 
-def get_learn_response_inst_probe_mean_win(neuron_dict, data_type, win, trial_win=None, min_trials=10):
-    learn_probe = get_traces_win(neuron_dict, "Learning", "pursuit", data_type, win, trial_win=trial_win)
-    learn_inst = get_traces_win(neuron_dict, "Learning", "instruction", data_type, win, trial_win=trial_win)
+def get_learn_response_inst_probe_mean_win(neuron_dict, data_type, win, trial_win=None, min_trials=10, nansac=False):
+    learn_probe = get_traces_win(neuron_dict, "Learning", "pursuit", data_type, win, trial_win=trial_win, nansac=nansac)
+    learn_inst = get_traces_win(neuron_dict, "Learning", "instruction", data_type, win, trial_win=trial_win, nansac=nansac)
     all_learn = np.vstack((learn_probe, learn_inst))
     if all_learn.shape[0] < min_trials:
         return np.nan
@@ -197,21 +210,21 @@ def get_y_hat_from_avg(neuron_dict, blockname, trial_type, trial_win=None, filte
         y_hat[0:-1 * neuron_dict['lin_model']['eye_lag']] = trace_hat
     return y_hat
 
-def get_scatter_data(all_traces, trial_win=None):
+def get_scatter_data(all_traces, trial_win=None, nansac=False, tuning_win=[200, 300]):
     scatter_data = {}
     scatter_xy = []
     for f_ind, fname in enumerate(all_traces.keys()):
         f_data = all_traces[fname][0]
         # First get tuning and classification data in FIXED TRIAL WINDOW [80, 100]
-        base_learn = get_mean_win(f_data, tuning_block, "learning", "fr", tuning_win)
-        base_pursuit = get_mean_win(f_data, tuning_block, "pursuit", "fr", tuning_win)
-        learn_resp_80 = get_learn_response_inst_probe_mean_win(f_data, "fr", tuning_win, trial_win=[80, 100])
+        base_learn = get_mean_win(f_data, tuning_block, "learning", "fr", tuning_win, nansac=nansac)
+        base_pursuit = get_mean_win(f_data, tuning_block, "pursuit", "fr", tuning_win, nansac=nansac)
+        learn_resp_80 = get_learn_response_inst_probe_mean_win(f_data, "fr", tuning_win, trial_win=[80, 100], nansac=nansac)
         learn_resp_80 -= base_pursuit
         # Now get predicted learning response minus observed during the INPUT TRIAL WINDOW!
-        base_pursuit_hat = get_mean_win(f_data, tuning_block, "pursuit", "y_hat", tuning_win)
-        learn_resp_hat = get_learn_response_inst_probe_mean_win(f_data, "y_hat", tuning_win, trial_win=trial_win)
+        base_pursuit_hat = get_mean_win(f_data, tuning_block, "pursuit", "y_hat", tuning_win, nansac=nansac)
+        learn_resp_hat = get_learn_response_inst_probe_mean_win(f_data, "y_hat", tuning_win, trial_win=trial_win, nansac=nansac)
         learn_resp_hat -= base_pursuit_hat
-        learn_resp_trial = get_learn_response_inst_probe_mean_win(f_data, "fr", tuning_win, trial_win=trial_win)
+        learn_resp_trial = get_learn_response_inst_probe_mean_win(f_data, "fr", tuning_win, trial_win=trial_win, nansac=nansac)
         learn_resp_trial -= base_pursuit
         learn_obs_minus_act = learn_resp_trial - learn_resp_hat
 
@@ -221,7 +234,7 @@ def get_scatter_data(all_traces, trial_win=None):
 
     return scatter_data, scatter_xy
 
-def get_mean_traces(all_traces, nan_fr_sac=False, y_hat_from_avg=True, trial_win=None):
+def get_mean_traces(all_traces, nansac=False, y_hat_from_avg=True, trial_win=None):
     # Build our dictionary of mean traces for all the units
     mean_traces = {}
     for fname in all_traces.keys():
@@ -235,39 +248,21 @@ def get_mean_traces(all_traces, nan_fr_sac=False, y_hat_from_avg=True, trial_win
         mean_traces[fname]['base_learn_eye'] = np.nanmean(get_traces_win(f_data, tuning_block, "learning", use_dtype, f_data['trace_win']), axis=0)
         # Get the raw learning response firing rate
         use_dtype = "fr"
-        if nan_fr_sac:
-            # Nan the firing rates by just copying the nans from the eye data
-            naned_learn_fr_raw = np.copy(get_learn_response_inst_probe_traces_win(f_data, use_dtype, trial_win=trial_win))
-            naned_learn_fr_raw[np.isnan(get_learn_response_inst_probe_traces_win(f_data, "eyev_l", trial_win=trial_win))] = np.nan
-            mean_traces[fname]['learn_fr_raw'] = np.nanmean(naned_learn_fr_raw, axis=0)
-            naned_base_pursit_fr = np.copy(get_traces_win(f_data, tuning_block, "pursuit", use_dtype, f_data['trace_win']))
-            naned_base_pursit_fr[np.isnan(get_traces_win(f_data, tuning_block, "pursuit", "eyev_l", f_data['trace_win']))] = np.nan
-            mean_traces[fname]['base_pursuit_fr'] = np.nanmean(naned_base_pursit_fr, axis=0)
-            naned_base_learn_fr = np.copy(get_traces_win(f_data, tuning_block, "learning", use_dtype, f_data['trace_win']))
-            naned_base_learn_fr[np.isnan(get_traces_win(f_data, tuning_block, "learning", "eyev_l", f_data['trace_win']))] = np.nan
-            mean_traces[fname]['base_learn_fr'] = np.nanmean(naned_base_learn_fr, axis=0)
-        else:
-            mean_traces[fname]['learn_fr_raw'] = np.nanmean(get_learn_response_inst_probe_traces_win(f_data, use_dtype, trial_win=trial_win), axis=0)
-            mean_traces[fname]['base_pursuit_fr'] = np.nanmean(get_traces_win(f_data, tuning_block, "pursuit", use_dtype, f_data['trace_win']), axis=0)
-            mean_traces[fname]['base_learn_fr'] = np.nanmean(get_traces_win(f_data, tuning_block, "learning", use_dtype, f_data['trace_win']), axis=0)
+        mean_traces[fname]['learn_fr_raw'] = np.nanmean(get_learn_response_inst_probe_traces_win(f_data, use_dtype, 
+                                                                            trial_win=trial_win, nansac=nansac), axis=0)
+        mean_traces[fname]['base_pursuit_fr'] = np.nanmean(get_traces_win(f_data, tuning_block, "pursuit", use_dtype, 
+                                                                          f_data['trace_win'], nansac=nansac), axis=0)
+        mean_traces[fname]['base_learn_fr'] = np.nanmean(get_traces_win(f_data, tuning_block, "learning", use_dtype, 
+                                                                        f_data['trace_win'], nansac=nansac), axis=0)
         # Get the actual RAW RAW rates
         # Get the raw learning response firing rate
         use_dtype = "fr_raw"
-        if nan_fr_sac:
-            # Nan the firing rates by just copying the nans from the eye data
-            naned_learn_fr_raw = np.copy(get_learn_response_inst_probe_traces_win(f_data, use_dtype, trial_win=trial_win))
-            naned_learn_fr_raw[np.isnan(get_learn_response_inst_probe_traces_win(f_data, "eyev_l", trial_win=trial_win))] = np.nan
-            mean_traces[fname]['learn_fr_raw_raw'] = np.nanmean(naned_learn_fr_raw, axis=0)
-            naned_base_pursit_fr = np.copy(get_traces_win(f_data, tuning_block, "pursuit", use_dtype, f_data['trace_win']))
-            naned_base_pursit_fr[np.isnan(get_traces_win(f_data, tuning_block, "pursuit", "eyev_l", f_data['trace_win']))] = np.nan
-            mean_traces[fname]['base_pursuit_fr_raw'] = np.nanmean(naned_base_pursit_fr, axis=0)
-            naned_base_learn_fr = np.copy(get_traces_win(f_data, tuning_block, "learning", use_dtype, f_data['trace_win']))
-            naned_base_learn_fr[np.isnan(get_traces_win(f_data, tuning_block, "learning", "eyev_l", f_data['trace_win']))] = np.nan
-            mean_traces[fname]['base_learn_fr_raw'] = np.nanmean(naned_base_learn_fr, axis=0)
-        else:
-            mean_traces[fname]['learn_fr_raw_raw'] = np.nanmean(get_learn_response_inst_probe_traces_win(f_data, use_dtype, trial_win=trial_win), axis=0)
-            mean_traces[fname]['base_pursuit_fr_raw'] = np.nanmean(get_traces_win(f_data, tuning_block, "pursuit", use_dtype, f_data['trace_win']), axis=0)
-            mean_traces[fname]['base_learn_fr_raw'] = np.nanmean(get_traces_win(f_data, tuning_block, "learning", use_dtype, f_data['trace_win']), axis=0)
+        mean_traces[fname]['learn_fr_raw_raw'] = np.nanmean(get_learn_response_inst_probe_traces_win(f_data, use_dtype, 
+                                                                            trial_win=trial_win, nansac=nansac), axis=0)
+        mean_traces[fname]['base_pursuit_fr_raw'] = np.nanmean(get_traces_win(f_data, tuning_block, "pursuit", use_dtype, 
+                                                                              f_data['trace_win'], nansac=nansac), axis=0)
+        mean_traces[fname]['base_learn_fr_raw'] = np.nanmean(get_traces_win(f_data, tuning_block, "learning", use_dtype, 
+                                                                            f_data['trace_win'], nansac=nansac), axis=0)
         # then for model prediction
         if y_hat_from_avg:
             mean_traces[fname]['learn_fr_hat'] = get_y_hat_from_avg(f_data, "Learning", "inst_learn", trial_win=trial_win, filter_win=101)
@@ -275,20 +270,12 @@ def get_mean_traces(all_traces, nan_fr_sac=False, y_hat_from_avg=True, trial_win
             mean_traces[fname]['base_learn_hat'] = get_y_hat_from_avg(f_data, tuning_block, "learning", trial_win=None, filter_win=101)
         else:
             use_dtype = "y_hat"
-            if nan_fr_sac:
-                naned_learn_fr_hat = np.copy(get_learn_response_inst_probe_traces_win(f_data, use_dtype, trial_win=trial_win))
-                naned_learn_fr_hat[np.isnan(get_learn_response_inst_probe_traces_win(f_data, "eyev_l", trial_win=trial_win))] = np.nan
-                mean_traces[fname]['learn_fr_hat'] = np.nanmean(naned_learn_fr_hat, axis=0)
-                naned_base_pursit_hat = np.copy(get_traces_win(f_data, tuning_block, "pursuit", use_dtype, f_data['trace_win']))
-                naned_base_pursit_hat[np.isnan(get_traces_win(f_data, tuning_block, "pursuit", "eyev_l", f_data['trace_win']))] = np.nan
-                mean_traces[fname]['base_pursuit_hat'] = np.nanmean(naned_base_pursit_hat, axis=0)
-                naned_base_learn_hat = np.copy(get_traces_win(f_data, tuning_block, "learning", use_dtype, f_data['trace_win']))
-                naned_base_learn_hat[np.isnan(get_traces_win(f_data, tuning_block, "learning", "eyev_l", f_data['trace_win']))] = np.nan
-                mean_traces[fname]['base_learn_hat'] = np.nanmean(naned_base_learn_hat, axis=0)
-            else:
-                mean_traces[fname]['learn_fr_hat'] = np.nanmean(get_learn_response_inst_probe_traces_win(f_data, use_dtype, trial_win=trial_win), axis=0)
-                mean_traces[fname]['base_pursuit_hat'] = np.nanmean(get_traces_win(f_data, tuning_block, "pursuit", use_dtype, f_data['trace_win']), axis=0)
-                mean_traces[fname]['base_learn_hat'] = np.nanmean(get_traces_win(f_data, tuning_block, "learning", use_dtype, f_data['trace_win']), axis=0)
+            mean_traces[fname]['learn_fr_hat'] = np.nanmean(get_learn_response_inst_probe_traces_win(f_data, use_dtype, 
+                                                                            trial_win=trial_win, nansac=nansac), axis=0)
+            mean_traces[fname]['base_pursuit_hat'] = np.nanmean(get_traces_win(f_data, tuning_block, "pursuit", use_dtype, 
+                                                                               f_data['trace_win'], nansac=nansac), axis=0)
+            mean_traces[fname]['base_learn_hat'] = np.nanmean(get_traces_win(f_data, tuning_block, "learning", use_dtype, 
+                                                                             f_data['trace_win'], nansac=nansac), axis=0)
 
     return mean_traces
 
@@ -330,11 +317,11 @@ def copy_sel_traces(traces, sel_traces):
     sel_traces['sel_base_learn_fr_raw'].append(traces['sel_base_learn_fr_raw'])
     sel_traces['sel_base_pursuit_fr_raw'].append(traces['sel_base_pursuit_fr_raw'])
 
-def select_neuron_traces(all_traces, scatter_data, modulation_threshold, way, trial_win=None):
+def select_neuron_traces(all_traces, scatter_data, modulation_threshold, way, trial_win=None, nansac=True):
     """ Selects and returns the mean traces for each neuron in "all_traces" that satisfy the input selection
     criteria according to the data in "scatter_data".
     """
-    mean_traces = get_mean_traces(all_traces, nan_fr_sac=True, y_hat_from_avg=True, trial_win=trial_win)
+    mean_traces = get_mean_traces(all_traces, nansac=nansac, y_hat_from_avg=True, trial_win=trial_win)
     
     learn_dir = "off" if modulation_threshold <= 0. else "on"
     sel_traces = {
@@ -389,7 +376,8 @@ def select_neuron_traces(all_traces, scatter_data, modulation_threshold, way, tr
                         sel_traces['plotted_fnames'].append(fname)
     return sel_traces
 
-def make_trace_data_figs(traces_fname, savename, modulation_threshold, way="right", trial_win=[80, 100]):
+def make_trace_data_figs(traces_fname, savename, modulation_threshold, way="right", trial_win=[80, 100], 
+                         tuning_win=[200, 300]):
     """ Loads the all traces data file "fname" and makes plots for all the different neuron conditions
     and saves as a PDF.
     """
@@ -407,7 +395,7 @@ def make_trace_data_figs(traces_fname, savename, modulation_threshold, way="righ
     plot_handles = setup_axes()
     with open(traces_fname, 'rb') as fp:
         all_traces = pickle.load(fp)
-    scatter_data, scatter_xy = get_scatter_data(all_traces, trial_win=trial_win)
+    scatter_data, scatter_xy = get_scatter_data(all_traces, trial_win=trial_win, tuning_win=tuning_win)
     sel_traces = select_neuron_traces(all_traces, scatter_data, modulation_threshold, way, trial_win=trial_win)
 
     # Make plots
