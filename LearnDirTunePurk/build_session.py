@@ -12,7 +12,8 @@ import SessionAnalysis.utils.format_trial_dicts as sa_format_dicts
 
 def create_neuron_session(fname, neurons_dir, PL2_dir, maestro_dir,
                         save_maestro=True, maestro_save_dir=None,
-                        rotate_eye_data=True, sac_ind_cushion=40):
+                        rotate_eye_data=True, sac_ind_cushion=40,
+                        nan_saccades=True):
     """ Takes the input Maestro and PL2 files and generates the default LDP
     session object using "builed_session" and joins it with the neurons
     from the PL2/neuro_viz file. Returns the LDP session object with
@@ -35,7 +36,8 @@ def create_neuron_session(fname, neurons_dir, PL2_dir, maestro_dir,
                                         session_name=fname, rotate=rotate_eye_data,
                                         check_existing_maestro=True,
                                         save_maestro_data=save_maestro,
-                                        save_maestro_name=save_name)
+                                        save_maestro_name=save_name,
+                                        nan_saccades=nan_saccades)
 
     ldp_sess = add_neuron_trials(ldp_sess, maestro_dir, neurons_file,
                                 PL2_dir=PL2_dir, dt_data=1,
@@ -49,7 +51,7 @@ def create_neuron_session(fname, neurons_dir, PL2_dir, maestro_dir,
 
 def create_behavior_session(fname, maestro_dir, session_name=None, rotate=True,
             check_existing_maestro=True, save_maestro_data=True,
-            save_maestro_name=None, verbose=True):
+            save_maestro_name=None, verbose=True, nan_saccades=True):
     """
     """
     if session_name is None:
@@ -59,7 +61,7 @@ def create_behavior_session(fname, maestro_dir, session_name=None, rotate=True,
                                 check_existing_maestro=check_existing_maestro,
                                 save_data=save_maestro_data,
                                 save_name=save_maestro_name, combine_targs=True,
-                                compress_data=True, )
+                                compress_data=True)
 
     if ( ("Yoda" in session_name) and (int(session_name.split("_")[-1]) < 20) ):
         print("Treating this as a weird Yoda file")
@@ -99,7 +101,7 @@ def create_behavior_session(fname, maestro_dir, session_name=None, rotate=True,
 
     # Create base session from apparatus trials then add behavior
     if verbose: print("Generating session and adding blocks.")
-    ldp_sess = LDPSession(trial_list, session_name=session_name, rotate=rotate)
+    ldp_sess = LDPSession(trial_list, session_name=session_name, rotate=rotate, nan_saccades=nan_saccades)
     ldp_sess.add_trial_data(trial_list_bhv, data_type=None)
     # Can add slip data now that we have target and behavior
     ldp_sess.add_retinal_slip_data()
