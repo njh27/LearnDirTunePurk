@@ -152,9 +152,6 @@ def add_neuron_trials(ldp_sess, maestro_dir, neurons_file, PL2_dir=None,
 
     with open(neurons_file, 'rb') as fp:
         neurons = pickle.load(fp)
-    # print("HARD CODING SOME NEURON CLASSES!!! line 103 build_session")
-    # for n, class_name in zip(neurons, ["PC", "Golgi", "CS"]):
-    #     n['type__'] = class_name
 
     trial_list_nrn, neuron_meta = sa_format_dicts.maestro_to_neuron_trial(
                                             maestro_data, neurons, dt_data=dt_data,
