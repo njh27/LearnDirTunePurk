@@ -6,7 +6,6 @@ import matplotlib.pyplot as plt
 import matplotlib.transforms as transforms
 from NeuronAnalysis.general import gauss_convolve, bin_x_func_y
 import LearnDirTunePurk.learning_eye_PC_traces as lept
-from LearnDirTunePurk import fig_composer
 
 
 
@@ -418,8 +417,7 @@ def make_learning_trial_course_figs(traces_fname, savename, modulation_threshold
     plt.tight_layout()
     if fc_name is None:
         fc_name = os.path.splitext(savename)[0] + ".fyp"
-    fig_composer.lisberger_pretty(fig=plot_handles['fig'])
-    fig_composer.save_figure_composer(fc_name, plot_handles['fig'])
+
     plot_handles['fig'].savefig(savename)
     plt.show()
     return plot_handles

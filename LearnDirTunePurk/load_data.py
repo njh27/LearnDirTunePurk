@@ -37,7 +37,7 @@ def load_maestro_directory(fname, maestro_dir, check_existing_maestro=True,
         combine_targets(maestro_data, 'rmfixation1', 'rmpursuit1')
     if compress_data:
         print("Compressing target data for each trial.")
-        rm.target.compress_target_data(maestro_data)
+        compress_target_data(maestro_data)
 
     if save_data:
         if save_name is None:

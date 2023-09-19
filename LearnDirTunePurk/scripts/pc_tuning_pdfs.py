@@ -12,6 +12,11 @@ fit_blocks = ["FixTunePre", "RandVPTunePre", "StandTunePre", "StabTunePre", "Lea
 fit_trial_sets = None
 fix_t_win = [-300, 0]
 learn_t_win = [200, 300]
+monkey_name = "Yoda"
+# Yoda does not have stabilized tuning trials to norm everything to...
+tune_trace_block="StandTunePre"
+tune_adjust_block="StandTunePre"
+
 
 def sess_fun(ldp_sess):
     """ Defines a function used to process each ldp_session object within the call
@@ -50,13 +55,16 @@ if __name__ == "__main__":
     n_tune_args = (fit_blocks, fit_trial_sets, fix_t_win, learn_t_win)
     n_tune_kwargs = {'sigma': 12.5, 
                      'cutoff_sigma': 4, 
-                     'show_fig': False}
+                     'show_fig': False,
+                     'tune_trace_block': tune_trace_block,
+                     'tune_adjust_block': tune_adjust_block}
     neuron_figs = fun_all_neurons(args.neurons_dir, args.PL2_dir, args.maestro_dir, 
                                  args.maestro_save_dir, cell_types, 
                                  plot_neuron_tuning_learning, 
                                  sess_fun,
                                  n_tune_args, 
-                                 n_tune_kwargs)
+                                 n_tune_kwargs,
+                                 in_fname=monkey_name)
 
     # Add the figures to the PDF file
     for n_name in neuron_figs.keys():

@@ -35,7 +35,7 @@ def get_eye_target_pos_and_rate(Neuron, time_window, blocks=None, trial_sets=Non
 
 def fun_all_neurons(neurons_dir, PL2_dir, maestro_dir, maestro_save_dir, cell_types, 
                    data_fun, sess_fun=None, data_fun_args=(), data_fun_kwargs={},
-                   verbose=True, n_break=np.inf, sac_ind_cushion=40):
+                   verbose=True, n_break=np.inf, sac_ind_cushion=40, in_fname=""):
     """ Loads data according to the name of the files input in neurons dir.
     Creates a session from the maestro data and joins the corresponding
     neurons from the neurons file. Goes through all neurons and if their name
@@ -47,6 +47,9 @@ def fun_all_neurons(neurons_dir, PL2_dir, maestro_dir, maestro_save_dir, cell_ty
     from that session are gathered and data_fun is called.
     """
     rotate = True
+    check_existing_maestro = True
+    if not check_existing_maestro:
+        print(f"CHECK EXISTING MAESTRO FILES IN fun_all_neurons is FALSE!")
     if not rotate:
         print("Getting WITHOUT rotating data!!", flush=True)
     if not isinstance(cell_types, list):
@@ -54,9 +57,11 @@ def fun_all_neurons(neurons_dir, PL2_dir, maestro_dir, maestro_save_dir, cell_ty
     out_data = {}
     n_total_units = 0
     failed_files = []
-    for f in os.listdir(neurons_dir):
-        fname = f
+    for fname in os.listdir(neurons_dir):
         fname = fname.split(".")[0]
+        if not in_fname in fname:
+            # Skip this file because it does not contain required in_fname string
+            continue
         if fname[-4:].lower() == "_viz":
             fname = fname.split("_viz")[0]
         if fname[0:8].lower() == "neurons_":
@@ -71,7 +76,7 @@ def fun_all_neurons(neurons_dir, PL2_dir, maestro_dir, maestro_save_dir, cell_ty
         try:
             ldp_sess = create_behavior_session(fname, maestro_dir,
                                                 session_name=fname, rotate=rotate,
-                                                check_existing_maestro=True,
+                                                check_existing_maestro=check_existing_maestro,
                                                 save_maestro_data=True,
                                                 save_maestro_name=save_name)
 
