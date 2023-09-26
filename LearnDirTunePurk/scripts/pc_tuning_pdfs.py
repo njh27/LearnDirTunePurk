@@ -51,7 +51,8 @@ if __name__ == "__main__":
     pdf_pages = PdfPages(args.save_fname)
 
     # Setup intputs for fun_all_neurons and tuning
-    cell_types = ["PC", "putPC"]
+    # cell_types = ["PC", "putPC"]
+    cell_types = ["Golgi"]
     n_tune_args = (fit_blocks, fit_trial_sets, fix_t_win, learn_t_win)
     n_tune_kwargs = {'sigma': 12.5, 
                      'cutoff_sigma': 4, 

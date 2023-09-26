@@ -5,6 +5,7 @@ from LearnDirTunePurk.learning_eye_PC_traces import get_neuron_trace_data
 
 
 
+monkey_name = "Yoda"
 # Hard code some windows here
 trace_win = [-300, 1000]
 sac_ind_cushion = 50
@@ -30,8 +31,8 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # Setup intputs for fun_all_neurons and tuning
-    # cell_types = ["PC", "putPC"]
-    cell_types = ["MF"]
+    cell_types = ["PC", "putPC"]
+    # cell_types = ["MF"]
     n_tune_args = (trace_win, )
     n_tune_kwargs = {'sigma': 12.5, 
                      'cutoff_sigma': 4}
@@ -40,7 +41,8 @@ if __name__ == "__main__":
                                             get_neuron_trace_data, 
                                             sess_fun,
                                             n_tune_args, 
-                                            n_tune_kwargs, sac_ind_cushion=sac_ind_cushion)
+                                            n_tune_kwargs, sac_ind_cushion=sac_ind_cushion,
+                                            in_fname=monkey_name)
     # Remove any empty
     for fname in neuron_fr_win_means.keys():
         if len(neuron_fr_win_means[fname]) == 0:

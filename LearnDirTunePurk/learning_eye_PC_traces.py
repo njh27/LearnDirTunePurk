@@ -217,6 +217,10 @@ def get_scatter_data(all_traces, trial_win=None, nansac=False, tuning_win=[200, 
         f_data = all_traces[fname][0]
         # First get tuning and classification data in FIXED TRIAL WINDOW [80, 100]
         base_learn = get_mean_win(f_data, tuning_block, "learning", "fr", tuning_win, nansac=nansac)
+        base_anti_learn = get_mean_win(f_data, tuning_block, "anti_learning", "fr", tuning_win, nansac=nansac)
+        # base_learn -= base_anti_learn
+
+
         base_pursuit = get_mean_win(f_data, tuning_block, "pursuit", "fr", tuning_win, nansac=nansac)
         learn_resp_80 = get_learn_response_inst_probe_mean_win(f_data, "fr", tuning_win, trial_win=[80, 100], nansac=nansac)
         learn_resp_80 -= base_pursuit
