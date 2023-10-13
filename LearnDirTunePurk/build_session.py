@@ -1,13 +1,38 @@
 import numpy as np
 import pickle
-from LearnDirTunePurk.load_data import load_maestro_directory
+from LearnDirTunePurk.load_data import load_maestro_directory, load_maestro_directory_old_yan
 from LearnDirTunePurk import format_trials
 from LearnDirTunePurk.ldp_session import LDPSession
+from LearnDirTunePurk.cluster_old_plx import add_old_plx_events, get_maestro_from_mat
 from ReadMaestro.format_trials import data_to_target
 from ReadMaestro.maestro_read import load_directory as rm_load_directory
 from ReadMaestro.utils.PL2_maestro import is_maestro_pl2_synced, add_plexon_events
 import SessionAnalysis.utils.format_trial_dicts as sa_format_dicts
 
+
+
+def fix_maestro_trials(maestro_data, is_weird_Yoda, is_weird_Yan, verbose=False):
+    # Sets trial targets as objects so probably want to do this after loading and not saved
+    if verbose: print("Formatting target data and trials.")
+    data_to_target(maestro_data)
+
+    # Reformat the multi targets and names of trials into one and name events
+    if verbose: print("Renaming trials and events.")
+    format_trials.rename_stab_probe_trials(maestro_data)
+    format_trials.name_trial_events(maestro_data, is_weird_Yoda, is_weird_Yan)
+    is_stab_learning = True
+    for trial in maestro_data:
+        if ( ("-rt" in trial['header']['name']) or
+             ("-up" in trial['header']['name']) or
+             ("-lt" in trial['header']['name']) or
+             ("-dn" in trial['header']['name']) ):
+            if trial['header']['UsedStab']:
+                is_stab_learning = True
+            else:
+                is_stab_learning = False
+                print("Learning trials are NOT STABILIZED!!!")
+                break
+    return maestro_data, is_stab_learning
 
 
 def create_neuron_session(fname, neurons_dir, PL2_dir, maestro_dir,
@@ -56,39 +81,33 @@ def create_behavior_session(fname, maestro_dir, session_name=None, rotate=True,
     """
     if session_name is None:
         session_name = fname
-    # Load all Maestro data
-    maestro_data = load_maestro_directory(fname, maestro_dir,
-                                check_existing_maestro=check_existing_maestro,
-                                save_data=save_maestro_data,
-                                save_name=save_maestro_name, combine_targs=True,
-                                compress_data=True)
+    if ("Yan" in session_name):
+        is_weird_Yan = True
+    else:
+        is_weird_Yan = False
+    if is_weird_Yan:
+        print("Treating this as a weird Yan file")
+        maestro_data = load_maestro_directory_old_yan(fname, maestro_dir,
+                                    check_existing_maestro=check_existing_maestro,
+                                    save_data=save_maestro_data,
+                                    save_name=save_maestro_name, combine_targs=True,
+                                    compress_data=True)
+    else:
+        # Load all Maestro data
+        maestro_data = load_maestro_directory(fname, maestro_dir,
+                                    check_existing_maestro=check_existing_maestro,
+                                    save_data=save_maestro_data,
+                                    save_name=save_maestro_name, combine_targs=True,
+                                    compress_data=True)
 
     if ( ("Yoda" in session_name) and (int(session_name.split("_")[-1]) < 20) ):
         print("Treating this as a weird Yoda file")
         is_weird_Yoda = True
     else:
         is_weird_Yoda = False
-    # Sets trial targets as objects so probably want to do this after loading and not saved
-    if verbose: print("Formatting target data and trials.")
-    data_to_target(maestro_data)
 
-    # Reformat the multi targets and names of trials into one and name events
-    if verbose: print("Renaming trials and events.")
-
-    format_trials.rename_stab_probe_trials(maestro_data)
-    format_trials.name_trial_events(maestro_data, is_weird_Yoda)
-    is_stab_learning = True
-    for trial in maestro_data:
-        if ( ("-rt" in trial['header']['name']) or
-             ("-up" in trial['header']['name']) or
-             ("-lt" in trial['header']['name']) or
-             ("-dn" in trial['header']['name']) ):
-            if trial['header']['UsedStab']:
-                is_stab_learning = True
-            else:
-                is_stab_learning = False
-                print("Learning trials are NOT STABILIZED!!!")
-                break
+    # Need to make trial names events etc uniform
+    maestro_data, is_stab_learning = fix_maestro_trials(maestro_data, is_weird_Yoda, is_weird_Yan, verbose=verbose)
 
     # Create base list of ApparatusTrial trials from target0
     if verbose: print("Converting data to trial objects.")
@@ -100,7 +119,7 @@ def create_behavior_session(fname, maestro_dir, session_name=None, rotate=True,
                         maestro_data, 1, start_data=0, data_name="eye")
 
     # Create base session from apparatus trials then add behavior
-    if verbose: print("Generating session and adding blocks.")
+    if verbose: print("Generating session")
     ldp_sess = LDPSession(trial_list, session_name=session_name, rotate=rotate, nan_saccades=nan_saccades)
     ldp_sess.add_trial_data(trial_list_bhv, data_type=None)
     # Can add slip data now that we have target and behavior
@@ -108,6 +127,7 @@ def create_behavior_session(fname, maestro_dir, session_name=None, rotate=True,
     # Add fields characteristic to this session for future reference
     ldp_sess.is_weird_Yoda = is_weird_Yoda
     ldp_sess.is_stab_learning = is_stab_learning
+    ldp_sess.is_weird_Yan = is_weird_Yan
     ldp_sess.fname = fname
 
     return ldp_sess
@@ -121,6 +141,8 @@ def add_neuron_trials(ldp_sess, maestro_dir, neurons_file, PL2_dir=None,
                                         check_existing=True,
                                         save_data=save_maestro_data,
                                         save_name=save_maestro_name)
+    # Need to make sure these trial names match those we are mergining into
+    format_trials.rename_stab_probe_trials(maestro_data)
     if len(ldp_sess) != len(maestro_data):
         raise ValueError("The session must have the same number of trials as the input maestro_data to sync! Make sure they are the correct file and none have been removed from the Session.")
     # trial names may have been updated to create sess so check them
@@ -130,15 +152,22 @@ def add_neuron_trials(ldp_sess, maestro_dir, neurons_file, PL2_dir=None,
         else:
             raise RuntimeError("Could not match trial names for trial {0} between maestro data {1} and session name {2}.".format(t_ind, maestro_data[t_ind]['header']['name'], ldp_sess[t_ind].name))
 
-    if not is_maestro_pl2_synced(maestro_data, ldp_sess.fname + ".pl2"):
+    check_sync_file = ldp_sess.fname + ".pl2" if not ldp_sess.is_weird_Yoda else "Purk" + ldp_sess.fname + ".mat"
+    if ( ldp_sess.is_weird_Yoda and (int(ldp_sess.fname[-2:]) != 17) ):
+        check_sync_file = "Junk" + check_sync_file
+    if not is_maestro_pl2_synced(maestro_data, check_sync_file):
         if save_maestro_name is None:
             print("maestro_data not yet synced with PL2 file {0}. Syncing file but not saving because maestro_save_name not specified.".format(ldp_sess.fname + ".pl2"))
         else:
             print("maestro_data not yet synced with PL2 file {0}. Syncing.".format(ldp_sess.fname + ".pl2"))
-        maestro_data = add_plexon_events(maestro_data,
-                                                    PL2_dir + ldp_sess.fname + ".pl2",
-                                                    maestro_pl2_chan_offset=3,
-                                                    remove_bad_inds=False)
+        if ldp_sess.is_weird_Yoda:
+            # Co-opt PL2_dir here for looking up matfiles
+            maestro_data = add_old_plx_events(maestro_data, PL2_dir + check_sync_file, maestro_pl2_chan_offset=1, remove_bad_inds=False)
+        else:
+            maestro_data = add_plexon_events(maestro_data,
+                                                        PL2_dir + ldp_sess.fname + ".pl2",
+                                                        maestro_pl2_chan_offset=3,
+                                                        remove_bad_inds=False)
         # SAVED BEFORE POTENTIAL DELETING TRIALS!
         if save_maestro_name is not None:
             if isinstance(save_maestro_name, str):

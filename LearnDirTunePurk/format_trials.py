@@ -89,7 +89,7 @@ def rename_stab_probe_trials(maestro_data):
     return None
 
 
-def name_trial_events(maestro_data, is_weird_Yoda=False):
+def name_trial_events(maestro_data, is_weird_Yoda=False, is_weird_Yan=False):
     """Assigns the event names to event times dictionary for each trial
     IN PLACE.
 
@@ -99,7 +99,26 @@ def name_trial_events(maestro_data, is_weird_Yoda=False):
     """
 
     # Set hard coded variables for expected trial name dictionaries.
-    if is_weird_Yoda:
+    if is_weird_Yan:
+        event_names_sinusoid = {
+            "fixation_onset": [1, 0],
+            "rand_fix_onset": [1, 0],
+            "target_onset": [1, 2],
+            }
+        event_names_stand_tuning = {
+            "fixation_onset": [1, 0],
+            "rand_fix_onset": [1, 0],
+            "target_onset": [1, 2],
+            "target_offset": [1, 3]
+            }
+        event_names_learning = {
+            "fixation_onset": [1, 0],
+            "rand_fix_onset": [1, 0],
+            "target_onset": [1, 2],
+            "instruction_onset": [1, 3],
+            "target_offset": [1, 4]
+            }
+    elif is_weird_Yoda:
         event_names_fixation = {
             "fixation_onset": [2, 0]
             }
@@ -169,6 +188,7 @@ def name_trial_events(maestro_data, is_weird_Yoda=False):
     weird_yoda_tuning_trials = ['195', '165', '210', '315', '150', '225', '45',
                                 '135', '255', '285', '240', '300', '120', '105',
                                 '75', '60']
+    weird_yan_tuning_trials = ['H', 'V']
 
     # Generate the naming dictionary for each trial name
     maestro_trial_names = set()
@@ -193,8 +213,18 @@ def name_trial_events(maestro_data, is_weird_Yoda=False):
             event_names_by_trial[t_name] = event_names_learning
         elif "-dn" in t_name:
             event_names_by_trial[t_name] = event_names_learning
+        elif "right" in t_name:
+            event_names_by_trial[t_name] = event_names_learning
+        elif "up" in t_name:
+            event_names_by_trial[t_name] = event_names_learning
+        elif "left" in t_name:
+            event_names_by_trial[t_name] = event_names_learning
+        elif "down" in t_name:
+            event_names_by_trial[t_name] = event_names_learning
         elif t_name in weird_yoda_tuning_trials:
             event_names_by_trial[t_name] = event_names_stand_tuning
+        elif t_name in weird_yan_tuning_trials:
+            event_names_by_trial[t_name] = event_names_sinusoid
         else:
             raise ValueError("T name '{0}' not found! Names present: {1}".format(t_name, maestro_trial_names))
 
