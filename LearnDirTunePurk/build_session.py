@@ -3,7 +3,7 @@ import pickle
 from LearnDirTunePurk.load_data import load_maestro_directory, load_maestro_directory_old_yan
 from LearnDirTunePurk import format_trials
 from LearnDirTunePurk.ldp_session import LDPSession
-from LearnDirTunePurk.cluster_old_plx import add_old_plx_events, get_maestro_from_mat
+from LearnDirTunePurk.cluster_old_plx import add_old_plx_events
 from ReadMaestro.format_trials import data_to_target
 from ReadMaestro.maestro_read import load_directory as rm_load_directory
 from ReadMaestro.utils.PL2_maestro import is_maestro_pl2_synced, add_plexon_events
@@ -155,6 +155,10 @@ def add_neuron_trials(ldp_sess, maestro_dir, neurons_file, PL2_dir=None,
     check_sync_file = ldp_sess.fname + ".pl2" if not ldp_sess.is_weird_Yoda else "Purk" + ldp_sess.fname + ".mat"
     if ( ldp_sess.is_weird_Yoda and (int(ldp_sess.fname[-2:]) != 17) ):
         check_sync_file = "Junk" + check_sync_file
+        maestro_pl2_chan_offset = 1
+    if ldp_sess.is_weird_Yan:
+        check_sync_file = ldp_sess.fname + ".mat"
+        maestro_pl2_chan_offset = -1
     if not is_maestro_pl2_synced(maestro_data, check_sync_file):
         if save_maestro_name is None:
             print("maestro_data not yet synced with PL2 file {0}. Syncing file but not saving because maestro_save_name not specified.".format(ldp_sess.fname + ".pl2"))
@@ -162,7 +166,8 @@ def add_neuron_trials(ldp_sess, maestro_dir, neurons_file, PL2_dir=None,
             print("maestro_data not yet synced with PL2 file {0}. Syncing.".format(ldp_sess.fname + ".pl2"))
         if ldp_sess.is_weird_Yoda:
             # Co-opt PL2_dir here for looking up matfiles
-            maestro_data = add_old_plx_events(maestro_data, PL2_dir + check_sync_file, maestro_pl2_chan_offset=1, remove_bad_inds=False)
+            maestro_data = add_old_plx_events(maestro_data, PL2_dir + check_sync_file, 
+                                              maestro_pl2_chan_offset=maestro_pl2_chan_offset, remove_bad_inds=False)
         else:
             maestro_data = add_plexon_events(maestro_data,
                                                         PL2_dir + ldp_sess.fname + ".pl2",
@@ -241,6 +246,64 @@ def format_ldp_trials_blocks(ldp_sess, sac_ind_cushion=40, verbose=True):
     weird_yoda_tuning_trials = ['195', '165', '210', '315', '150', '225', '45',
                                 '135', '255', '285', '240', '300', '120', '105',
                                 '75', '60']
+    long_iti_learning_trials = ['0-6up', '0-6dn',
+                                 '90-6rt', '90-6lt',
+                                 '180-6up', '180-6dn',
+                                 '270-6rt', '270-6lt', 
+                                 ]
+    weird_yan_learning_trials = ['0-up', '0-dn',
+                                 '90-rt', '90-lt',
+                                 '180-up', '180-dn',
+                                 '270-rt', '270-lt', 
+                                 ]
+    
+    if ldp_sess.is_weird_Yan:
+        trial_names = long_iti_learning_trials
+        ignore_trial_names = ['']
+        block_names = ['ITI_6s']
+        ldp_sess.add_blocks(trial_names, block_names, number_names=True, ignore_trial_names=ignore_trial_names,
+                            block_min=10, max_consec_single=np.inf)
+        
+        trial_names = weird_yan_learning_trials
+        ignore_trial_names = ['']
+        block_names = ['LateInstr']
+        ldp_sess.add_blocks(trial_names, block_names, number_names=True, ignore_trial_names=ignore_trial_names,
+                            block_min=10, max_consec_single=np.inf)
+        
+        trial_names = ['H', 'V']
+        ignore_trial_names = ['']
+        block_names = ['SinusoidTuning']
+        ldp_sess.add_blocks(trial_names, block_names, number_names=True,
+                            ignore_trial_names=ignore_trial_names, block_min=1,
+                            n_min_per_trial=1, max_consec_single=np.inf, max_consec_absent=0)
+        
+        trial_names = ['0']
+        ignore_trial_names = ['']
+        block_names = ['0Baseline']
+        ldp_sess.add_blocks(trial_names, block_names, number_names=True,
+                            ignore_trial_names=ignore_trial_names, block_min=10,
+                            n_min_per_trial=10, max_consec_single=np.inf, max_consec_absent=0)
+        
+        trial_names = ['90']
+        ignore_trial_names = ['']
+        block_names = ['90Baseline']
+        ldp_sess.add_blocks(trial_names, block_names, number_names=True,
+                            ignore_trial_names=ignore_trial_names, block_min=10,
+                            n_min_per_trial=10, max_consec_single=np.inf, max_consec_absent=0)
+        
+        trial_names = ['180']
+        ignore_trial_names = ['']
+        block_names = ['180Baseline']
+        ldp_sess.add_blocks(trial_names, block_names, number_names=True,
+                            ignore_trial_names=ignore_trial_names, block_min=10,
+                            n_min_per_trial=10, max_consec_single=np.inf, max_consec_absent=0)
+
+        trial_names = ['270']
+        ignore_trial_names = ['']
+        block_names = ['270Baseline']
+        ldp_sess.add_blocks(trial_names, block_names, number_names=True,
+                            ignore_trial_names=ignore_trial_names, block_min=10,
+                            n_min_per_trial=10, max_consec_single=np.inf, max_consec_absent=0)
 
     # Add hard coded blocks by trial names
     block_names = ['FixTune']
@@ -253,16 +316,20 @@ def format_ldp_trials_blocks(ldp_sess, sac_ind_cushion=40, verbose=True):
     trial_names = ['90', '0', '180','270']
     ignore_trial_names = weird_yoda_tuning_trials if ldp_sess.is_weird_Yoda else ['']
     block_names = ['StandTune']
+    max_consec_single = 3 if ldp_sess.is_weird_Yan else 10
     ldp_sess.add_blocks(trial_names, block_names, number_names=True,
                         ignore_trial_names=ignore_trial_names, block_min=12,
-                        n_min_per_trial=3, max_consec_single=20)
+                        n_min_per_trial=3, max_consec_single=max_consec_single)
 
     trial_names = ['90Stab', '0Stab', '180Stab','270Stab']
     block_names = ['StabTune']
     ldp_sess.add_blocks(trial_names, block_names, number_names=True,
                         block_min=12, n_min_per_trial=3, max_consec_single=20)
 
-    trial_names = ['0-upStab'] if ldp_sess.is_stab_learning else ["0-up"]
+    if ldp_sess.is_weird_Yan:
+        trial_names = ['0-2up']
+    else:
+        trial_names = ['0-upStab'] if ldp_sess.is_stab_learning else ["0-up"]
     ignore_trial_names = ['90Stab', '0Stab', '180Stab','270Stab', '90', '0', '180','270']
     if ldp_sess.is_weird_Yoda:
         ignore_trial_names.extend(weird_yoda_tuning_trials)
@@ -271,7 +338,11 @@ def format_ldp_trials_blocks(ldp_sess, sac_ind_cushion=40, verbose=True):
     ldp_sess.add_blocks(trial_names, block_names, number_names=True, ignore_trial_names=ignore_trial_names,
                     max_consec_absent=0, block_min=20, n_min_per_trial=20)
 
-    trial_names = ['0-dnStab'] if ldp_sess.is_stab_learning else ["0-dn"]
+
+    if ldp_sess.is_weird_Yan:
+        trial_names = ['0-2dn']
+    else:
+        trial_names = ['0-dnStab'] if ldp_sess.is_stab_learning else ["0-dn"]
     ignore_trial_names = ['90Stab', '0Stab', '180Stab','270Stab', '90', '0', '180','270']
     if ldp_sess.is_weird_Yoda:
         ignore_trial_names.extend(weird_yoda_tuning_trials)
@@ -279,8 +350,11 @@ def format_ldp_trials_blocks(ldp_sess, sac_ind_cushion=40, verbose=True):
     ldp_sess.block_name_to_learn_name['0Learn270'] = '0-dnStab'
     ldp_sess.add_blocks(trial_names, block_names, number_names=True, ignore_trial_names=ignore_trial_names,
                     max_consec_absent=0, block_min=20, n_min_per_trial=20)
-
-    trial_names = ['90-rtStab'] if ldp_sess.is_stab_learning else ["90-rt"]
+    
+    if ldp_sess.is_weird_Yan:
+        trial_names = ['90-2rt']
+    else:
+        trial_names = ['90-rtStab'] if ldp_sess.is_stab_learning else ["90-rt"]
     ignore_trial_names = ['90Stab', '0Stab', '180Stab','270Stab', '90', '0', '180','270']
     if ldp_sess.is_weird_Yoda:
         ignore_trial_names.extend(weird_yoda_tuning_trials)
@@ -289,7 +363,10 @@ def format_ldp_trials_blocks(ldp_sess, sac_ind_cushion=40, verbose=True):
     ldp_sess.add_blocks(trial_names, block_names, number_names=True, ignore_trial_names=ignore_trial_names,
                     max_consec_absent=0, block_min=20, n_min_per_trial=20)
 
-    trial_names = ['90-ltStab'] if ldp_sess.is_stab_learning else ["90-lt"]
+    if ldp_sess.is_weird_Yan:
+        trial_names = ['90-2lt']
+    else:
+        trial_names = ['90-ltStab'] if ldp_sess.is_stab_learning else ["90-lt"]
     ignore_trial_names = ['90Stab', '0Stab', '180Stab','270Stab', '90', '0', '180','270']
     if ldp_sess.is_weird_Yoda:
         ignore_trial_names.extend(weird_yoda_tuning_trials)
@@ -297,8 +374,11 @@ def format_ldp_trials_blocks(ldp_sess, sac_ind_cushion=40, verbose=True):
     ldp_sess.block_name_to_learn_name['90Learn180'] = '90-ltStab'
     ldp_sess.add_blocks(trial_names, block_names, number_names=True, ignore_trial_names=ignore_trial_names,
                     max_consec_absent=0, block_min=20, n_min_per_trial=20)
-
-    trial_names = ['180-upStab'] if ldp_sess.is_stab_learning else ["180-up"]
+    
+    if ldp_sess.is_weird_Yan:
+        trial_names = ['180-2up']
+    else:
+        trial_names = ['180-upStab'] if ldp_sess.is_stab_learning else ["180-up"]
     ignore_trial_names = ['90Stab', '0Stab', '180Stab','270Stab', '90', '0', '180','270']
     if ldp_sess.is_weird_Yoda:
         ignore_trial_names.extend(weird_yoda_tuning_trials)
@@ -307,7 +387,10 @@ def format_ldp_trials_blocks(ldp_sess, sac_ind_cushion=40, verbose=True):
     ldp_sess.add_blocks(trial_names, block_names, number_names=True, ignore_trial_names=ignore_trial_names,
                     max_consec_absent=0, block_min=20, n_min_per_trial=20)
 
-    trial_names = ['180-dnStab'] if ldp_sess.is_stab_learning else ["180-dn"]
+    if ldp_sess.is_weird_Yan:
+        trial_names = ['180-2dn']
+    else:
+        trial_names = ['180-dnStab'] if ldp_sess.is_stab_learning else ["180-dn"]
     ignore_trial_names = ['90Stab', '0Stab', '180Stab','270Stab', '90', '0', '180','270']
     if ldp_sess.is_weird_Yoda:
         ignore_trial_names.extend(weird_yoda_tuning_trials)
@@ -316,7 +399,10 @@ def format_ldp_trials_blocks(ldp_sess, sac_ind_cushion=40, verbose=True):
     ldp_sess.add_blocks(trial_names, block_names, number_names=True, ignore_trial_names=ignore_trial_names,
                     max_consec_absent=0, block_min=20, n_min_per_trial=20)
 
-    trial_names = ['270-rtStab'] if ldp_sess.is_stab_learning else ["270-rt"]
+    if ldp_sess.is_weird_Yan:
+        trial_names = ['270-2rt']
+    else:
+        trial_names = ['270-rtStab'] if ldp_sess.is_stab_learning else ["270-rt"]
     ignore_trial_names = ['90Stab', '0Stab', '180Stab','270Stab', '90', '0', '180','270']
     if ldp_sess.is_weird_Yoda:
         ignore_trial_names.extend(weird_yoda_tuning_trials)
@@ -325,7 +411,10 @@ def format_ldp_trials_blocks(ldp_sess, sac_ind_cushion=40, verbose=True):
     ldp_sess.add_blocks(trial_names, block_names, number_names=True, ignore_trial_names=ignore_trial_names,
                     max_consec_absent=0, block_min=20, n_min_per_trial=20)
 
-    trial_names = ['270-ltStab'] if ldp_sess.is_stab_learning else ["270-lt"]
+    if ldp_sess.is_weird_Yan:
+        trial_names = ['270-2lt']
+    else:
+        trial_names = ['270-ltStab'] if ldp_sess.is_stab_learning else ["270-lt"]
     ignore_trial_names = ['90Stab', '0Stab', '180Stab','270Stab', '90', '0', '180','270']
     if ldp_sess.is_weird_Yoda:
         ignore_trial_names.extend(weird_yoda_tuning_trials)
@@ -333,7 +422,7 @@ def format_ldp_trials_blocks(ldp_sess, sac_ind_cushion=40, verbose=True):
     ldp_sess.block_name_to_learn_name['270Learn180'] = '270-ltStab'
     ldp_sess.add_blocks(trial_names, block_names, number_names=True, ignore_trial_names=ignore_trial_names,
                     max_consec_absent=0, block_min=20, n_min_per_trial=20)
-
+    
     # Attempt to verify block order and detect trials outside of blocks
     if verbose: print("Checking block assignments.")
     orphan_trials = ldp_sess.verify_blocks()
@@ -345,10 +434,13 @@ def format_ldp_trials_blocks(ldp_sess, sac_ind_cushion=40, verbose=True):
         if verbose: print("Attempting to repair {0} orphan trials.".format(len(orphan_trials)))
         n_orphans_assigned = ldp_sess.assign_orphan_trials(orphan_trials)
         if verbose: print("Added {0} orphan trials to blocks.".format(n_orphans_assigned))
-
+    
     orphan_trials = ldp_sess.verify_blocks()
     if verbose: print("New block assignments leave {0} orphan trials for deletion.".format(len(orphan_trials)))
     ldp_sess.delete_trials(orphan_trials)
+
+    # Determine the blocks to use for baseline and tuning
+    ldp_sess.set_base_and_tune_blocks()
 
     # Align trials on events
     if verbose: print("Aligning trials on events and assigning default trial sets.")

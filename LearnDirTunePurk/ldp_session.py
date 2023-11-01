@@ -52,6 +52,7 @@ class LDPSession(Session):
         self.set_fixation_tuning_blocks(search_name=fix_sn)
         self.set_stab_tuning_blocks(search_name=stab_sn)
         self.set_stand_tuning_blocks(search_name=stand_sn)
+        self.set_pursuit_baseline_blocks(search_name=f"{str(self.directions['pursuit'])}Baseline")
         self.set_randvp_tuning_blocks(search_name=randvp_sn)
         for block in self.blocks_found:
             self.count_block_trial_names(block)
@@ -87,6 +88,7 @@ class LDPSession(Session):
             raise ValueError("Cannot parse learning directions with no learning block assigned!")
         # We found a learning block so carry on
         pursuit_dir, learn_dir = self.learning_trial_name.split(search_name)
+        learn_dir = learn_dir.split("_")[0] # Remove any trailing numerical labels
         pursuit_dir = int(pursuit_dir)
         learn_dir = int(learn_dir)
         anti_pursuit_dir = (pursuit_dir + 180) % 360
@@ -127,8 +129,7 @@ class LDPSession(Session):
             self.blocks_found.append('Washout')
         return None
 
-    def set_fixation_tuning_blocks(self, search_name="FixTune",
-                                    min_trials_by_name=0):
+    def set_fixation_tuning_blocks(self, search_name="FixTune"):
         """ Finds the fixation tuning blocks relative to learning/washout. """
         if self.blocks['Learning'] is None:
             raise ValueError("Cannot parse washout block with no learning block assigned!")
@@ -165,8 +166,7 @@ class LDPSession(Session):
         self.blocks.update(new_block_names)
         return None
 
-    def set_stab_tuning_blocks(self, search_name="StabTune",
-                                    min_trials_by_name=0):
+    def set_stab_tuning_blocks(self, search_name="StabTune"):
         """ Finds the fixation tuning blocks relative to learning/washout. """
         if self.blocks['Learning'] is None:
             raise ValueError("Cannot parse washout block with no learning block assigned!")
@@ -203,8 +203,7 @@ class LDPSession(Session):
         self.blocks.update(new_block_names)
         return None
 
-    def set_stand_tuning_blocks(self, search_name="StandTune",
-                                    min_trials_by_name=0):
+    def set_stand_tuning_blocks(self, search_name="StandTune"):
         """ Finds the fixation tuning blocks relative to learning/washout. """
         if self.blocks['Learning'] is None:
             raise ValueError("Cannot parse washout block with no learning block assigned!")
@@ -241,8 +240,44 @@ class LDPSession(Session):
         self.blocks.update(new_block_names)
         return None
 
-    def set_randvp_tuning_blocks(self, search_name="RandVP",
-                                    min_trials_by_name=0):
+    def set_pursuit_baseline_blocks(self, search_name):
+        """ Finds the pursuit axis only tuning/baseline blocks relative to learning/washout. """
+        if self.blocks['Learning'] is None:
+            raise ValueError("Cannot parse washout block with no learning block assigned!")
+        t_pre_start = -np.inf
+        t_post_start = np.inf
+        t_wash_start = np.inf
+        search_blocks = ["BaselinePre", "BaselinePost", "BaselineWash"]
+        new_block_names = {x: None for x in search_blocks}
+        for block in self.blocks.keys():
+            if self.blocks[block] is None:
+                continue
+            # Do split on num for default number counting of multiple blocks
+            if search_name in block:
+                # Found a Baseline block, now find which one
+                if ( (self.blocks[block][1] <= self.blocks['Learning'][0]) and
+                     (self.blocks[block][0] >= t_pre_start) ):
+                    # 0Baselin precedes learning and is latest found so far
+                    new_block_names['BaselinePre'] = self.blocks[block]
+                    t_pre_start = self.blocks[block][0]
+                    self.blocks_found.append('BaselinePre')
+                elif ( (self.blocks[block][0] >= self.blocks['Learning'][1]) and
+                       (self.blocks[block][0] <= t_post_start) ):
+                    # Tuning follows learning and is earliest found so far
+                    new_block_names['BaselinePost'] = self.blocks[block]
+                    t_post_start = self.blocks[block][0]
+                    self.blocks_found.append('BaselinePost')
+                if self.blocks['Washout'] is not None:
+                    if ( (self.blocks[block][0] >= self.blocks['Washout'][1]) and
+                         (self.blocks[block][0] <= t_wash_start) ):
+                        # Tuning follows washout and is earliest found so far
+                        new_block_names['BaselineWash'] = self.blocks[block]
+                        t_wash_start = self.blocks[block][0]
+                        self.blocks_found.append('BaselineWash')
+        self.blocks.update(new_block_names)
+        return None
+
+    def set_randvp_tuning_blocks(self, search_name="RandVP"):
         """ Finds the fixation tuning blocks relative to learning/washout. """
         if self.blocks['Learning'] is None:
             raise ValueError("Cannot parse washout block with no learning block assigned!")
@@ -509,7 +544,7 @@ class LDPSession(Session):
             b_name2 = check_block_1
         else:
             # Blocks start at same trial
-            raise ValueError("Resolving block overlaps that start on the same trial not implemented!")
+            raise ValueError(f"Resolving block overlaps that start on the same trial not implemented! Tried blocks {check_block_1} and {check_block_2}")
         t_names1 = set()
         t_names2 = set()
         for t_ind in range(self.blocks[b_name1][0], self.blocks[b_name1][1]):
@@ -744,7 +779,7 @@ class LDPSession(Session):
             self.trial_set_base_axis['instruction'] = self.trial_set_base_axis['pursuit']
 
         # Setup dictionary for storing tuning data
-        tuning_blocks = ["StandTunePre", "StabTunePre"]
+        tuning_blocks = ["StandTunePre", "StabTunePre", "BaselinePre"]
         data_types = ["eye position", "eye velocity"]
         self.baseline_tuning = {}
         for block in tuning_blocks:
@@ -998,3 +1033,80 @@ class LDPSession(Session):
         indices = np.unique(indices)
         self.sacc_and_err_trials = np.delete(self.sacc_and_err_trials, indices)
         return None
+    
+    def set_base_and_tune_blocks(self):
+        """ Creates a dictionary that indicates which blocks should be used for calculating the
+        pre/post learning baseline pursuit responses and also the blocks that should be used
+        for calculating linear model fits of the data.
+        """
+        self.base_and_tune_blocks = {}
+        # Search for tuning block
+        if self.blocks['StabTunePre'] is not None:
+            # Prefer stab tuning
+            if (self.blocks['Learning'][0] - self.blocks['StabTunePre'][1]) > 50:
+                print(f"Pre block 'StabTunePre' precedes learning by over 50 trials")
+            self.base_and_tune_blocks['tuning_block'] = "StabTunePre"
+            self.base_and_tune_blocks['baseline_block'] = "StabTunePre"
+        else:
+            if self.blocks['StandTunePre'] is not None:
+                # Then Standard tuning
+                if (self.blocks['Learning'][0] - self.blocks['StandTunePre'][1]) > 50:
+                    print(f"Pre block 'StandTunePre' precedes learning by over 50 trials")
+                self.base_and_tune_blocks['tuning_block'] = "StandTunePre"
+                self.base_and_tune_blocks['baseline_block'] = "StandTunePre"
+            elif self.blocks['BaselinePre'] is not None:
+                # I guess use baseline trials if we can find them
+                if (self.blocks['Learning'][0] - self.blocks['BaselinePre'][1]) > 50:
+                    print(f"Pre block 'BaselinePre' precedes learning by over 50 trials")
+                self.base_and_tune_blocks['tuning_block'] = "BaselinePre"
+            else:
+                # We can't find a tuning block
+                print("Can not find tuning block")
+                self.base_and_tune_blocks['tuning_block'] = None
+
+            if self.is_weird_Yan:
+                # Check if the weird Yan tuning trials are way before learning we need to use the baseline block
+                if (self.blocks['Learning'][0] - self.blocks['StandTunePre'][1]) > 50:
+                    self.base_and_tune_blocks['baseline_block'] = "BaselinePre"
+
+        # Same but search for POST tuning block
+        if self.blocks['StabTunePost'] is not None:
+            # Prefer stab tuning
+            if (self.blocks['StabTunePost'][0] - self.blocks['Learning'][1]) > 50:
+                print(f"Post block 'StabTunePost' follows learning by over 50 trials")
+            self.base_and_tune_blocks['post_tuning_block'] = "StabTunePost"
+        elif self.blocks['StandTunePost'] is not None:
+            # Then Standard tuning
+            if (self.blocks['StandTunePost'][0] - self.blocks['Learning'][1]) > 50:
+                print(f"Post block 'StandTunePost' follows learning by over 50 trials")
+            self.base_and_tune_blocks['post_tuning_block'] = "StandTunePost"
+        elif self.blocks['BaselinePost'] is not None:
+            # Try Baseline tuning
+            if (self.blocks['BaselinePost'][0] - self.blocks['Learning'][1]) > 50:
+                print(f"Post block 'BaselinePost' follows learning by over 50 trials")
+            self.base_and_tune_blocks['post_tuning_block'] = "BaselinePost"
+        else:
+            # We can't find a post tuning block
+            print("Can not find post tuning block")
+            self.base_and_tune_blocks['post_tuning_block'] = None
+
+        # Same but search for post WASHOUT block
+        if self.blocks['StabTuneWash'] is not None:
+            # Prefer stab tuning
+            if (self.blocks['StabTuneWash'][0] - self.blocks['Washout'][1]) > 50:
+                print(f"Washout block 'StabTuneWash' follows washout by over 50 trials")
+            self.base_and_tune_blocks['wash_tuning_block'] = "StabTuneWash"
+        elif self.blocks['StandTuneWash'] is not None:
+            # Then Standard tuning
+            if (self.blocks['StandTuneWash'][0] - self.blocks['Washout'][1]) > 50:
+                print(f"Washout block 'StandTuneWash' follows washout by over 50 trials")
+            self.base_and_tune_blocks['wash_tuning_block'] = "StandTuneWash"
+        elif self.blocks['BaselineWash'] is not None:
+            # Try Baseline tuning
+            if (self.blocks['BaselineWash'][0] - self.blocks['Washout'][1]) > 50:
+                print(f"Washout block 'BaselineWash' follows washout by over 50 trials")
+            self.base_and_tune_blocks['wash_tuning_block'] = "BaselineWash"
+        else:
+            # We can't find a post washout block
+            self.base_and_tune_blocks['wash_tuning_block'] = None
+            

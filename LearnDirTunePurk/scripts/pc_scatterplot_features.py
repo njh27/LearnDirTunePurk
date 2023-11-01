@@ -32,14 +32,14 @@ if __name__ == "__main__":
     cell_types = ["PC", "putPC"]
     n_tune_args = (fix_win, learn_win)
     n_tune_kwargs = {'sigma': 12.5, 
-                     'cutoff_sigma': 4, 
-                     'show_fig': False}
+                     'cutoff_sigma': 4}
     neuron_fr_win_means = fun_all_neurons(args.neurons_dir, args.PL2_dir, args.maestro_dir, 
                                             args.maestro_save_dir, cell_types, 
                                             get_neuron_scatter_data, 
                                             sess_fun,
                                             n_tune_args, 
-                                            n_tune_kwargs)
+                                            n_tune_kwargs,
+                                            in_fname="Yoda")
     # Remove any empty
     for fname in neuron_fr_win_means.keys():
         if len(neuron_fr_win_means[fname]) == 0:

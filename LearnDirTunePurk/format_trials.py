@@ -101,48 +101,50 @@ def name_trial_events(maestro_data, is_weird_Yoda=False, is_weird_Yan=False):
     # Set hard coded variables for expected trial name dictionaries.
     if is_weird_Yan:
         event_names_sinusoid = {
-            "fixation_onset": [1, 0],
-            "rand_fix_onset": [1, 0],
-            "target_onset": [1, 2],
+            "fixation_onset": [3, 0],
+            "200_ms_interval": [3, 1],
+            "target_onset": [3, 2],
             }
         event_names_stand_tuning = {
-            "fixation_onset": [1, 0],
-            "rand_fix_onset": [1, 0],
-            "target_onset": [1, 2],
-            "target_offset": [1, 3]
+            "fixation_onset": [3, 0],
+            "200_ms_interval": [3, 1],
+            "target_onset": [3, 2],
+            "target_offset": [3, 3]
             }
         event_names_learning = {
-            "fixation_onset": [1, 0],
-            "rand_fix_onset": [1, 0],
-            "target_onset": [1, 2],
-            "instruction_onset": [1, 3],
-            "target_offset": [1, 4]
+            "fixation_onset": [3, 0],
+            "200_ms_interval": [3, 1],
+            "target_onset": [3, 2],
+            "instruction_onset": [3, 3],
+            "instruction_offset": [3, 4],
+            "target_offset": [3, 5]
             }
     elif is_weird_Yoda:
-        event_names_fixation = {
-            "fixation_onset": [2, 0]
-            }
-        event_names_rand_vp = {
-            "fixation_onset": [0, 0],
-            "rand_fix_onset": [1, 0],
-            "target_onset": [2, 0],
-            "start_stabwin": [3, 0],
-            "target_offset": [4, 0]
-            }
+        # event_names_fixation = {
+        #     "fixation_onset": [2, 0]
+        #     }
+        # event_names_rand_vp = {
+        #     "fixation_onset": [0, 0],
+        #     "rand_fix_onset": [1, 0],
+        #     "target_onset": [2, 0],
+        #     "start_stabwin": [3, 0],
+        #     "target_offset": [4, 0]
+        #     }
         event_names_stand_tuning = {
             "fixation_onset": [0, 0],
             "rand_fix_onset": [1, 0],
             "target_onset": [1, 1],
+            "start_stabwin": [1, 2],
             "target_offset": [1, 3]
             }
-        event_names_stab_tuning = {
-            "fixation_onset": [0, 0],
-            "rand_fix_onset": [1, 0],
-            "target_onset": [2, 0],
-            "start_stabwin": [3, 0],
-            "instruction_onset": [4, 0],
-            "target_offset": [5, 0]
-            }
+        # event_names_stab_tuning = {
+        #     "fixation_onset": [0, 0],
+        #     "rand_fix_onset": [1, 0],
+        #     "target_onset": [2, 0],
+        #     "start_stabwin": [3, 0],
+        #     "instruction_onset": [4, 0],
+        #     "target_offset": [5, 0]
+        #     }
         event_names_learning = {
             "fixation_onset": [0, 0],
             "rand_fix_onset": [1, 0],
@@ -189,6 +191,7 @@ def name_trial_events(maestro_data, is_weird_Yoda=False, is_weird_Yan=False):
                                 '135', '255', '285', '240', '300', '120', '105',
                                 '75', '60']
     weird_yan_tuning_trials = ['H', 'V']
+    # weird_yan_learning_trials = ['0-up', '0-dn', '90-rt', '90-lt', '180-up', '180-dn', '270-lt', '270-rt']
 
     # Generate the naming dictionary for each trial name
     maestro_trial_names = set()
@@ -205,6 +208,9 @@ def name_trial_events(maestro_data, is_weird_Yoda=False, is_weird_Yan=False):
             event_names_by_trial[t_name] = event_names_stand_tuning
         elif t_name in ["0Stab", "90Stab", "180Stab", "270Stab"]:
             event_names_by_trial[t_name] = event_names_stab_tuning
+        # elif t_name in weird_yan_learning_trials:
+        #     event_names_by_trial[t_name] = event_names_learning
+
         elif "-rt" in t_name:
             event_names_by_trial[t_name] = event_names_learning
         elif "-up" in t_name:
@@ -213,6 +219,7 @@ def name_trial_events(maestro_data, is_weird_Yoda=False, is_weird_Yan=False):
             event_names_by_trial[t_name] = event_names_learning
         elif "-dn" in t_name:
             event_names_by_trial[t_name] = event_names_learning
+
         elif "right" in t_name:
             event_names_by_trial[t_name] = event_names_learning
         elif "up" in t_name:
@@ -221,6 +228,24 @@ def name_trial_events(maestro_data, is_weird_Yoda=False, is_weird_Yan=False):
             event_names_by_trial[t_name] = event_names_learning
         elif "down" in t_name:
             event_names_by_trial[t_name] = event_names_learning
+
+        elif "-2rt" in t_name:
+            event_names_by_trial[t_name] = event_names_learning
+        elif "-2up" in t_name:
+            event_names_by_trial[t_name] = event_names_learning
+        elif "-2lt" in t_name:
+            event_names_by_trial[t_name] = event_names_learning
+        elif "-2dn" in t_name:
+            event_names_by_trial[t_name] = event_names_learning
+        elif "-6rt" in t_name:
+            event_names_by_trial[t_name] = event_names_learning
+        elif "-6up" in t_name:
+            event_names_by_trial[t_name] = event_names_learning
+        elif "-6lt" in t_name:
+            event_names_by_trial[t_name] = event_names_learning
+        elif "-6dn" in t_name:
+            event_names_by_trial[t_name] = event_names_learning
+
         elif t_name in weird_yoda_tuning_trials:
             event_names_by_trial[t_name] = event_names_stand_tuning
         elif t_name in weird_yan_tuning_trials:

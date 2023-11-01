@@ -571,11 +571,11 @@ def get_neuron_scatter_data(neuron, fix_win, fr_learn_win, sigma=12.5, cutoff_si
     # Some currently hard coded variables
     tune_trace_win = [-200, 400] #[-300, 1000]
     use_smooth_fix = True
-    use_baseline_block = "StabTunePre"
-    use_post_learn_block = "StabTunePost"
+    use_baseline_block = neuron.session.base_and_tune_blocks['tuning_block']
+    use_post_learn_block = neuron.session.base_and_tune_blocks['post_tuning_block']
     n_t_instructed_win = [80, 100] # Need to hit at least this many learning trials to get counted
     n_t_instructed_win_late = [500, 520] # Need to hit at least this many learning trials to get counted
-    n_t_baseline_min = 15 # Need at least 15 baseline trials to get counted
+    n_t_baseline_min = 1 
     early_probe_win = [50, 150]
     late_probe_win = [500, np.inf]
 
@@ -623,10 +623,12 @@ def get_neuron_scatter_data(neuron, fix_win, fr_learn_win, sigma=12.5, cutoff_si
         fr_raw = neuron.get_firing_traces(fr_learn_win, use_baseline_block, tune_trial)
         if len(fr) == 0:
             print(f"No tuning trials found for {tune_trial} in blocks {use_baseline_block}", flush=True)
-            return fr_win_means
+            continue
+            # return fr_win_means
         elif fr.shape[0] < n_t_baseline_min:
             print(f"Not enough tuning trials found for {tune_trial} in blocks {use_baseline_block}", flush=True)
-            return fr_win_means
+            continue
+            # return fr_win_means
         else:
             # Store fixation adjusted and raw separately
             fr_win_means[tune_trial + "_tune"] = np.nanmean(np.nanmean(fr, axis=1), axis=0)
@@ -697,10 +699,12 @@ def get_neuron_scatter_data(neuron, fix_win, fr_learn_win, sigma=12.5, cutoff_si
         fr_raw = neuron.get_firing_traces(fr_learn_win, use_post_learn_block, tune_trial)
         if len(fr) == 0:
             print(f"No tuning trials found for {tune_trial} in blocks {use_post_learn_block}", flush=True)
-            return fr_win_means
+            continue
+            # return fr_win_means
         elif fr.shape[0] < n_t_baseline_min:
             print(f"Not enough tuning trials found for {tune_trial} in blocks {use_post_learn_block}", flush=True)
-            return fr_win_means
+            continue
+            # return fr_win_means
         else:
             fr_win_means[tune_trial + "_post_tune"] = np.nanmean(np.nanmean(fr, axis=1), axis=0)
             fr_win_means[tune_trial + "_post_tune_raw"] = np.nanmean(np.nanmean(fr_raw, axis=1), axis=0)

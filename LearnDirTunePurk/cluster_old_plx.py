@@ -4,7 +4,8 @@ import pickle
 import matplotlib.pyplot as plt
 import umap
 import os
-from spikesorting_fullpursuit import sort, preprocessing
+import csv
+from spikesorting_fullpursuit import sort
 from spikesorting_fullpursuit.analyze_spike_timing import zero_symmetric_ccg
 
 
@@ -20,9 +21,10 @@ def matlab_purkinje_maestro_struct_2_python(matlab_file, sampling_rate=40000):
     for trial in range(0, matlab_data['PurkinjeMaestroStruct'].shape[1]):
         # Go through each trial
         trial_dict = {'TrialName': matlab_data['PurkinjeMaestroStruct'][0, trial]['TrialName'][0],
-                      'DIOtherTimes': matlab_data['PurkinjeMaestroStruct'][0, trial]['DIOtherTimes'],
-                      'TimeSpikeChanStart': matlab_data['PurkinjeMaestroStruct'][0, trial]['TimeSpikeChanStart'][0],
-                      'TimeSpikeChanStop': matlab_data['PurkinjeMaestroStruct'][0, trial]['TimeSpikeChanStop'][0],
+                      'DIOtherTimes': np.float64(matlab_data['PurkinjeMaestroStruct'][0, trial]['DIOtherTimes']),
+                      'TimeSpikeChanStart': np.float64(matlab_data['PurkinjeMaestroStruct'][0, trial]['TimeSpikeChanStart'][0]),
+                      'TimeSpikeChanStop': np.float64(matlab_data['PurkinjeMaestroStruct'][0, trial]['TimeSpikeChanStop'][0]),
+                      'MaestroFilename': matlab_data['PurkinjeMaestroStruct'][0, trial][1][0],
                      }
         # Make these updated names
         trial_dict['TrialName'] = trial_dict['TrialName'].replace("left", "lt")
@@ -40,13 +42,13 @@ def matlab_purkinje_maestro_struct_2_python(matlab_file, sampling_rate=40000):
                     print(f"Found simple spikes for unit number {n_neuron}")
                     printed[n_neuron] = True
                     printed.append(False)
-            trial_dict['SpikeWaves'].append(np.vstack((matlab_data['PurkinjeMaestroStruct'][0, trial]['SimpleWaves'][0, n_neuron].T,
-                                                       matlab_data['PurkinjeMaestroStruct'][0, trial]['ComplexWaves'][0, n_neuron].T))
+            trial_dict['SpikeWaves'].append(np.vstack((np.float64(matlab_data['PurkinjeMaestroStruct'][0, trial]['SimpleWaves'][0, n_neuron].T),
+                                                       np.float64(matlab_data['PurkinjeMaestroStruct'][0, trial]['ComplexWaves'][0, n_neuron].T)))
                                             )
             ss_axis = None if matlab_data['PurkinjeMaestroStruct'][0, trial]['SimpleSpikes'][0, n_neuron].size == 0 else 1
             cs_axis = None if matlab_data['PurkinjeMaestroStruct'][0, trial]['ComplexSpikes'][0, n_neuron].size == 0 else 1
-            unit_spikes = [np.squeeze(matlab_data['PurkinjeMaestroStruct'][0, trial]['SimpleSpikes'][0, n_neuron], axis=ss_axis),
-                        np.squeeze(matlab_data['PurkinjeMaestroStruct'][0, trial]['ComplexSpikes'][0, n_neuron], axis=cs_axis)]
+            unit_spikes = [np.float64(np.squeeze(matlab_data['PurkinjeMaestroStruct'][0, trial]['SimpleSpikes'][0, n_neuron], axis=ss_axis)),
+                           np.float64(np.squeeze(matlab_data['PurkinjeMaestroStruct'][0, trial]['ComplexSpikes'][0, n_neuron], axis=cs_axis))]
             unit_spikes = np.hstack([u_spks for u_spks in unit_spikes if u_spks.size > 0])
             if unit_spikes.size > 0:
                 trial_dict['SpikeIndices'].append(unit_spikes)
@@ -157,20 +159,21 @@ def get_maestro_from_mat(filename):
                     'display_framerate': matlab_data['PurkinjeMaestroStruct'][0, trial]['Key']['d_framerate'][0][0][0][0],
                     'UsedStab': False,
                     }
+        header_dict['name'] = header_dict['name'].replace("down", "dn")
+        header_dict['name'] = header_dict['name'].replace("right", "rt")
+        header_dict['name'] = header_dict['name'].replace("left", "lt")
         targets = []
         for n_targ in range(0, matlab_data['PurkinjeMaestroStruct'][0, trial]['Targets']['targnums'][0][0][0].size):
             targ_dict = {'target_name': targ_names[n_targ],
                         }
             targets.append(targ_dict)
         events = []
-        DIO_num = matlab_data['PurkinjeMaestroStruct'][0, trial]['DIOtherTimes'][0, 0]
-        for DIO_ind in range(0, 14):
+        for DIO_num in range(0, 14):
             chan_events = []
             for n_event in range(0, matlab_data['PurkinjeMaestroStruct'][0, trial]['DIOtherTimes'].shape[0]):
                 if matlab_data['PurkinjeMaestroStruct'][0, trial]['DIOtherTimes'][n_event, 0] == DIO_num:
                     chan_events.append(matlab_data['PurkinjeMaestroStruct'][0, trial]['DIOtherTimes'][n_event, 1] / 1000)
             events.append(chan_events)
-            DIO_num += 1
             
         trial_dict = {'filename': matlab_data['PurkinjeMaestroStruct'][0, trial]['FileName'][0],
                     'header': header_dict,
@@ -409,7 +412,8 @@ def branch_umap_cluster(neuron_labels, clips, p_value_cut_thresh=0.01, n_random_
         n_random = max(n_random_min, np.around(clust_clips.shape[0] / 100))
         clust_labels = sort.initial_cluster_farthest(clust_scores, median_cluster_size, n_random=n_random)
         clust_labels = sort.merge_clusters(clust_scores, clust_labels,
-                                            p_value_cut_thresh=p_value_cut_thresh)
+                                            p_value_cut_thresh=p_value_cut_thresh,
+                                            match_cluster_size=True, check_splits=True)
         new_labels = np.unique(clust_labels)
         if new_labels.size > 1:
             print(f"Found {new_labels.size} new clusters!")
@@ -436,14 +440,11 @@ def umap_and_cluster(clips, p_value_cut_thresh=0.01, n_random=1000, branch_umap=
     neuron_labels = sort.merge_clusters(umap_scores, neuron_labels,
                         split_only = False,
                         merge_only = merge_only,
-                        p_value_cut_thresh=p_value_cut_thresh)
+                        p_value_cut_thresh=p_value_cut_thresh,
+                        match_cluster_size=True, check_splits=True)
     
     if branch_umap:
         neuron_labels = branch_umap_cluster(neuron_labels, clips, p_value_cut_thresh=p_value_cut_thresh, n_random_min=n_random)
-        # neuron_labels = sort.merge_clusters(umap_scores, neuron_labels,
-        #                                     split_only = False,
-        #                                     merge_only = merge_only,
-        #                                     p_value_cut_thresh=p_value_cut_thresh)
 
     sort.reorder_labels(neuron_labels)
     return neuron_labels, umap_scores
@@ -457,7 +458,7 @@ def old_data_list_spikes_to_viz(save_labels, save_neuron_label, filename, neuron
         if len(channel_ids) != len(save_labels):
             raise ValueError("Must input a channel number ID integer for each unit or a single scalar applied to all units")
     else:
-        channel_ids = [channel_ids for x in range(0, len(save_labels))]
+        channel_ids = [x for x in range(0, len(save_labels))]
     
     if save_fname is None:
         save_fname = "neurons_" + fname + "_viz.pkl"
@@ -732,29 +733,37 @@ def add_old_plx_events(maestro_data, purk_mat_fname, maestro_pl2_chan_offset=1, 
                 maestro_events_times[1].extend([p + 1] * len(maestro_data[trial]['events'][p]))
             maestro_events_times = np.array(maestro_events_times)
             maestro_events_times = maestro_events_times[:, np.argsort(maestro_events_times[0, :])]
-
-            # Now build a matching event array with Plexon events.  Include 2 extra event
-            # slots for the start and stop XS2 events, which are not in Maestro file.  This
-            # array will be used for searching the Plexon data to find correct output
-            old_plx_trial_events = np.zeros((2, len(maestro_events_times[1])))
-            old_plx_trial_events[0, :] = mat_data_list[trial]['DIOtherTimes'][:, 1]
-            old_plx_trial_events[1, :] = mat_data_list[trial]['DIOtherTimes'][:, 0]
+            try:
+                # Now build a matching event array with Plexon events.  Include 2 extra event
+                # slots for the start and stop XS2 events, which are not in Maestro file.  This
+                # array will be used for searching the Plexon data to find correct output
+                old_plx_trial_events = np.zeros((2, len(maestro_events_times[1])))
+                old_plx_trial_events[0, :] = mat_data_list[trial]['DIOtherTimes'][:, 1]
+                old_plx_trial_events[1, :] = mat_data_list[trial]['DIOtherTimes'][:, 0]
+            except:
+                print(trial)
+                print(old_plx_trial_events.shape)
+                print(mat_data_list[trial]['DIOtherTimes'][:, 1].shape)
+                print(mat_data_list[trial]['DIOtherTimes'][:, 1])
+                raise
 
             # Check trial duration according to plexon XS2 and Maestro file
-            old_plx_duration = mat_data_list[trial]['TimeSpikeChanStop'][0] - mat_data_list[trial]['TimeSpikeChanStart'][0]
+            # old_plx_duration = mat_data_list[trial]['TimeSpikeChanStop'][0] - mat_data_list[trial]['TimeSpikeChanStart'][0]
+            old_plx_duration = mat_data_list[trial]['TimeSpikeChanStop'] - mat_data_list[trial]['TimeSpikeChanStart']
             maestro_duration = maestro_data[trial]['header']['_num_saved_scans']
             if np.abs(old_plx_duration - maestro_duration) > 40.0:
                 print("WARNING: difference between recorded plx trial duration {0} and maestro trial duration {1} is over 40 ms. This could mean XS2 inital pulse was delayed and unreliable.".format(pl2_duration, maestro_duration))
             elif np.abs(old_plx_duration - maestro_duration) > 2.0:
                 # This happens due to the shitty REB system on some Yoda files. XS2 stop is correct so just set PL2 start based on this and Maestro duration
-                mat_data_list[trial]['TimeSpikeChanStart'][0] = mat_data_list[trial]['TimeSpikeChanStop'][0] - maestro_duration
+                # mat_data_list[trial]['TimeSpikeChanStart'][0] = mat_data_list[trial]['TimeSpikeChanStop'][0] - maestro_duration
+                mat_data_list[trial]['TimeSpikeChanStart'] = mat_data_list[trial]['TimeSpikeChanStop'] - maestro_duration
             # Save start and stop for output
-            maestro_data[trial]['plexon_start_stop'] = (mat_data_list[trial]['TimeSpikeChanStart'][0], mat_data_list[trial]['TimeSpikeChanStop'][0])
+            # maestro_data[trial]['plexon_start_stop'] = (mat_data_list[trial]['TimeSpikeChanStart'][0], mat_data_list[trial]['TimeSpikeChanStop'][0])
+            maestro_data[trial]['plexon_start_stop'] = (mat_data_list[trial]['TimeSpikeChanStart'], mat_data_list[trial]['TimeSpikeChanStop'])
 
             # Again, only include Plexon events that were observed in Maestro by looking
             # through all Maestro events and finding their counterparts in Plexon
             # according to the mapping defined in maestro_pl2_chan_offset
-            old_plx_event_index = 0
             maestro_data[trial]['plexon_events'] = [[] for _ in range(0, len(maestro_data[trial]['events']))]
             for event_ind, event_num in enumerate(maestro_events_times[1, :]):
                 event_num = np.int64(event_num)
@@ -799,3 +808,25 @@ def add_old_plx_events(maestro_data, purk_mat_fname, maestro_pl2_chan_offset=1, 
                 del maestro_data[index]
 
     return maestro_data
+
+
+def maestro_plx_sync_file(raw_maestro_dir, fname, mat_file, fname_csv):
+    """
+    """
+    mat_data_list = matlab_purkinje_maestro_struct_2_python(mat_file)
+    trial_files = sorted(os.listdir(os.path.join(raw_maestro_dir, fname)))
+    _, extension = os.path.splitext(fname_csv)
+    if extension != ".csv":
+        fname_csv = fname_csv + ".csv"
+    # Open a CSV file in write mode
+    with open(fname_csv, "w", newline='') as csvfile:
+        csv_writer = csv.writer(csvfile)
+        # Write header
+        csv_writer.writerow(["Maestro Filename", "Plexon Alignment Time"])
+        
+        for trial, trial_file in zip(mat_data_list, trial_files):
+            if trial['MaestroFilename'] != trial_file:
+                raise ValueError(f"Trial name {trial['MaestroFilename']} does not match the indexed maestro file {trial_file}!")
+            csv_writer.writerow([trial_file, trial['TimeSpikeChanStart']])
+
+    print(f"Saved file {fname_csv}")
