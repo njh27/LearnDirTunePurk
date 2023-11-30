@@ -5,7 +5,7 @@ from LearnDirTunePurk.learning_eye_PC_traces import get_neuron_trace_data
 
 
 
-monkey_name = "Yoda"
+monkey_name = "Dandy"
 # Hard code some windows here
 trace_win = [-300, 1000]
 sac_ind_cushion = 50

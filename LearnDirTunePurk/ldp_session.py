@@ -1,6 +1,7 @@
 import numpy as np
 import re
 import warnings
+import h5py
 from SessionAnalysis.session import Session
 from SessionAnalysis.utils import eye_data_series
 
@@ -1033,6 +1034,15 @@ class LDPSession(Session):
         indices = np.unique(indices)
         self.sacc_and_err_trials = np.delete(self.sacc_and_err_trials, indices)
         return None
+    
+    def save_session(self, filename):
+        """ Saves data for this session to H5
+        """
+        
+
+    def load_ldp_session(self, filename):
+        """ This should really be an option in __init__ to load a file
+        """
     
     def set_base_and_tune_blocks(self):
         """ Creates a dictionary that indicates which blocks should be used for calculating the

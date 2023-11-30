@@ -25,8 +25,22 @@ def neurons_2_unit_info(neurons):
             raise ValueError(f"Could not find a Plexon channel type for {neurons[0]['filename']}")
     
     for n in neurons:
+        # If this is just a CS, then we nee dto add just the CS indices and then skip the rest
+        if n['type__'] == "NeurophysToolbox.PurkinjeCell":
+            # Get the CSs and continue
+            try:
+                unit_info['channel'].append(f"{plx_chan_type}{n['channel_id__'][0]:02d}")
+            except IndexError:
+                unit_info['channel'].append(f"{plx_chan_type}{n['channel_id__']:02d}")
+            unit_info['spiketimes'].append(n['cs_spike_indices__'] / n['sampling_rate__'])
+            if 'cs_snr' in n:
+                unit_info['snr'].append(n['cs_snr'])
+            if 'cs_template' in n:
+                unit_info['template'].append(n['cs_template'])
+            continue
         # If this is a PC then add its CS as a separate unit
         if n['type__'] == "NeurophysToolbox.PurkinjeCell":
+            # Get the CSs. The simple spikes will be gotten below
             try:
                 unit_info['channel'].append(f"{plx_chan_type}{n['channel_id__'][0]:02d}")
             except IndexError:
@@ -61,5 +75,19 @@ if __name__ == "__main__":
             neurons = pickle.load(fp)
         unit_info = neurons_2_unit_info(neurons)
         portal_name = fname.replace("viz", "portal")
+        print(f"Saving portal file {portal_name}")
         with open(os.path.join(args.save_dir, portal_name), 'wb') as fp:
             pickle.dump(unit_info, fp)
+
+    # Now we can remove the duplicate old Yoda files since they can't go to portal anyways
+    fnames = os.listdir(args.save_dir)
+    fnames_to_delete = []
+    for fname in fnames:
+        root, ext = os.path.splitext(fname)
+        wtemp_name = root + "_wtemp" + ext
+        # Find any files that also have a "_wtemp" version of themselves
+        if wtemp_name in fnames:
+            fnames_to_delete.append(fname)
+    # Now delete them
+    for fname in fnames_to_delete:
+        os.remove(os.path.join(args.save_dir, fname))
