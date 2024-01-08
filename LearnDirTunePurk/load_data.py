@@ -4,7 +4,7 @@ import os
 from ReadMaestro.maestro_read import load_directory
 from ReadMaestro.format_trials import combine_targets
 from ReadMaestro.target import compress_target_data
-from LearnDirTunePurk.cluster_old_plx import load_mat_maestro
+# from LearnDirTunePurk.cluster_old_plx import load_mat_maestro
 
 
 
@@ -135,5 +135,75 @@ def maestro_to_pickle_batch(maestro_dir, existing_dir=None, save_dir=None,
             with open(save_dir + save_name, 'wb') as fp:
                 pickle.dump(maestro_data, fp, protocol=-1)
 
-
     return None
+
+
+def load_mat_maestro(directory_name, check_existing=True, save_data=False,
+                        save_name=None, return_loaded_existing=False):
+        """Load a directory of maestro files
+
+        Loads a complete directory of maestro files as a list of dictionaries.
+        The filenames are assumed to be in the of the form *.[0-9][0-9][0-9][0-9].
+        This function attempts to load the files in order of their suffix.
+        check_existing true will search for existing pickle files starting with the
+        input save_name and then the input directory name by standard naming
+        default conventions.
+        """
+        loaded_existing = False
+        if check_existing:
+            if save_name is not None:
+                try:
+                    if (save_name[-7:] != ".pickle") and (save_name[-4:] != ".pkl"):
+                        save_name = save_name + ".pickle"
+                    with open(save_name, 'rb') as fp:
+                        data = pickle.load(fp)
+                    loaded_existing = True
+                    if return_loaded_existing:
+                        return data, loaded_existing
+                    else:
+                        return data
+                except FileNotFoundError:
+                    pass
+            try:
+                with open(directory_name + ".pickle", 'rb') as fp:
+                    data = pickle.load(fp)
+                loaded_existing = True
+                if return_loaded_existing:
+                    return data, loaded_existing
+                else:
+                    return data
+            except FileNotFoundError:
+                pass
+            try:
+                with open(directory_name + "_maestro.pickle", 'rb') as fp:
+                    data = pickle.load(fp)
+                loaded_existing = True
+                if return_loaded_existing:
+                    return data, loaded_existing
+                else:
+                    return data
+            except FileNotFoundError:
+                pass
+            print("Could not find existing Maestro file. Recomputing from scratch.")
+        if directory_name[-4:] != ".mat":
+            directory_name = directory_name + ".mat"
+        data = get_maestro_from_mat(directory_name)
+
+        if save_name is not None:
+            # save_data = True
+            if (save_name[-7:] != ".pickle") and (save_name[-4:] != ".pkl"):
+                save_name = save_name + ".pickle"
+        if save_data:
+            if save_name is None:
+                save_name = directory_name.split("/")[-1]
+                root_name = directory_name.split("/")[0:-1]
+                save_name = save_name + "_maestro.pickle"
+                save_name = "".join(x + "/" for x in root_name) + save_name
+            print("Saving Maestro trial data as:", save_name)
+            with open(save_name, 'wb') as fp:
+                pickle.dump(data, fp, protocol=-1)
+
+        if return_loaded_existing:
+            return data, loaded_existing
+        else:
+            return data

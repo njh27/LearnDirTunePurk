@@ -1038,11 +1038,205 @@ class LDPSession(Session):
     def save_session(self, filename):
         """ Saves data for this session to H5
         """
+        # Write some global root info
+        with h5py.File(filename, 'w') as file:
+            # Put the filename in
+            file.attrs['filename'] = ldp_sess.fname
+            # Put some single value properties that apply to the entire session
+            file.attrs['is_weird_Yan'] = ldp_sess.is_weird_Yan
+            file.attrs['is_weird_Yoda'] = ldp_sess.is_weird_Yoda
+            file.attrs['learning_trial_name'] = ldp_sess.learning_trial_name
+            file.attrs['meta_dict_name'] = ldp_sess.meta_dict_name
+            file.attrs['nan_saccades'] = ldp_sess.nan_saccades
+            
+            
+            # Start by adding a description of this group to the root
+            file.attrs['desc_base_and_tune_blocks'] = ("The base_and_tune_blocks give the blocknames that correspond with " 
+                                                    "pre/post tuning, washout, etc. This is for convenience.")
+            base_and_tune_blocks = file.create_group('base_and_tune_blocks')
+            for key, value in ldp_sess.base_and_tune_blocks.items():
+                if value is None:
+                    value = "None"
+                base_and_tune_blocks.attrs[key] = value
+            
+            # Start by adding a description of this group to the root
+            file.attrs['desc_block_info'] = ("The block_info gives the trial names and number of occurences of each trial " 
+                                            "for each block in the file.")
+            block_info = file.create_group('block_info')
+            for block in ldp_sess.block_info.keys():
+                blockname = block_info.create_group(block)
+                for trial, value in ldp_sess.block_info[block].items():
+                    if value is None:
+                        value = "None"
+                    trialname = blockname.create_group(trial)
+                    trialname.attrs[trial] = value
+                    
+            # Start by adding a description of this group to the root
+            file.attrs['desc_block_name_to_learn_name'] = ("The block_name_to_learn_name provides a convenience lookup table that returns "
+                                                        "the learning trial name for each possible learning block name.")
+            block_name_to_learn_name = file.create_group('block_name_to_learn_name')
+            for key, value in ldp_sess.block_name_to_learn_name.items():
+                if value is None:
+                    value = "None"
+                block_name_to_learn_name.attrs[key] = value
+                
+            # Start by adding a description of this group to the root
+            file.attrs['desc_blocks'] = ("The blocks lists all possible block names as keys. Each entry contains an index window "
+                                        "of the trial numbers that correspond to that block. Entries are in 'slicing' format and "
+                                        "so are not inclusive of the second index. e.g. blocks['blockname'] = [1, 5] means that "
+                                        "trials [1, 2, 3, 4] belong to the block 'blockname'.")
+            blocks = file.create_group('blocks')
+            for key, value in ldp_sess.blocks.items():
+                if value is None:
+                    value = "None"
+                blocks.attrs[key] = value
+                
+            # Start by adding a description of this group to the root
+            file.attrs['desc_directions'] = ("The directions provides a convenience lookup table that returns "
+                                            "the real world pursuit direction corresponding to each pursuit direction "
+                                            "relative to the learning trial orientation.")
+            directions = file.create_group('directions')
+            for key, value in ldp_sess.directions.items():
+                if value is None:
+                    value = "None"
+                directions.attrs[key] = value
+                
+            # Start by adding a description of this group to the root
+            file.attrs['desc_neuron_info'] = ("The neuron_info gives the neuron names and the names of their associated data series. "
+                                            "Also contains the Neuron objects in the original data structure. This is mostly used "
+                                            "as a reference in the Session class but it does give all the neuron names. ")
+            neuron_info = file.create_group('neuron_info')
+            # We are skipping saving anything about the Neuron objects themselves here
+            for info_name in ['series_to_name', 'neuron_names', 'dt']:
+                if info_name == "series_to_name":
+                    # This is a nested dict
+                    info_type = neuron_info.create_group(info_name)
+                    for s_name, value in ldp_sess.neuron_info[info_name].items():
+                        info_type.attrs[s_name] = value
+                elif info_name == "neuron_names":
+                    neuron_info.create_dataset("neuron_names", data=np.array(ldp_sess.neuron_info[info_name], dtype='object'),
+                                            dtype=h5py.special_dtype(vlen=str))
+                else:
+                    neuron_info.attrs[info_name] = ldp_sess.neuron_info[info_name]
+                
+                
+            # START MAJOR DATA GROUPS
+            file.attrs['desc_trial_map'] = ("The trial_map data group contains name, block, and instruction info that applies to each "
+                                            "indidual trial, regardless of data type. ")
+            trial_map = file.create_group('trial_map')
+            trial_map.attrs['desc_is_stab_learning'] = ("is_stab_learning is a boolean flag indicating that stabilization was used for "
+                                                        "the instruction trials (TRUE) or not (FALSE).")
+            trial_map.attrs['is_stab_learning'] = ldp_sess.is_stab_learning
+            trial_map.attrs['desc_is_instructed'] = ("is_instructed contains a vector of length TRIALS where each element is a boolean "
+                                                    "indicating whether that trial contained an instructive direction change (TRUE) or "
+                                                    " not (FALSE).")
+            trial_map.create_dataset("is_instructed", data=ldp_sess.is_instructed)
+            trial_map.attrs['desc_n_instructed'] = ("n_instructed contains a vector of length TRIALS where each element gives the TOTAL "
+                                                    "number of learning/instruction trials that have been presented previous to the "
+                                                    "trial at index n.")
+            trial_map.create_dataset("n_instructed", data=ldp_sess.n_instructed)
         
 
     def load_ldp_session(self, filename):
         """ This should really be an option in __init__ to load a file
         """
+        # Define these internal use unpacking functions to un-clutter the main "with" load loop at the bottom
+        def unpack_base_and_tune_blocks(file, loaded_dict):
+            group = file['base_and_tune_blocks']
+            sub_dict = {sub_key: group.attrs[sub_key] for sub_key in group.attrs}
+            loaded_dict['base_and_tune_blocks'] = sub_dict
+            
+        def unpack_block_name_to_learn_name(file, loaded_dict):
+            group = file['block_name_to_learn_name']
+            sub_dict = {sub_key: group.attrs[sub_key] for sub_key in group.attrs}
+            loaded_dict['block_name_to_learn_name'] = sub_dict
+            
+        def unpack_blocks(file, loaded_dict):
+            group = file['blocks']
+            sub_dict = {}
+            for sub_key in group.attrs:
+                if isinstance(group.attrs[sub_key], str):
+                    if group.attrs[sub_key] == "None":
+                        load_val = None
+                else:
+                    load_val = list(group.attrs[sub_key])
+                sub_dict[sub_key] = load_val
+            loaded_dict['blocks'] = sub_dict
+            
+        def unpack_directions(file, loaded_dict):
+            group = file['directions']
+            sub_dict = {sub_key: group.attrs[sub_key] for sub_key in group.attrs}
+            loaded_dict['directions'] = sub_dict
+            
+        def unpack_block_info(file, loaded_dict):
+            binfo_group = file['block_info']
+            sub_dict = {}
+            for bname_group in file['block_info'].keys():
+                block_dict = {}
+                for tname in file['block_info'][bname_group].keys():
+                    block_dict[tname] = file['block_info'][bname_group][tname].attrs[tname]
+                sub_dict[bname_group] = block_dict
+            loaded_dict['block_info'] = sub_dict
+            
+        def unpack_neuron_info(file, loaded_dict):
+            ninfo_group = file['neuron_info']
+            loaded_dict['neuron_info'] = {}
+            for info_name in ['series_to_name', 'neuron_names', 'dt']:
+                if info_name == "series_to_name":
+                    # This is a nested dict
+                    sub_dict = {}
+                    for nname_group in file['neuron_info'][info_name].attrs:
+                        sub_dict[nname_group] = file['neuron_info'][info_name].attrs[nname_group]
+                    loaded_dict['neuron_info'][info_name] = sub_dict
+                elif info_name == "neuron_names":
+                    loaded_dict['neuron_info'][info_name] = list(ninfo_group[info_name][()])
+                    # Convert byte string to unicode string
+                    loaded_dict['neuron_info'][info_name] = [s.decode('utf-8') for s in loaded_dict['neuron_info'][info_name]]
+                else:
+                    loaded_dict['neuron_info'][info_name] = ninfo_group.attrs[info_name]
+            
+        def unpack_trial_map(file, loaded_dict):
+            trial_map_group = file['trial_map']
+            loaded_dict['trial_map'] = {}
+            loaded_dict['trial_map']['is_stab_learning'] = trial_map_group.attrs['is_stab_learning']
+            loaded_dict['trial_map']['is_instructed'] = np.array(trial_map_group['is_instructed'])
+            loaded_dict['trial_map']['n_instructed'] = np.array(trial_map_group['n_instructed'])
+
+        with h5py.File(filename, 'r') as file:
+            loaded_dict = {}
+            for root_key in file.keys():
+                if root_key == "filename":
+                    loaded_dict['filename'] = file['filename']
+                elif root_key == "is_weird_Yan":
+                    loaded_dict['is_weird_Yan'] = file['is_weird_Yan']
+                elif root_key == "is_weird_Yoda":
+                    loaded_dict['is_weird_Yoda'] = file['is_weird_Yoda']
+                elif root_key == "learning_trial_name":
+                    loaded_dict['learning_trial_name'] = file['learning_trial_name']
+                elif root_key == "meta_dict_name":
+                    loaded_dict['meta_dict_name'] = file['meta_dict_name']
+                elif root_key == "nan_saccades":
+                    loaded_dict['nan_saccades'] = file['nan_saccades']
+                    
+                    
+                elif root_key == "base_and_tune_blocks":
+                    unpack_base_and_tune_blocks(file, loaded_dict)
+                elif root_key == "block_info":
+                    unpack_block_info(file, loaded_dict)
+                elif root_key == "neuron_info":
+                    unpack_neuron_info(file, loaded_dict)
+                elif root_key == "block_name_to_learn_name":
+                    unpack_block_name_to_learn_name(file, loaded_dict)
+                elif root_key == "blocks":
+                    unpack_blocks(file, loaded_dict)
+                elif root_key == "directions":
+                    unpack_directions(file, loaded_dict)
+                elif root_key == "trial_map":
+                    unpack_trial_map(file, loaded_dict)
+                else:
+                    raise ValueError(f"Unrecognized root directory group name {root_key}")
+            
+        return loaded_dict
     
     def set_base_and_tune_blocks(self):
         """ Creates a dictionary that indicates which blocks should be used for calculating the

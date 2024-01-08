@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import umap
 import os
 import csv
+from LearnDirTunePurk import build_session
 from spikesorting_fullpursuit import sort
 from spikesorting_fullpursuit.analyze_spike_timing import zero_symmetric_ccg
 
@@ -71,77 +72,6 @@ def matlab_purkinje_maestro_struct_2_python(matlab_file, sampling_rate=40000):
 
     return data_list
 
-
-
-def load_mat_maestro(directory_name, check_existing=True, save_data=False,
-                        save_name=None, return_loaded_existing=False):
-        """Load a directory of maestro files
-
-        Loads a complete directory of maestro files as a list of dictionaries.
-        The filenames are assumed to be in the of the form *.[0-9][0-9][0-9][0-9].
-        This function attempts to load the files in order of their suffix.
-        check_existing true will search for existing pickle files starting with the
-        input save_name and then the input directory name by standard naming
-        default conventions.
-        """
-        loaded_existing = False
-        if check_existing:
-            if save_name is not None:
-                try:
-                    if (save_name[-7:] != ".pickle") and (save_name[-4:] != ".pkl"):
-                        save_name = save_name + ".pickle"
-                    with open(save_name, 'rb') as fp:
-                        data = pickle.load(fp)
-                    loaded_existing = True
-                    if return_loaded_existing:
-                        return data, loaded_existing
-                    else:
-                        return data
-                except FileNotFoundError:
-                    pass
-            try:
-                with open(directory_name + ".pickle", 'rb') as fp:
-                    data = pickle.load(fp)
-                loaded_existing = True
-                if return_loaded_existing:
-                    return data, loaded_existing
-                else:
-                    return data
-            except FileNotFoundError:
-                pass
-            try:
-                with open(directory_name + "_maestro.pickle", 'rb') as fp:
-                    data = pickle.load(fp)
-                loaded_existing = True
-                if return_loaded_existing:
-                    return data, loaded_existing
-                else:
-                    return data
-            except FileNotFoundError:
-                pass
-            print("Could not find existing Maestro file. Recomputing from scratch.")
-        if directory_name[-4:] != ".mat":
-            directory_name = directory_name + ".mat"
-        data = get_maestro_from_mat(directory_name)
-
-        if save_name is not None:
-            # save_data = True
-            if (save_name[-7:] != ".pickle") and (save_name[-4:] != ".pkl"):
-                save_name = save_name + ".pickle"
-        if save_data:
-            if save_name is None:
-                save_name = directory_name.split("/")[-1]
-                root_name = directory_name.split("/")[0:-1]
-                save_name = save_name + "_maestro.pickle"
-                save_name = "".join(x + "/" for x in root_name) + save_name
-            print("Saving Maestro trial data as:", save_name)
-            with open(save_name, 'wb') as fp:
-                pickle.dump(data, fp, protocol=-1)
-
-        if return_loaded_existing:
-            return data, loaded_existing
-        else:
-            return data
         
 def get_maestro_from_mat(filename):
     """ For the old Yan files that the Maestro reader cannot load, create the maestro_data from the matlab file directly.
@@ -830,3 +760,258 @@ def maestro_plx_sync_file(raw_maestro_dir, fname, mat_file, fname_csv):
             csv_writer.writerow([trial_file, trial['TimeSpikeChanStart']])
 
     print(f"Saved file {fname_csv}")
+
+
+def maestro_blockname_file(fname, maestro_dir, raw_maestro_dir, fname_csv):
+    """
+    """
+    save_name = maestro_dir + fname + "_maestro"
+    ldp_sess = build_session.create_behavior_session(fname, maestro_dir, session_name=fname, rotate=True,
+                                                 check_existing_maestro=True,
+                                                 save_maestro_data=False,
+                                                 save_maestro_name=save_name)
+    trial_files = sorted(os.listdir(os.path.join(raw_maestro_dir, fname)))
+    if len(trial_files) != len(ldp_sess):
+        raise RuntimeError(f"LDP session {fname} and maestro directory {os.path.join(maestro_dir, fname)} do not have the same number of trials!")
+    
+    # Assign trial numbers to LDP session so we can see what blocks all the trial numbers end up in
+    for t_ind in range(0, len(ldp_sess)):
+        ldp_sess._session_trial_data[t_ind]['maestro_t_ind'] = t_ind
+    # Then get the blocks. This DELETES bad trials though but I kept this way for block adding function consistency
+    # ldp_sess = ldp.build_session.format_ldp_trials_blocks(ldp_sess, verbose=True)
+    # This gets the blocks WITHOUT DELETING! any trials
+    get_all_blocks(ldp_sess)
+    # Setup info for list of rows so that we can assign in arbitrary order
+    csv_rows = []
+    for tf in trial_files:
+        csv_rows.append([tf, "NA"])
+    # Assign block names
+    block_names = [bn for bn in ldp_sess.blocks.keys() if bn not in ["Learning", "Washout", "StandTune", "StabTune"]]
+    for block in block_names:
+        if block not in ldp_sess.blocks:
+            continue
+        if ldp_sess.blocks[block] is None:
+            continue
+        for t_ind in range(ldp_sess.blocks[block][0], ldp_sess.blocks[block][1]):
+            csv_rows[t_ind][1] = block
+        # raw_t_start = ldp_sess._session_trial_data[ldp_sess.blocks[block][0]]['maestro_t_ind']
+        # raw_t_stop = ldp_sess._session_trial_data[ldp_sess.blocks[block][1]-1]['maestro_t_ind']
+        # for t_ind in range(raw_t_start, raw_t_stop + 1):
+        #     csv_rows[t_ind][1] = block
+    # Assign missing NA trials that were inbetween blocks to the subsequent block name
+    next_block = "NA"
+    for row in reversed(csv_rows):
+        if row[1] == "NA":
+            row[1] = next_block
+        else:
+            next_block = row[1]
+    # Currently this will leave trailing NA as "NA"
+
+    _, extension = os.path.splitext(fname_csv)
+    if extension != ".csv":
+        fname_csv = fname_csv + ".csv"
+    # Open a CSV file in write mode
+    with open(fname_csv, "w", newline='') as csvfile:
+        csv_writer = csv.writer(csvfile)
+        # Write header
+        csv_writer.writerow(["Maestro Filename", "Block Name"])
+        # Write all the CSV data from list
+        for row_data in csv_rows:
+            csv_writer.writerow(row_data)
+
+    print(f"Saved file {fname_csv}")
+
+
+def get_all_blocks(ldp_sess, verbose=True):
+    fix_trial_names = ['d014fix', 'd0-14fix', 'd-1010fix', 'd1010fix', 'd140fix', 'd-10-10fix', 'd10-10fix', 'd-140fix', 'd00fix']
+    weird_yoda_tuning_trials = ['195', '165', '210', '315', '150', '225', '45',
+                                '135', '255', '285', '240', '300', '120', '105',
+                                '75', '60']
+    long_iti_learning_trials = ['0-6up', '0-6dn',
+                                 '90-6rt', '90-6lt',
+                                 '180-6up', '180-6dn',
+                                 '270-6rt', '270-6lt', 
+                                 ]
+    weird_yan_learning_trials = ['0-up', '0-dn',
+                                 '90-rt', '90-lt',
+                                 '180-up', '180-dn',
+                                 '270-rt', '270-lt', 
+                                 ]
+    
+    if ldp_sess.is_weird_Yan:
+        trial_names = long_iti_learning_trials
+        ignore_trial_names = ['']
+        block_names = ['ITI_6s']
+        ldp_sess.add_blocks(trial_names, block_names, number_names=True, ignore_trial_names=ignore_trial_names,
+                            block_min=10, max_consec_single=np.inf)
+        
+        trial_names = weird_yan_learning_trials
+        ignore_trial_names = ['']
+        block_names = ['LateInstr']
+        ldp_sess.add_blocks(trial_names, block_names, number_names=True, ignore_trial_names=ignore_trial_names,
+                            block_min=10, max_consec_single=np.inf)
+        
+        trial_names = ['H', 'V']
+        ignore_trial_names = ['']
+        block_names = ['SinusoidTuning']
+        ldp_sess.add_blocks(trial_names, block_names, number_names=True,
+                            ignore_trial_names=ignore_trial_names, block_min=1,
+                            n_min_per_trial=1, max_consec_single=np.inf, max_consec_absent=0)
+        
+        trial_names = ['0']
+        ignore_trial_names = ['']
+        block_names = ['0Baseline']
+        ldp_sess.add_blocks(trial_names, block_names, number_names=True,
+                            ignore_trial_names=ignore_trial_names, block_min=10,
+                            n_min_per_trial=10, max_consec_single=np.inf, max_consec_absent=0)
+        
+        trial_names = ['90']
+        ignore_trial_names = ['']
+        block_names = ['90Baseline']
+        ldp_sess.add_blocks(trial_names, block_names, number_names=True,
+                            ignore_trial_names=ignore_trial_names, block_min=10,
+                            n_min_per_trial=10, max_consec_single=np.inf, max_consec_absent=0)
+        
+        trial_names = ['180']
+        ignore_trial_names = ['']
+        block_names = ['180Baseline']
+        ldp_sess.add_blocks(trial_names, block_names, number_names=True,
+                            ignore_trial_names=ignore_trial_names, block_min=10,
+                            n_min_per_trial=10, max_consec_single=np.inf, max_consec_absent=0)
+
+        trial_names = ['270']
+        ignore_trial_names = ['']
+        block_names = ['270Baseline']
+        ldp_sess.add_blocks(trial_names, block_names, number_names=True,
+                            ignore_trial_names=ignore_trial_names, block_min=10,
+                            n_min_per_trial=10, max_consec_single=np.inf, max_consec_absent=0)
+
+    # Add hard coded blocks by trial names
+    block_names = ['FixTune']
+    ldp_sess.add_blocks(fix_trial_names, block_names, number_names=True, block_min=9)
+
+    trial_names = ['270RandVP', '90RandVP', '180RandVP', '0RandVP']
+    block_names = ['RandVP']
+    ldp_sess.add_blocks(trial_names, block_names, number_names=True, block_min=20, n_min_per_trial=5)
+
+    trial_names = ['90', '0', '180','270']
+    ignore_trial_names = weird_yoda_tuning_trials if ldp_sess.is_weird_Yoda else ['']
+    block_names = ['StandTune']
+    max_consec_single = 3 if ldp_sess.is_weird_Yan else 10
+    ldp_sess.add_blocks(trial_names, block_names, number_names=True,
+                        ignore_trial_names=ignore_trial_names, block_min=12,
+                        n_min_per_trial=3, max_consec_single=max_consec_single)
+
+    trial_names = ['90Stab', '0Stab', '180Stab','270Stab']
+    block_names = ['StabTune']
+    ldp_sess.add_blocks(trial_names, block_names, number_names=True,
+                        block_min=12, n_min_per_trial=3, max_consec_single=20)
+
+    if ldp_sess.is_weird_Yan:
+        trial_names = ['0-2up']
+    else:
+        trial_names = ['0-upStab'] if ldp_sess.is_stab_learning else ["0-up"]
+    ignore_trial_names = ['90Stab', '0Stab', '180Stab','270Stab', '90', '0', '180','270']
+    if ldp_sess.is_weird_Yoda:
+        ignore_trial_names.extend(weird_yoda_tuning_trials)
+    block_names = ['0Learn90']
+    ldp_sess.block_name_to_learn_name['0Learn90'] = '0-upStab'
+    ldp_sess.add_blocks(trial_names, block_names, number_names=True, ignore_trial_names=ignore_trial_names,
+                    max_consec_absent=0, block_min=20, n_min_per_trial=20)
+
+
+    if ldp_sess.is_weird_Yan:
+        trial_names = ['0-2dn']
+    else:
+        trial_names = ['0-dnStab'] if ldp_sess.is_stab_learning else ["0-dn"]
+    ignore_trial_names = ['90Stab', '0Stab', '180Stab','270Stab', '90', '0', '180','270']
+    if ldp_sess.is_weird_Yoda:
+        ignore_trial_names.extend(weird_yoda_tuning_trials)
+    block_names = ['0Learn270']
+    ldp_sess.block_name_to_learn_name['0Learn270'] = '0-dnStab'
+    ldp_sess.add_blocks(trial_names, block_names, number_names=True, ignore_trial_names=ignore_trial_names,
+                    max_consec_absent=0, block_min=20, n_min_per_trial=20)
+    
+    if ldp_sess.is_weird_Yan:
+        trial_names = ['90-2rt']
+    else:
+        trial_names = ['90-rtStab'] if ldp_sess.is_stab_learning else ["90-rt"]
+    ignore_trial_names = ['90Stab', '0Stab', '180Stab','270Stab', '90', '0', '180','270']
+    if ldp_sess.is_weird_Yoda:
+        ignore_trial_names.extend(weird_yoda_tuning_trials)
+    block_names = ['90Learn0']
+    ldp_sess.block_name_to_learn_name['90Learn0'] = '90-rtStab'
+    ldp_sess.add_blocks(trial_names, block_names, number_names=True, ignore_trial_names=ignore_trial_names,
+                    max_consec_absent=0, block_min=20, n_min_per_trial=20)
+
+    if ldp_sess.is_weird_Yan:
+        trial_names = ['90-2lt']
+    else:
+        trial_names = ['90-ltStab'] if ldp_sess.is_stab_learning else ["90-lt"]
+    ignore_trial_names = ['90Stab', '0Stab', '180Stab','270Stab', '90', '0', '180','270']
+    if ldp_sess.is_weird_Yoda:
+        ignore_trial_names.extend(weird_yoda_tuning_trials)
+    block_names = ['90Learn180']
+    ldp_sess.block_name_to_learn_name['90Learn180'] = '90-ltStab'
+    ldp_sess.add_blocks(trial_names, block_names, number_names=True, ignore_trial_names=ignore_trial_names,
+                    max_consec_absent=0, block_min=20, n_min_per_trial=20)
+    
+    if ldp_sess.is_weird_Yan:
+        trial_names = ['180-2up']
+    else:
+        trial_names = ['180-upStab'] if ldp_sess.is_stab_learning else ["180-up"]
+    ignore_trial_names = ['90Stab', '0Stab', '180Stab','270Stab', '90', '0', '180','270']
+    if ldp_sess.is_weird_Yoda:
+        ignore_trial_names.extend(weird_yoda_tuning_trials)
+    block_names = ['180Learn90']
+    ldp_sess.block_name_to_learn_name['180Learn90'] = '180-upStab'
+    ldp_sess.add_blocks(trial_names, block_names, number_names=True, ignore_trial_names=ignore_trial_names,
+                    max_consec_absent=0, block_min=20, n_min_per_trial=20)
+
+    if ldp_sess.is_weird_Yan:
+        trial_names = ['180-2dn']
+    else:
+        trial_names = ['180-dnStab'] if ldp_sess.is_stab_learning else ["180-dn"]
+    ignore_trial_names = ['90Stab', '0Stab', '180Stab','270Stab', '90', '0', '180','270']
+    if ldp_sess.is_weird_Yoda:
+        ignore_trial_names.extend(weird_yoda_tuning_trials)
+    block_names = ['180Learn270']
+    ldp_sess.block_name_to_learn_name['180Learn270'] = '180-dnStab'
+    ldp_sess.add_blocks(trial_names, block_names, number_names=True, ignore_trial_names=ignore_trial_names,
+                    max_consec_absent=0, block_min=20, n_min_per_trial=20)
+
+    if ldp_sess.is_weird_Yan:
+        trial_names = ['270-2rt']
+    else:
+        trial_names = ['270-rtStab'] if ldp_sess.is_stab_learning else ["270-rt"]
+    ignore_trial_names = ['90Stab', '0Stab', '180Stab','270Stab', '90', '0', '180','270']
+    if ldp_sess.is_weird_Yoda:
+        ignore_trial_names.extend(weird_yoda_tuning_trials)
+    block_names = ['270Learn0']
+    ldp_sess.block_name_to_learn_name['270Learn0'] = '270-rtStab'
+    ldp_sess.add_blocks(trial_names, block_names, number_names=True, ignore_trial_names=ignore_trial_names,
+                    max_consec_absent=0, block_min=20, n_min_per_trial=20)
+
+    if ldp_sess.is_weird_Yan:
+        trial_names = ['270-2lt']
+    else:
+        trial_names = ['270-ltStab'] if ldp_sess.is_stab_learning else ["270-lt"]
+    ignore_trial_names = ['90Stab', '0Stab', '180Stab','270Stab', '90', '0', '180','270']
+    if ldp_sess.is_weird_Yoda:
+        ignore_trial_names.extend(weird_yoda_tuning_trials)
+    block_names = ['270Learn180']
+    ldp_sess.block_name_to_learn_name['270Learn180'] = '270-ltStab'
+    ldp_sess.add_blocks(trial_names, block_names, number_names=True, ignore_trial_names=ignore_trial_names,
+                    max_consec_absent=0, block_min=20, n_min_per_trial=20)
+    
+    # Attempt to verify block order and detect trials outside of blocks
+    if verbose: print("Checking block assignments.")
+    orphan_trials = ldp_sess.verify_blocks()
+    # Setup learning direction and trial type metadata
+    if verbose: print("Choosing learning/pursuit directions and block names.")
+    ldp_sess.assign_block_names()
+
+    if len(orphan_trials) > 0:
+        if verbose: print("Attempting to repair {0} orphan trials.".format(len(orphan_trials)))
+        n_orphans_assigned = ldp_sess.assign_orphan_trials(orphan_trials)
+        if verbose: print("Added {0} orphan trials to blocks.".format(n_orphans_assigned))

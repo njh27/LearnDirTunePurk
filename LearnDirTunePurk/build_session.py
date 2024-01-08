@@ -3,7 +3,7 @@ import pickle
 from LearnDirTunePurk.load_data import load_maestro_directory, load_maestro_directory_old_yan
 from LearnDirTunePurk import format_trials
 from LearnDirTunePurk.ldp_session import LDPSession
-from LearnDirTunePurk.cluster_old_plx import add_old_plx_events
+from LearnDirTunePurk import cluster_old_plx 
 from ReadMaestro.format_trials import data_to_target
 from ReadMaestro.maestro_read import load_directory as rm_load_directory
 from ReadMaestro.utils.PL2_maestro import is_maestro_pl2_synced, add_plexon_events
@@ -166,7 +166,7 @@ def add_neuron_trials(ldp_sess, maestro_dir, neurons_file, PL2_dir=None,
             print("maestro_data not yet synced with PL2 file {0}. Syncing.".format(ldp_sess.fname + ".pl2"))
         if ldp_sess.is_weird_Yoda:
             # Co-opt PL2_dir here for looking up matfiles
-            maestro_data = add_old_plx_events(maestro_data, PL2_dir + check_sync_file, 
+            maestro_data = cluster_old_plx.add_old_plx_events(maestro_data, PL2_dir + check_sync_file, 
                                               maestro_pl2_chan_offset=maestro_pl2_chan_offset, remove_bad_inds=False)
         else:
             maestro_data = add_plexon_events(maestro_data,
