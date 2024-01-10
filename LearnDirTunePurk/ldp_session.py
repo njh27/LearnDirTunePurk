@@ -1048,7 +1048,14 @@ class LDPSession(Session):
             file.attrs['learning_trial_name'] = ldp_sess.learning_trial_name
             file.attrs['meta_dict_name'] = ldp_sess.meta_dict_name
             file.attrs['nan_saccades'] = ldp_sess.nan_saccades
+            file.attrs['rem_sacc_errs'] = ldp_sess.rem_sacc_errs
+            file.attrs['rotate'] = ldp_sess.rotate
+            file.attrs['saccade_ind_cushion'] = ldp_sess.saccade_ind_cushion
+            file.attrs['session_name'] = ldp_sess.session_name
+            file.attrs['verbose'] = ldp_sess.verbose
             
+            # This is a data array so save as array
+            file.create_dataset("rotation_matrix", data=ldp_sess.rotation_matrix)        
             
             # Start by adding a description of this group to the root
             file.attrs['desc_base_and_tune_blocks'] = ("The base_and_tune_blocks give the blocknames that correspond with " 
@@ -1070,6 +1077,34 @@ class LDPSession(Session):
                         value = "None"
                     trialname = blockname.create_group(trial)
                     trialname.attrs[trial] = value
+                    
+            # Start by adding a description of this group to the root
+            file.attrs['desc_trial_sets'] = ("The trial_sets contains several boolean arrays, each of length TRIALS, indicating whether "
+                                        "a trial belongs to that trial set. Some examples are 'pursuit' or 'learning' trial sets, "
+                                        "which indicate that a trial consists of pursuit eye movements along the pursuit or learning "
+                                        "axes, respectively. Also present are trial sets named after neurons, e.g. 'PC_01' trial set "
+                                        "indicates the trials for which neural unit PC_01 was present and adequately sorted. "
+                                        "These could all be recomputed on the fly but storing these boolean indices makes lookup easy. "
+                                        "Some additional description attributes are included. ")
+            trial_sets = file.create_group('trial_sets')
+            for t_set in ldp_sess.trial_sets.keys():
+                trial_sets.create_dataset(t_set, data=ldp_sess.trial_sets[t_set])
+            # Now add on the miscellaneous attribute trial sets
+            trial_sets.attrs['desc_is_stab_learning'] = ("is_stab_learning is a boolean flag indicating that stabilization was used for "
+                                                        "the instruction trials (TRUE) or not (FALSE).")
+            trial_sets.create_dataset('is_stab_learning', data=ldp_sess.is_stab_learning)
+            trial_sets.attrs['desc_is_instructed'] = ("is_instructed contains a vector of length TRIALS where each element is a boolean "
+                                                    "indicating whether that trial contained an instructive direction change (TRUE) or "
+                                                    " not (FALSE).")
+            trial_sets.create_dataset('is_instructed', data=ldp_sess.is_instructed)
+            trial_sets.attrs['desc_n_instructed'] = ("n_instructed contains a vector of length TRIALS where each element gives the TOTAL "
+                                                    "number of learning/instruction trials that have been presented previous to the "
+                                                    "trial at index n.")
+            trial_sets.create_dataset('n_instructed', data=ldp_sess.n_instructed)
+            trial_sets.attrs['desc_sacc_and_err_trials'] = ("sacc_and_err_trials contains a vector of length TRIALS where each element indicates "
+                                                    "whether the trial was flagged for removal due to the presence of excessive saccades or errors.")
+            trial_sets.create_dataset('sacc_and_err_trials', data=ldp_sess.sacc_and_err_trials)
+                
                     
             # Start by adding a description of this group to the root
             file.attrs['desc_block_name_to_learn_name'] = ("The block_name_to_learn_name provides a convenience lookup table that returns "
@@ -1120,21 +1155,38 @@ class LDPSession(Session):
                     neuron_info.attrs[info_name] = ldp_sess.neuron_info[info_name]
                 
                 
-            # START MAJOR DATA GROUPS
-            file.attrs['desc_trial_map'] = ("The trial_map data group contains name, block, and instruction info that applies to each "
-                                            "indidual trial, regardless of data type. ")
-            trial_map = file.create_group('trial_map')
-            trial_map.attrs['desc_is_stab_learning'] = ("is_stab_learning is a boolean flag indicating that stabilization was used for "
-                                                        "the instruction trials (TRUE) or not (FALSE).")
-            trial_map.attrs['is_stab_learning'] = ldp_sess.is_stab_learning
-            trial_map.attrs['desc_is_instructed'] = ("is_instructed contains a vector of length TRIALS where each element is a boolean "
-                                                    "indicating whether that trial contained an instructive direction change (TRUE) or "
-                                                    " not (FALSE).")
-            trial_map.create_dataset("is_instructed", data=ldp_sess.is_instructed)
-            trial_map.attrs['desc_n_instructed'] = ("n_instructed contains a vector of length TRIALS where each element gives the TOTAL "
-                                                    "number of learning/instruction trials that have been presented previous to the "
-                                                    "trial at index n.")
-            trial_map.create_dataset("n_instructed", data=ldp_sess.n_instructed)
+            # START MAJOR TRIAL DATA GROUP
+            file.attrs['desc_trial_data'] = ("The trial_data group contains all of the trial data, such as behavioral measurements, "
+                                            "target position, neuron spikes, target motion event times etc. ")
+            trial_data = file.create_group('trial_data')
+            trial_data.attrs['desc_trial_n'] = ("Trial data contains a subgroup for each trial of data with naming convention "
+                                                "trial_n where n is the trial number between 0-N. ")
+            # EYE data
+            trial_data.attrs['desc_pos_x'] = ("Eye position on the horizontal, x axis ")
+            trial_data.attrs['desc_pos_y'] = ("Eye position on the vertical, y axis ")
+            trial_data.attrs['desc_vel_x'] = ("Eye velocity on the horizontal, x axis ")
+            trial_data.attrs['desc_vel_y'] = ("Eye velocity on the vertical, y axis ")
+            
+            # TARGET data
+            trial_data.attrs['desc_targ_pos_x'] = ("Target position on the horizontal, x axis ")
+            trial_data.attrs['desc_targ_pos_y'] = ("Target position on the vertical, y axis ")
+            trial_data.attrs['desc_targ_vel_x'] = ("Target velocity on the horizontal, x axis ")
+            trial_data.attrs['desc_targ_vel_y'] = ("Target velocity on the vertical, y axis ")
+            
+            # Now loop over each trial and add the data
+            for t in range(0, len(ldp_sess)):
+                curr_trial = trial_data.create_group(f"trial_{t}")
+                # EYE data
+                curr_trial.create_dataset("pos_x", data=ldp_sess._trial_lists['eye'][t]['eye']['horizontal_eye_position'])
+                curr_trial.create_dataset("pos_y", data=ldp_sess._trial_lists['eye'][t]['eye']['vertical_eye_position'])
+                curr_trial.create_dataset("vel_x", data=ldp_sess._trial_lists['eye'][t]['eye']['horizontal_eye_velocity'])
+                curr_trial.create_dataset("vel_y", data=ldp_sess._trial_lists['eye'][t]['eye']['vertical_eye_velocity'])
+                
+                # TARGET data
+                curr_trial.create_dataset("targ_pos_x", data=ldp_sess._trial_lists['target0'][t]['data']['horizontal_target_position'])
+                curr_trial.create_dataset("targ_pos_y", data=ldp_sess._trial_lists['target0'][t]['data']['vertical_target_position'])
+                curr_trial.create_dataset("targ_vel_x", data=ldp_sess._trial_lists['target0'][t]['data']['horizontal_target_velocity'])
+                curr_trial.create_dataset("targ_vel_y", data=ldp_sess._trial_lists['target0'][t]['data']['vertical_target_velocity'])
         
 
     def load_ldp_session(self, filename):
@@ -1194,31 +1246,61 @@ class LDPSession(Session):
                     loaded_dict['neuron_info'][info_name] = [s.decode('utf-8') for s in loaded_dict['neuron_info'][info_name]]
                 else:
                     loaded_dict['neuron_info'][info_name] = ninfo_group.attrs[info_name]
-            
-        def unpack_trial_map(file, loaded_dict):
-            trial_map_group = file['trial_map']
-            loaded_dict['trial_map'] = {}
-            loaded_dict['trial_map']['is_stab_learning'] = trial_map_group.attrs['is_stab_learning']
-            loaded_dict['trial_map']['is_instructed'] = np.array(trial_map_group['is_instructed'])
-            loaded_dict['trial_map']['n_instructed'] = np.array(trial_map_group['n_instructed'])
+                    
+        def unpack_trial_sets(file, loaded_dict):
+            trial_sets_group = file['trial_sets']
+            loaded_dict['trial_sets'] = {}
+            for t_set in trial_sets_group.keys():
+                loaded_dict['trial_sets'][t_set] = np.array(trial_sets_group[t_set])
+                
+        def unpack_trial_data(file, loaded_dict):
+            trial_data_group = file['trial_data']
+            loaded_dict['trial_data'] = {}
+            for t_name in trial_data_group.keys():
+                curr_trial_group = trial_data_group[t_name]
+                loaded_dict['trial_data'][t_name] = {}
+                for dataset in curr_trial_group.keys():
+                    loaded_dict['trial_data'][t_name][dataset] = np.array(curr_trial_group[dataset])
 
         with h5py.File(filename, 'r') as file:
             loaded_dict = {}
-            for root_key in file.keys():
+            # Loop over file attributes
+            for root_key in file.attrs:
                 if root_key == "filename":
-                    loaded_dict['filename'] = file['filename']
+                    loaded_dict['filename'] = file.attrs['filename']
                 elif root_key == "is_weird_Yan":
-                    loaded_dict['is_weird_Yan'] = file['is_weird_Yan']
+                    loaded_dict['is_weird_Yan'] = file.attrs['is_weird_Yan']
                 elif root_key == "is_weird_Yoda":
-                    loaded_dict['is_weird_Yoda'] = file['is_weird_Yoda']
+                    loaded_dict['is_weird_Yoda'] = file.attrs['is_weird_Yoda']
                 elif root_key == "learning_trial_name":
-                    loaded_dict['learning_trial_name'] = file['learning_trial_name']
+                    loaded_dict['learning_trial_name'] = file.attrs['learning_trial_name']
                 elif root_key == "meta_dict_name":
-                    loaded_dict['meta_dict_name'] = file['meta_dict_name']
+                    loaded_dict['meta_dict_name'] = file.attrs['meta_dict_name']
                 elif root_key == "nan_saccades":
-                    loaded_dict['nan_saccades'] = file['nan_saccades']
+                    loaded_dict['nan_saccades'] = file.attrs['nan_saccades']
+                elif root_key == "rem_sacc_errs":
+                    loaded_dict['rem_sacc_errs'] = file.attrs['rem_sacc_errs']
+                elif root_key == "rotate":
+                    loaded_dict['rotate'] = file.attrs['rotate']
+                elif root_key == "saccade_ind_cushion":
+                    loaded_dict['saccade_ind_cushion'] = file.attrs['saccade_ind_cushion']
+                elif root_key == "session_name":
+                    loaded_dict['session_name'] = file.attrs['session_name']
+                elif root_key == "verbose":
+                    loaded_dict['verbose'] = file.attrs['verbose']
                     
                     
+                    
+                elif root_key[0:5] == "desc_":
+                    # Skip these since they are just descriptions of data groups
+                    pass
+                else:
+                    raise ValueError(f"Unrecognized root directory group name {root_key}")
+            
+            # Loop over data subgroups
+            for root_key in file.keys():
+                if root_key == "rotation_matrix":
+                    loaded_dict['rotation_matrix'] = np.array(file['rotation_matrix'])
                 elif root_key == "base_and_tune_blocks":
                     unpack_base_and_tune_blocks(file, loaded_dict)
                 elif root_key == "block_info":
@@ -1231,11 +1313,16 @@ class LDPSession(Session):
                     unpack_blocks(file, loaded_dict)
                 elif root_key == "directions":
                     unpack_directions(file, loaded_dict)
-                elif root_key == "trial_map":
-                    unpack_trial_map(file, loaded_dict)
+                # elif root_key == "trial_map":
+                #     unpack_trial_map(file, loaded_dict)
+                elif root_key == "trial_sets":
+                    unpack_trial_sets(file, loaded_dict)
+                elif root_key == "trial_data":
+                    unpack_trial_data(file, loaded_dict)
                 else:
                     raise ValueError(f"Unrecognized root directory group name {root_key}")
-            
+                
+                
         return loaded_dict
     
     def set_base_and_tune_blocks(self):
